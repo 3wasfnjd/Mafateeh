@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import * as THREE from '../vendor/three.module.js';
+import {createXR} from '../src/xr.js';
+import {fakeDocument,rendererClass} from './support.mjs';
+const document=fakeDocument(),window={dispatchEvent(){},isSecureContext:true};Object.assign(globalThis,{document,window});
+let latest,cancelled=false;
+class Session extends EventTarget{inputSources=[];async requestReferenceSpace(){return {}}async requestHitTestSource(){return {cancel(){cancelled=true}}}async end(){this.dispatchEvent(new Event('end'))}}
+Object.defineProperty(globalThis,'navigator',{value:{xr:{isSessionSupported:async()=>true,requestSession:async()=>{latest=new Session();return latest}}},configurable:true});
+const Renderer=rendererClass(THREE),renderer=new Renderer(),scene=new THREE.Scene();scene.background=new THREE.Color('#526d8b');
+const world=new THREE.Group(),ground=new THREE.Group();ground.position.y=-.425;scene.add(world,ground);const light=new THREE.DirectionalLight();scene.add(light);
+let selected=0,rays=0;const api=createXR({THREE,renderer,scene,world,ground,lights:[light],onRay:r=>{rays++;assert(r instanceof THREE.Ray)},onLevel:n=>selected=n,getLevel:()=>7,totalLevels:21});
+const pose={transform:{position:{x:0,y:1.6,z:0},orientation:{x:0,y:0,z:0,w:1}}};const hitMatrix=new THREE.Matrix4().makeTranslation(.3,.8,-1.2);
+const frame={getViewerPose:()=>pose,getHitTestResults:()=>[{getPose:()=>({transform:{matrix:hitMatrix.elements}})}]};
+await api.start('ar');assert(api.active);assert.equal(renderer.alpha,0);assert.equal(scene.background,null);assert(!api.playing);api.update(frame,1/60);
+const controller=renderer.xr.getController(0);controller.dispatchEvent({type:'select'});assert(api.playing);const root=world.parent;assert(Math.abs(root.position.y-(.8+.425*.14))<1e-9);
+function pointController(local){root.updateMatrixWorld(true);controller.position.copy(root.localToWorld(new THREE.Vector3(...local)));controller.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,-1),new THREE.Vector3(0,-1,0));scene.updateMatrixWorld(true);}
+pointController([-1.89,8,4.1]);controller.dispatchEvent({type:'select'});assert.equal(selected,1,'XR stage selector');
+pointController([0,8,0]);controller.dispatchEvent({type:'select'});assert.equal(rays,1,'World trigger dispatch');
+latest.inputSources=[{handedness:'left',gamepad:{axes:[0,0,.8,-.5]}}];api.update(frame,.4);assert(root.scale.x>.14);assert(root.rotation.y!==0);
+const origin=root.localToWorld(new THREE.Vector3(1,8,2)),direction=new THREE.Vector3(0,-1,0);const local=api.toLocalRay(new THREE.Ray(origin,direction));assert(local.origin.distanceTo(new THREE.Vector3(1,8,2))<1e-8,'Scaled and rotated ray conversion');
+controller.dispatchEvent({type:'squeezestart'});assert(!api.playing);api.update(frame,.01);controller.dispatchEvent({type:'select'});assert(api.playing);await latest.end();assert(!api.active);assert(cancelled);assert.equal(root.scale.x,1);assert.equal(root.position.length(),0);assert.equal(ground.position.y,-.425);assert.equal(renderer.alpha,1);
+await api.start('vr');api.update(frame,1/60);assert(api.playing);assert(api.camera.isPerspectiveCamera);assert(root.position.z<-.5);await latest.end();assert(!api.active);
+console.log('XR: surface placement, scale/rotation, controller rays, 21-stage dock, recenter, VR placement and desktop restore passed (mock runtime; no headset rendering).');

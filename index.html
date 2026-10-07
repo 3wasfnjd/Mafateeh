@@ -1,0 +1,38 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#526d8b"><title>مفاتيح — Mafateeh</title><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#526d8b}canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}button{position:fixed;bottom:max(16px,env(safe-area-inset-bottom));right:16px;width:40px;height:40px;border:1px solid #ffffff24;border-radius:50%;background:#ffffff12;color:#fffbdc;cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(6px)}button:hover{background:#ffffff25}button:focus-visible{outline:2px solid #f8cf5e}#loading{position:fixed;inset:0;display:grid;place-items:center;color:#fff6da;font:16px system-ui;pointer-events:none}#error{position:fixed;inset:20%;color:white;font:16px system-ui;display:none;text-align:center}
+/* Temporary level picker: remove by disabling ENABLE_LEVEL_TEST_NAV. */
+:root{--level-nav-height:calc(136px + env(safe-area-inset-top,0px))}
+#stage-nav{position:fixed;z-index:5;top:0;left:50%;transform:translateX(-50%);width:calc(100% - 16px);max-width:640px;height:var(--level-nav-height);padding:calc(8px + env(safe-area-inset-top,0px)) 0 8px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(3,36px);gap:6px;direction:ltr}
+#stage-nav[hidden]{display:none}
+#stage-nav button{position:static;width:100%;height:36px;min-width:0;padding:0;border-radius:10px;background:#e7eee421;border:1px solid #eff7e440;color:#fff4d9;font:600 14px system-ui;backdrop-filter:none;touch-action:manipulation}
+#stage-nav button[aria-current="step"]{background:#f0c65a;border-color:#ffdf89;color:#463b24}
+#stage-nav button:active{transform:scale(.94)}
+.testing-levels #scene{position:absolute;left:0;bottom:0;height:calc(100% - var(--level-nav-height))}
+
+#xr-modes{position:fixed;z-index:10;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px;direction:ltr}
+#xr-modes[hidden],#xr-modes button[hidden],#xr-status[hidden]{display:none}
+#xr-modes button{position:static;width:52px;height:38px;border-radius:12px;background:#e9d9b9;color:#29484c;font:700 14px system-ui}
+#xr-status{position:fixed;z-index:20;bottom:70px;left:12px;right:12px;text-align:center;color:#fff4d9;font:14px system-ui;background:#29484ce8;padding:10px;border-radius:12px}
+.xr-active #stage-nav,.xr-active #xr-modes,.xr-active #xr-status{display:none!important}
+</style></head><body><div id="xr-modes" hidden><button id="enter-vr" type="button" aria-label="الواقع الافتراضي">VR</button><button id="enter-ar" type="button" aria-label="الواقع المعزز">AR</button></div><div id="xr-status" role="status" hidden></div><nav id="stage-nav" aria-label="اختيار المرحلة للتجربة" hidden></nav><canvas id="scene" aria-label="تحريك الشخصية باللمس ودفع الصناديق لفتح النفق."></canvas><div id="loading"></div><div id="error">تعذّر تشغيل العرض ثلاثي الأبعاد. افتح الرابط في Safari أو Chrome.</div><script>window.addEventListener('error',function(){document.getElementById('error').style.display='block';document.getElementById('loading')?.remove()})</script><!-- Three.js r170. The MIT License
+
+Copyright © 2010-2024 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+ -->
+<script type="module" src="./src/game.js"></script></body></html>
