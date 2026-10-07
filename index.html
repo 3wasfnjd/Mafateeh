@@ -12,8 +12,12 @@
 #xr-modes[hidden],#xr-modes button[hidden],#xr-status[hidden]{display:none}
 #xr-modes button{position:static;width:52px;height:38px;border-radius:12px;background:#e9d9b9;color:#29484c;font:700 14px system-ui}
 #xr-status{position:fixed;z-index:20;bottom:70px;left:12px;right:12px;text-align:center;color:#fff4d9;font:14px system-ui;background:#29484ce8;padding:10px;border-radius:12px}
-.xr-active #stage-nav,.xr-active #xr-modes,.xr-active #xr-status{display:none!important}
-</style></head><body><div id="xr-modes" hidden><button id="enter-vr" type="button" aria-label="الواقع الافتراضي">VR</button><button id="enter-ar" type="button" aria-label="الواقع المعزز">AR</button></div><div id="xr-status" role="status" hidden></div><nav id="stage-nav" aria-label="اختيار المرحلة للتجربة" hidden></nav><canvas id="scene" aria-label="تحريك الشخصية باللمس ودفع الصناديق لفتح النفق."></canvas><div id="loading"></div><div id="error">تعذّر تشغيل العرض ثلاثي الأبعاد. افتح الرابط في Safari أو Chrome.</div><script>window.addEventListener('error',function(){document.getElementById('error').style.display='block';document.getElementById('loading')?.remove()})</script><!-- Three.js r170. The MIT License
+.xr-active #stage-nav,.xr-active #xr-modes,.xr-active #xr-status,.xr-active #move-stick{display:none!important}
+#move-stick{position:fixed;z-index:8;left:max(16px,env(safe-area-inset-left,0px));bottom:max(18px,env(safe-area-inset-bottom,0px));width:108px;height:108px;border-radius:50%;border:1px solid #f4f1d94a;background:#d9ede51a;display:grid;place-items:center;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+#move-stick-knob{display:block;width:44px;height:44px;border-radius:50%;background:#e6ead4ad;border:1px solid #fff8dd8f;box-shadow:0 3px 10px #28474b1f;pointer-events:none;will-change:transform}
+#move-stick[data-active]{background:#d9ede52b;cursor:grabbing}
+#move-stick[data-active] #move-stick-knob{background:#f0d581e0}
+</style></head><body><div id="xr-modes" hidden><button id="enter-vr" type="button" aria-label="الواقع الافتراضي">VR</button><button id="enter-ar" type="button" aria-label="الواقع المعزز">AR</button></div><div id="xr-status" role="status" hidden></div><nav id="stage-nav" aria-label="اختيار المرحلة للتجربة" hidden></nav><div id="move-stick" role="group" aria-label="عصا تحريك الشخصية"><span id="move-stick-knob"></span></div><canvas id="scene" aria-label="تحريك الشخصية باللمس ودفع الصناديق لفتح النفق."></canvas><div id="loading"></div><div id="error">تعذّر تشغيل العرض ثلاثي الأبعاد. افتح الرابط في Safari أو Chrome.</div><script>window.addEventListener('error',function(){document.getElementById('error').style.display='block';document.getElementById('loading')?.remove()})</script><!-- Three.js r170. The MIT License
 
 Copyright © 2010-2024 three.js authors
 

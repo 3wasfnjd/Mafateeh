@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/game.mjs && node tests/xr.mjs",
+    "test": "node tests/controls.mjs && node tests/game.mjs && node tests/xr.mjs",
     "serve": "python3 -m http.server 8080"
   },
   "license": "MIT"
