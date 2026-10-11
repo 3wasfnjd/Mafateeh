@@ -1,4 +1,6 @@
-# Quest controls and device verification
+# Web version on Quest Browser — controls and device verification
+
+> This page covers the WebXR reference version. The native Meta Quest app is documented in [quest-native-build.md](quest-native-build.md) and [quest-native-install.md](quest-native-install.md).
 
 Open the HTTPS game URL in Meta Quest Browser. Choose VR or AR. AR requires `local-floor` and `hit-test`; denied or unavailable surface tracking shows an error instead of placing a fake tracked surface.
 
