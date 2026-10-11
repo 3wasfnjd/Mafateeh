@@ -145,6 +145,7 @@ func _rebuild() -> void:
 		"audio", "controls", "display": rows = _settings_rows()
 		"reset": rows = _reset_rows()
 		"credits": rows = _credit_rows()
+		"privacy": rows = _privacy_rows()
 		_: rows = _main_rows()
 	var height := rows.size() * ROW + 0.03
 	var bg := MeshInstance3D.new()
@@ -349,7 +350,23 @@ func _credit_rows() -> Array:
 		{"text": "Cairo font (SIL OFL 1.1)", "small": true},
 		{"text": T("الأصوات والنماذج أصلية ضمن المشروع", "Sounds and models are original to the project"), "small": true},
 		{"text": T("التفاصيل الكاملة في ملفات التراخيص", "Full details in the license files"), "small": true},
+		{"text": T("سياسة الخصوصية", "Privacy policy"), "action": func(): open_page("privacy")},
 		{"text": T("رجوع", "Back"), "action": func(): open_page("main")},
+	]
+
+
+## Short in-game version of PRIVACY.md (the full text is linked from the store page).
+func _privacy_rows() -> Array:
+	return [
+		{"text": T("سياسة الخصوصية", "Privacy policy")},
+		{"text": T("لا تجمع اللعبة أي بيانات شخصية", "The game collects no personal data"), "small": true},
+		{"text": T("لا إعلانات ولا تحليلات ولا حسابات", "No ads, no analytics, no accounts"), "small": true},
+		{"text": T("اللعبة نفسها لا تتصل بالإنترنت", "The game itself does not go online"), "small": true},
+		{"text": T("التقدّم والإعدادات محفوظة على النظارة فقط", "Progress and settings stay on this headset"), "small": true},
+		{"text": T("بيانات المساحة للّعب فقط ولا تُحفظ ولا تُرسل", "Space data is used to play, never stored or sent"), "small": true},
+		{"text": T("تحقّق ملكية النسخة من المتجر تديره Meta", "Store ownership check is handled by Meta"), "small": true},
+		{"text": T("النص الكامل: github.com/3wasfnjd/Mafateeh", "Full text: github.com/3wasfnjd/Mafateeh"), "small": true},
+		{"text": T("رجوع", "Back"), "action": func(): open_page("credits")},
 	]
 
 

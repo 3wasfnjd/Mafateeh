@@ -190,6 +190,9 @@ func _run() -> void:
 	check(main.menu.page() == "reset", "reset asks for confirmation")
 	main.menu.press("إلغاء")
 	check(Save.unlocked_level >= 4, "cancel keeps progress")
+	main.menu.open_page("credits")
+	check(main.menu.press("سياسة الخصوصية"), "privacy policy reachable from About")
+	check(main.menu.page() == "privacy", "privacy page shown")
 	main.menu.close()
 	check(not main.menu.is_open(), "settings closes")
 

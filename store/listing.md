@@ -55,7 +55,7 @@ By Aboden Games — عبودين قيمز.
 | Mixed reality | Yes — passthrough; uses Space Setup tables if allowed |
 | Languages | Arabic (in-app text); store text Arabic + English |
 | Internet required | No |
-| Privacy policy URL | https://3wasfnjd.github.io/Mafateeh/privacy.html |
+| Privacy policy URL | https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md |
 | Age group (upload) | Your decision: TEENS_AND_ADULTS (default) or MIXED_AGES |
 
 ## Art (all in this folder)
