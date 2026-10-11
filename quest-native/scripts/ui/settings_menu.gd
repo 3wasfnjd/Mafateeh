@@ -44,6 +44,7 @@ func setup(m: Node) -> void:
 		if latin:
 			_font.fallbacks = [latin]
 	_bg_mat = _flat(Color(0.16, 0.11, 0.08, 0.94))
+	_bg_mat.render_priority = -1  # translucent backdrop sorts behind the (translucent) text
 	_btn_mat = _flat(Color(0.42, 0.28, 0.17, 1.0))
 	_btn_hover = _flat(Color(0.72, 0.5, 0.26, 1.0))
 	_styles = {
@@ -87,6 +88,7 @@ func _label(text: String, pixel: float) -> Label3D:
 	if _font:
 		l.font = _font
 	l.no_depth_test = false
+	l.render_priority = 1
 	l.double_sided = false
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.text_direction = TextServer.DIRECTION_AUTO
@@ -200,8 +202,8 @@ func _main_rows() -> Array:
 		{"text": "متابعة", "action": close},
 		{"text": "إعادة المرحلة", "action": func(): close(); main.game.restart()},
 		# Right to left: the previous level sits on the right, the next on the left.
-		[_nav_item("‹ التالية", next), {"text": "المراحل", "w": 1.3, "action": func(): open_page("levels")},
-			_nav_item("السابقة ›", prev)],
+		[_nav_item("التالية", next), {"text": "المراحل", "w": 1.3, "action": func(): open_page("levels")},
+			_nav_item("السابقة", prev)],
 		{"text": "الإعدادات", "action": func(): open_page("audio")},
 		{"text": "حول اللعبة والتراخيص", "action": func(): open_page("credits")},
 	]
