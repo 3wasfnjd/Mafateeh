@@ -4,12 +4,13 @@ extends Node3D
 ## "عبودين قيمز" with "ABODEN GAMES" beneath it floats in front of the viewer over
 ## the real room (mixed reality) or the sky (VR), with a short oud sting, then
 ## drifts up and fades. No logo and no backdrop. About 3.6 seconds; any trigger or
-## the menu button skips it. Can be turned off in the display settings.
+## the menu button skips it. The text follows the viewer's gaze gently, so it is
+## seen wherever the player happens to be looking when the session starts.
 
 signal finished
 
 const DURATION := 3.6
-const DISTANCE := 1.5  # metres in front of the viewer
+const DISTANCE := 1.6  # metres in front of the viewer
 
 var _t := 0.0
 var _done := false
@@ -17,20 +18,19 @@ var _skipped := false
 var _anchor: Node3D
 var _word: Sprite3D
 var _sound: AudioStreamPlayer
+var _head: Callable  # returns the current head Transform3D
+var _level := true
 
 
-func play(head: Transform3D, level := true) -> void:
-	var fwd := -head.basis.z
-	if level:  # headset: keep the text upright at eye height
-		fwd.y = 0.0
-	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
+func play(head: Callable, level := true) -> void:
+	_head = head
+	_level = level
 	_anchor = Node3D.new()
 	add_child(_anchor)
-	_anchor.global_position = head.origin + fwd * DISTANCE
-	_anchor.look_at(head.origin, Vector3.UP, true)
+	_follow(1.0)
 	_word = Sprite3D.new()
 	_word.texture = load("res://assets/brand/aboden_wordmark.png")
-	_word.pixel_size = 0.00042
+	_word.pixel_size = 0.00075  # about 0.9 m wide
 	_word.shaded = false
 	_word.double_sided = false
 	_word.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
@@ -46,6 +46,19 @@ func play(head: Transform3D, level := true) -> void:
 	if not Save.muted:
 		_sound.play()
 	_update(0.0)
+
+
+## Keep the text in front of the viewer; k = 1 snaps, small k eases toward it.
+func _follow(k: float) -> void:
+	var head: Transform3D = _head.call()
+	var fwd := -head.basis.z
+	if _level:  # headset: keep the text upright at eye height
+		fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
+	var target := head.origin + fwd * DISTANCE
+	_anchor.global_position = _anchor.global_position.lerp(target, k) if k < 1.0 else target
+	if _anchor.global_position.distance_squared_to(head.origin) > 0.01:
+		_anchor.look_at(head.origin, Vector3.UP, true)
 
 
 static func _ease(x: float) -> float:
@@ -79,6 +92,7 @@ func _process(delta: float) -> void:
 	if _done:
 		return
 	_t += delta
+	_follow(1.0 - exp(-3.0 * delta))
 	_update(_t)
 	if _t >= DURATION:
 		_done = true

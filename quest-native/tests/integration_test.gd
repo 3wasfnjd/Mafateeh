@@ -114,6 +114,8 @@ func _run() -> void:
 
 	# --- exit, completion and save --------------------------------------------------------------
 	sky.set_rain(false, false)
+	Save.mark_completed(1)  # earlier levels already solved
+	Save.mark_completed(2)
 	game.load_level(3)
 	await frames(2)
 	for type in ["key", "lock", "gem"]:

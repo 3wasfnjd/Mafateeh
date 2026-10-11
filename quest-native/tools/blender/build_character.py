@@ -424,6 +424,11 @@ def build_shemagh(b):
                 pi_ = Vector((0, 0.006, top - 0.002))
             u = (th + math.pi) / (2 * math.pi) * 1.0
             v = (top - z) * 0.85
+            if z > 1.075:
+                # Crown: top-down projection, so the pattern does not pinch into a
+                # starburst at the pole. The seam sits under the agal.
+                u = 0.5 + po.x * 0.8
+                v = 0.5 + po.y * 0.8
             ro.append((b.vert(po, w_shemagh(po)), (u, v)))
             ri.append((b.vert(pi_, w_shemagh(pi_)), (u, v)))
         outer.append(ro)
@@ -439,21 +444,26 @@ def build_shemagh(b):
 
 
 def build_agal(b):
-    # Two black cord rings, tilted slightly so they sit lower at the back.
-    tilt = Matrix.Rotation(math.radians(-9), 4, "X")
-    for z0, extra in ((1.07, 0.0), (1.096, -0.012)):
-        zc, R, Rz = 0.955, 0.188, 0.225
-        r_major = R * math.sqrt(1 - ((z0 - zc) / Rz) ** 2) + 0.022 + 0.012 + extra
+    # Two black cord rings, tilted so they sit lower at the back. Each ring hugs the
+    # shemagh's real outer surface (including the forward peak over the brow), so
+    # the cloth never pokes through the cord.
+    tilt = math.radians(9)
+    cord = 0.013
+    for z0, lift in ((1.052, 0.0), (1.092, 0.0)):
         rows = []
-        n, m = 40, 8
+        n, m = 48, 8
         for i in range(n + 1):
             a = 2 * math.pi * i / n
+            th = a if a <= math.pi else a - 2 * math.pi
+            # Height of the tilted ring at this azimuth: higher at the front.
+            z = z0 + 0.19 * math.sin(tilt) * math.cos(a) + lift
+            surf = shemagh_point(th, z, 0.022)
+            d = Vector((math.sin(a), -math.cos(a), 0.0))  # outward, horizontal
+            centre = Vector((surf.x, surf.y, z)) + d * (cord + 0.004)
             ring = []
             for j in range(m):
                 c = 2 * math.pi * j / m
-                rr = r_major + 0.013 * math.cos(c)
-                p = Vector((rr * math.sin(a), -rr * math.cos(a), 0.013 * math.sin(c)))
-                p = tilt @ p + Vector((0, 0.008, z0))
+                p = centre + d * (cord * math.cos(c)) + Vector((0, 0, cord * math.sin(c)))
                 ring.append((b.vert(p, w_head(p)), (i / n, j / m)))
             rows.append(ring)
         for r in range(n):

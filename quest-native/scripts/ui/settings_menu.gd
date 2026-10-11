@@ -318,8 +318,6 @@ func _settings_rows() -> Array:
 			rows.append(_dir([{"text": T("اللغة: العربية", "Language: English"), "action": _toggle_language},
 				{"text": T("الجودة: ", "Graphics: ") + (T("عالية", "high") if Save.quality == "high" else T("متوازنة", "balanced")),
 					"action": func(): Save.quality = "balanced" if Save.quality == "high" else "high"; _changed(); main.apply_quality()}]))
-			rows.append({"text": T("شعار البداية: ", "Studio intro: ") + (T("يظهر", "on") if Save.show_intro else T("لا يظهر", "off")),
-				"action": func(): Save.show_intro = not Save.show_intro; _changed()})
 			rows.append({"text": T("مسح التقدم…", "Reset progress…"), "style": "danger", "action": func(): open_page("reset")})
 	rows.append({"text": T("رجوع", "Back"), "action": func(): open_page("main")})
 	return rows
