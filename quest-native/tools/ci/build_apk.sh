@@ -106,9 +106,22 @@ if [ -n "${MAFATEEH_KEYSTORE_B64:-}" ]; then
     exit 1
   fi
   echo "keystore check: password and alias OK"
-  export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KEYDIR/release.keystore"
-  export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$KS_ALIAS"
-  export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$KS_PASS"
+  # Godot validates the credentials by running keytool through a shell with the
+  # password inside double quotes, so a password containing $ ` " or \ fails there
+  # although it is correct. Sign from a temporary copy of the same key and
+  # certificate under a random alphanumeric password instead.
+  SIGN_PASS="$(openssl rand -hex 24)"
+  echo "::add-mask::$SIGN_PASS"
+  "$KT" -importkeystore -noprompt -srckeystore "$KEYDIR/release.keystore" -srcstorepass "$KS_PASS" \
+    -srcalias "$KS_ALIAS" -srckeypass "$KS_PASS" -destkeystore "$KEYDIR/sign.p12" -deststoretype PKCS12 \
+    -deststorepass "$SIGN_PASS" -destkeypass "$SIGN_PASS" -destalias release >/dev/null 2>&1 \
+    || { echo "::error::Could not prepare the signing copy of the keystore."; exit 1; }
+  KEY_CERT_SHA256="$("$KT" -list -v -keystore "$KEYDIR/release.keystore" -storepass "$KS_PASS" -alias "$KS_ALIAS" 2>/dev/null \
+    | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')"
+  echo "release certificate SHA-256: $KEY_CERT_SHA256"
+  export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KEYDIR/sign.p12"
+  export GODOT_ANDROID_KEYSTORE_RELEASE_USER="release"
+  export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$SIGN_PASS"
   SIGNING="private key from repository secrets"
 else
   # Public, test-only key so successive test builds can be installed over each other.
@@ -179,6 +192,11 @@ BT="$SDK/build-tools/$ANDROID_BUILD_TOOLS"
 
 # Hard checks: valid signature, arm64 only, OpenXR/Quest launch entries present.
 "$BT/apksigner" verify "$APK"
+if [ -n "${KEY_CERT_SHA256:-}" ]; then  # the APK must carry the owner's certificate
+  APK_CERT="$("$BT/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+  [ "$APK_CERT" = "$KEY_CERT_SHA256" ] || { echo "::error::APK certificate $APK_CERT differs from the release key $KEY_CERT_SHA256"; exit 1; }
+  echo "APK signed with the release key (certificate $APK_CERT)"
+fi
 unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_android.so"
 unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodotopenxrvendors.so"
 unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_meta_toolkit.so"
