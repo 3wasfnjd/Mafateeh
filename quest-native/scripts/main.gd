@@ -29,6 +29,7 @@ var _cam_yaw := 0.55
 var _cam_pitch := 0.78
 var _cam_zoom := 1.0
 var _drag_hand := ""
+var injected_move := Vector2.ZERO  # automated tests drive the stick through the normal frame path
 
 
 func _ready() -> void:
@@ -271,6 +272,8 @@ func _update_desktop_camera() -> void:
 
 
 func _desktop_move() -> Vector2:
+	if injected_move != Vector2.ZERO:
+		return injected_move
 	var v := Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)))

@@ -104,6 +104,7 @@ log "Import"
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
   log "Tests"
   mkdir -p "$OUT"
+  python3 -m pip install --quiet --user numpy==2.3.3 >/dev/null 2>&1 || true
   GODOT="$GODOT" "$ROOT/tools/run_tests.sh" -- "--report=$OUT/test-report.txt" ${TEST_ARGS:-}
 fi
 
