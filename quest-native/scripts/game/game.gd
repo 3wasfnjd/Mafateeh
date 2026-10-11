@@ -97,6 +97,11 @@ func restart() -> void:
 	go_to_level(level)
 
 
+## The level on screen, or the one being faded in.
+func target_level() -> int:
+	return _pending_level if busy_transition() else level
+
+
 func busy_transition() -> bool:
 	return _fade_dir != 0.0
 

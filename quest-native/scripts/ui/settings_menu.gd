@@ -2,29 +2,38 @@ class_name SettingsMenu
 extends Node3D
 ## Compact settings panel, opened with the left controller's menu button.
 ## Nothing is shown during play except a short level card and a brief board
-## placement notice. Developer tools (level selector, time/weather overrides)
-## appear only when enabled: project setting mafateeh/dev/level_select, or
-## tapping the title on the credits page seven times.
+## placement notice.
+##
+## Pages: main (continue, restart, previous/next level, level list, settings,
+## about), levels (every reached level, playable again), settings in three tabs
+## (sound, controls, display), reset confirmation, about. Developer tools
+## (all levels, time/weather overrides) appear only when enabled: project
+## setting mafateeh/dev/level_select, or tapping the title on the about page
+## seven times.
 
-const WIDTH := 0.34
+const WIDTH := 0.36
 const ROW := 0.046
 const PIXEL := 0.00042
+const GRID_COLS := 7
+const SETTINGS_TABS := ["audio", "controls", "display"]
 
 var main: Node
 var panel: Node3D
-var buttons: Array = []  # {rect: Rect2, action: Callable, mesh: MeshInstance3D}
+var buttons: Array = []  # {rect: Rect2, action: Callable, mesh: MeshInstance3D, base: Material, hover: String}
 var _open := false
 var _page := "main"
 var _font: FontFile
 var _btn_mat: StandardMaterial3D
 var _btn_hover: StandardMaterial3D
 var _bg_mat: StandardMaterial3D
+var _styles := {}
 var _toast: Label3D
 var _toast_t := 0.0
 var _card: Label3D
 var _card_t := 0.0
 var _title_taps := 0
-var _hover: Dictionary = {}
+var _info: Label3D
+var _info_default := ""
 
 
 func setup(m: Node) -> void:
@@ -37,6 +46,13 @@ func setup(m: Node) -> void:
 	_bg_mat = _flat(Color(0.16, 0.11, 0.08, 0.94))
 	_btn_mat = _flat(Color(0.42, 0.28, 0.17, 1.0))
 	_btn_hover = _flat(Color(0.72, 0.5, 0.26, 1.0))
+	_styles = {
+		"done": _flat(Color(0.33, 0.4, 0.2, 1.0)),
+		"current": _flat(Color(0.78, 0.56, 0.24, 1.0)),
+		"locked": _flat(Color(0.22, 0.16, 0.12, 1.0)),
+		"tab_on": _flat(Color(0.6, 0.42, 0.22, 1.0)),
+		"danger": _flat(Color(0.52, 0.17, 0.12, 1.0)),
+	}
 	panel = Node3D.new()
 	panel.visible = false
 	add_child(panel)
@@ -48,6 +64,7 @@ func setup(m: Node) -> void:
 	main.board.add_child(_card)
 	_card.pixel_size = 0.012
 	main.game.level_loaded.connect(_show_card)
+	main.game.level_loaded.connect(func(_n): if _open: _rebuild())
 
 
 static func _flat(c: Color) -> StandardMaterial3D:
@@ -80,6 +97,10 @@ func is_open() -> bool:
 	return _open
 
 
+func page() -> String:
+	return _page
+
+
 func toggle(head: Transform3D) -> void:
 	if _open:
 		close()
@@ -104,15 +125,25 @@ func close() -> void:
 	main.audio.ui("close")
 
 
+func open_page(p: String) -> void:
+	_page = p
+	_rebuild()
+
+
+# --- layout ------------------------------------------------------------------------------
+
 func _rebuild() -> void:
 	for c in panel.get_children():
 		c.queue_free()
 	buttons.clear()
+	_info = null
 	var rows: Array = []
-	if _page == "main":
-		rows = _main_rows()
-	else:
-		rows = _credit_rows()
+	match _page:
+		"levels": rows = _level_rows()
+		"audio", "controls", "display": rows = _settings_rows()
+		"reset": rows = _reset_rows()
+		"credits": rows = _credit_rows()
+		_: rows = _main_rows()
 	var height := rows.size() * ROW + 0.03
 	var bg := MeshInstance3D.new()
 	var q := QuadMesh.new()
@@ -131,47 +162,179 @@ func _rebuild() -> void:
 		for it in items:
 			var w: float = WIDTH * it.get("w", 1.0) / total
 			var center := Vector2(x + w / 2.0, y)
-			if it.has("action"):
+			if it.has("action") or it.has("style"):
 				var m := MeshInstance3D.new()
 				var bq := QuadMesh.new()
 				bq.size = Vector2(w - 0.006, ROW - 0.008)
 				m.mesh = bq
-				m.material_override = _btn_mat
+				var base: Material = _styles.get(it.get("style", ""), _btn_mat)
+				m.material_override = base
 				m.position = Vector3(center.x, center.y, 0)
 				panel.add_child(m)
-				buttons.append({"rect": Rect2(center - Vector2(w, ROW) / 2.0, Vector2(w, ROW)), "action": it.action, "mesh": m})
+				if it.has("action"):
+					buttons.append({"rect": Rect2(center - Vector2(w, ROW) / 2.0, Vector2(w, ROW)),
+						"action": it.action, "mesh": m, "base": base, "hover": it.get("hover", "")})
 			var l := _label(it.text, PIXEL * (0.8 if it.get("small", false) else 1.0))
+			if it.get("style", "") == "locked":
+				l.modulate = Color(1.0, 0.96, 0.88, 0.45)
 			l.position = Vector3(center.x, center.y, 0.002)
 			panel.add_child(l)
+			if it.get("info", false):
+				_info = l
+				_info_default = it.text
 			x += w
 		y -= ROW
 
 
+static func _pct(v: float) -> String:
+	return "%d٪" % roundi(v * 100)
+
+
 func _main_rows() -> Array:
-	var lvl: int = main.game.level
+	var lvl: int = main.game.target_level()
 	var d := LevelData.get_level(lvl)
-	var mode_text := "الوضع: الواقع المختلط" if Save.mode == "mr" else "الوضع: الواقع الافتراضي"
+	var prev := _neighbour(lvl, -1)
+	var next := _neighbour(lvl, 1)
 	var rows: Array = [
 		{"text": "مفاتيح  ·  المرحلة %d — %s" % [lvl, d.title_ar]},
 		{"text": "متابعة", "action": close},
 		{"text": "إعادة المرحلة", "action": func(): close(); main.game.restart()},
-		{"text": mode_text, "action": func(): main.set_mode("vr" if Save.mode == "mr" else "mr"); _rebuild()},
-		[{"text": "−", "w": 0.6, "action": func(): _volume(-0.1)},
-			{"text": "الصوت %d٪" % roundi(Save.master_volume * 100), "w": 1.6},
-			{"text": "+", "w": 0.6, "action": func(): _volume(0.1)}],
-		{"text": "إلغاء الكتم" if Save.muted else "كتم الصوت", "action": func(): Save.muted = not Save.muted; Save.save(); main.audio.apply_volume(); _rebuild()},
-		{"text": "إعادة تموضع اللوحة", "action": func(): close(); main._on_grip_tap("menu")},
-		{"text": "حول اللعبة والتراخيص", "action": func(): _page = "credits"; _rebuild()},
+		# Right to left: the previous level sits on the right, the next on the left.
+		[_nav_item("‹ التالية", next), {"text": "المراحل", "w": 1.3, "action": func(): open_page("levels")},
+			_nav_item("السابقة ›", prev)],
+		{"text": "الإعدادات", "action": func(): open_page("audio")},
+		{"text": "حول اللعبة والتراخيص", "action": func(): open_page("credits")},
 	]
 	if Save.dev_tools_available():
 		var sky: SkyWeather = main.sky
 		rows.append({"text": "— أدوات المطوّر —", "small": true})
-		rows.append([{"text": "‹", "w": 0.6, "action": func(): _dev_level(-1)},
-			{"text": "المرحلة %d" % lvl, "w": 1.6},
-			{"text": "›", "w": 0.6, "action": func(): _dev_level(1)}])
 		rows.append([{"text": "الوقت: " + _time_ar(sky.time_name), "action": func(): sky.cycle_time(); Save.dev_time = sky.time_name; _rebuild()},
 			{"text": "الطقس: " + ("مطر" if sky.raining else "صافٍ"), "action": func(): sky.toggle_rain(); Save.dev_weather = "rain" if sky.raining else "clear"; _rebuild()}])
 	return rows
+
+
+func _nav_item(text: String, target: int) -> Dictionary:
+	if target < 1:
+		return {"text": text, "w": 0.9, "style": "locked", "small": true}
+	return {"text": text, "w": 0.9, "small": true, "action": func(): play_level(target)}
+
+
+## Nearest playable level in a direction (-1 / +1), or 0.
+func _neighbour(from: int, step: int) -> int:
+	var n := from + step
+	return n if Save.can_play(n) else 0
+
+
+func play_level(n: int) -> void:
+	if not Save.can_play(n):
+		return
+	Save.set_current(n)
+	if n != main.game.target_level():
+		main.game.go_to_level(n)
+
+
+func _level_rows() -> Array:
+	var cur: int = main.game.target_level()
+	var done := 0
+	for n in range(1, LevelData.COUNT + 1):
+		if Save.is_completed(n):
+			done += 1
+	var rows: Array = [
+		{"text": "المراحل  ·  أنجزت %d من %d" % [done, LevelData.COUNT]},
+		{"text": _level_info(cur), "small": true, "info": true},
+	]
+	var n := 1
+	while n <= LevelData.COUNT:
+		var row: Array = []
+		for c in GRID_COLS:
+			if n > LevelData.COUNT:
+				row.append({"text": ""})
+			else:
+				row.append(_level_cell(n, cur))
+			n += 1
+		row.reverse()  # level 1 starts at the right, like Arabic text
+		rows.append(row)
+	rows.append({"text": "رجوع", "action": func(): open_page("main")})
+	return rows
+
+
+func _level_cell(n: int, cur: int) -> Dictionary:
+	if not Save.can_play(n):
+		return {"text": str(n), "style": "locked"}
+	var style := "current" if n == cur else ("done" if Save.is_completed(n) else "")
+	var it := {"text": str(n), "hover": _level_info(n), "action": func(): close(); play_level(n)}
+	if style != "":
+		it["style"] = style
+	return it
+
+
+static func _level_info(n: int) -> String:
+	var d := LevelData.get_level(n)
+	var state := "مكتملة" if Save.is_completed(n) else ("مقفلة" if not Save.can_play(n) else "لم تكتمل بعد")
+	return "%d — %s  ·  %s" % [n, d.title_ar, state]
+
+
+func _tabs() -> Array:
+	var names := {"audio": "الصوت", "controls": "التحكم", "display": "العرض"}
+	var row: Array = []
+	for t in SETTINGS_TABS:
+		var it := {"text": names[t], "action": func(): open_page(t)}
+		if t == _page:
+			it["style"] = "tab_on"
+		row.append(it)
+	row.reverse()
+	return row
+
+
+func _stepper(text: String, minus: Callable, plus: Callable) -> Array:
+	return [{"text": "−", "w": 0.5, "action": minus}, {"text": text, "w": 1.8}, {"text": "+", "w": 0.5, "action": plus}]
+
+
+func _settings_rows() -> Array:
+	var rows: Array = [{"text": "الإعدادات"}, _tabs()]
+	match _page:
+		"audio":
+			rows.append(_stepper("الصوت العام " + _pct(Save.master_volume), func(): _volume("master", -0.1), func(): _volume("master", 0.1)))
+			rows.append(_stepper("المؤثرات " + _pct(Save.sfx_volume), func(): _volume("sfx", -0.1), func(): _volume("sfx", 0.1)))
+			rows.append(_stepper("الأجواء والمطر " + _pct(Save.ambience_volume), func(): _volume("ambience", -0.1), func(): _volume("ambience", 0.1)))
+			rows.append({"text": "إلغاء الكتم" if Save.muted else "كتم الصوت", "action": func(): Save.muted = not Save.muted; _changed()})
+		"controls":
+			rows.append({"text": "التدوير: " + ("متدرّج 30°" if Save.turn_mode == "snap" else "سلس"),
+				"action": func(): Save.turn_mode = "smooth" if Save.turn_mode == "snap" else "snap"; _changed()})
+			rows.append({"text": "سرعة التدوير: " + ["بطيئة", "عادية", "سريعة"][Save.turn_speed],
+				"action": func(): Save.turn_speed = (Save.turn_speed + 1) % 3; _changed()})
+			rows.append({"text": "يد الحركة: " + ("اليسرى" if Save.left_handed else "اليمنى"),
+				"action": func(): Save.left_handed = not Save.left_handed; _changed()})
+			rows.append({"text": "الاهتزاز: " + ("يعمل" if Save.haptics else "متوقف"),
+				"action": func(): Save.haptics = not Save.haptics; _changed(); main.pulse_ui()})
+			rows.append({"text": "إظهار إرشادات التحكم", "action": func(): close(); main.show_controller_hints()})
+		"display":
+			rows.append({"text": "الوضع: " + ("الواقع المختلط" if Save.mode == "mr" else "الواقع الافتراضي"),
+				"action": func(): main.set_mode("vr" if Save.mode == "mr" else "mr"); _rebuild()})
+			rows.append({"text": "الطقس: " + ("صافٍ دائمًا" if Save.weather_pref == "clear" else "حسب المرحلة"),
+				"action": func(): Save.weather_pref = "auto" if Save.weather_pref == "clear" else "clear"; _changed(); main.apply_sky()})
+			rows.append([{"text": "حجم اللوحة الافتراضي", "small": true, "action": func(): main.reset_board_size()},
+				{"text": "إعادة تموضع اللوحة", "small": true, "action": func(): close(); main._on_grip_tap("menu")}])
+			rows.append({"text": "شعار البداية: " + ("يظهر" if Save.show_intro else "لا يظهر"),
+				"action": func(): Save.show_intro = not Save.show_intro; _changed()})
+			rows.append({"text": "مسح التقدم…", "style": "danger", "action": func(): open_page("reset")})
+	rows.append({"text": "رجوع", "action": func(): open_page("main")})
+	return rows
+
+
+func _reset_rows() -> Array:
+	return [
+		{"text": "مسح كل التقدم؟"},
+		{"text": "تعود إلى المرحلة 1 وتُقفل المراحل الأخرى", "small": true},
+		[{"text": "مسح", "style": "danger", "action": _reset_progress}, {"text": "إلغاء", "action": func(): open_page("display")}],
+	]
+
+
+func _reset_progress() -> void:
+	Save.reset_progress()
+	close()
+	main.game.go_to_level(1)
+	toast("تم مسح التقدم")
 
 
 func _credit_rows() -> Array:
@@ -180,11 +343,12 @@ func _credit_rows() -> Array:
 		{"text": "عبودين قيمز — Aboden Games", "small": true},
 		{"text": "ترخيص MIT · © Aboden Games", "small": true},
 		{"text": "Godot Engine (MIT) · OpenXR Vendors (MIT)", "small": true},
+		{"text": "Godot Meta Toolkit (MIT) · Meta Platform SDK", "small": true},
 		{"text": "OpenXR Loader (Apache-2.0) · Meta OpenXR SDK", "small": true},
 		{"text": "Cairo font (SIL OFL 1.1)", "small": true},
 		{"text": "الأصوات والنماذج أصلية ضمن المشروع", "small": true},
 		{"text": "التفاصيل الكاملة في ملفات التراخيص", "small": true},
-		{"text": "رجوع", "action": func(): _page = "main"; _rebuild()},
+		{"text": "رجوع", "action": func(): open_page("main")},
 	]
 
 
@@ -201,19 +365,23 @@ func _title_tap() -> void:
 		toast("أدوات المطوّر: " + ("مفعّلة" if Save.dev_enabled else "معطّلة"))
 
 
-func _volume(delta: float) -> void:
-	Save.master_volume = clampf(snappedf(Save.master_volume + delta, 0.1), 0.0, 1.0)
+func _changed() -> void:
 	Save.save()
 	main.audio.apply_volume()
 	_rebuild()
 
 
-func _dev_level(step: int) -> void:
-	var n: int = (main.game.level - 1 + step + LevelData.COUNT) % LevelData.COUNT + 1
-	main.game.go_to_level(n)
-	await get_tree().create_timer(0.5).timeout
-	_rebuild()
+func _volume(which: String, delta: float) -> void:
+	var v: float = {"master": Save.master_volume, "sfx": Save.sfx_volume, "ambience": Save.ambience_volume}[which]
+	v = clampf(snappedf(v + delta, 0.1), 0.0, 1.0)
+	match which:
+		"master": Save.master_volume = v
+		"sfx": Save.sfx_volume = v
+		"ambience": Save.ambience_volume = v
+	_changed()
 
+
+# --- pointer -----------------------------------------------------------------------------
 
 func _hit(o: Vector3, d: Vector3) -> Dictionary:
 	if not _open:
@@ -240,9 +408,16 @@ func _hit(o: Vector3, d: Vector3) -> Dictionary:
 
 func ray_hit(o: Vector3, d: Vector3):
 	var h := _hit(o, d)
-	for b in buttons:
-		b.mesh.material_override = _btn_hover if h.get("button") == b else _btn_mat
+	_apply_hover(h.get("button"))
 	return null if h.is_empty() else h
+
+
+func _apply_hover(hovered) -> void:
+	for b in buttons:
+		b.mesh.material_override = _btn_hover if hovered == b else b.base
+	if _info:
+		var text: String = hovered.hover if hovered != null and hovered.hover != "" else _info_default
+		_info.text = text
 
 
 func handle_ray(o: Vector3, d: Vector3) -> bool:
@@ -253,6 +428,17 @@ func handle_ray(o: Vector3, d: Vector3) -> bool:
 		main.audio.ui("click")
 		h.button.action.call()
 	return true  # while open, the panel owns the trigger
+
+
+## Test/automation helper: press the first button whose label contains text.
+func press(text: String) -> bool:
+	for c in panel.get_children():
+		if c is Label3D and c.text.contains(text):
+			for b in buttons:
+				if b.rect.has_point(Vector2(c.position.x, c.position.y)):
+					b.action.call()
+					return true
+	return false
 
 
 func toast(text: String, seconds := 4.0) -> void:
@@ -293,8 +479,7 @@ func show_credits() -> void:
 	var head: Transform3D = main.rig.head_transform() if main.xr else Transform3D()
 	if not _open:
 		toggle(head)
-	_page = "credits"
-	_rebuild()
+	open_page("credits")
 
 
 func _process(delta: float) -> void:

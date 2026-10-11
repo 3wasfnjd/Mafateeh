@@ -243,6 +243,27 @@ def ui():
     sfx("ui_recenter", bp(noise(0.35), 500, 3000) * np.sin(np.pi * t_axis(0.35) / 0.35) ** 2, -16)
 
 
+# --- studio intro ------------------------------------------------------------------------
+
+def intro():
+    """Aboden Games sting (~3.5 s): a frame-drum doum, a rising oud motif in Hijaz on D,
+    a soft air riser, and a final open chord with a bell shimmer as the mark settles."""
+    t = t_axis(0.6)
+    doum = np.sin(2 * np.pi * np.cumsum(np.linspace(95, 52, len(t))) / SR) * np.exp(-t / 0.22)
+    doum += 0.25 * lp(noise(0.6), 900) * np.exp(-t / 0.03)
+    tak = bp(noise(0.12), 1800, 5000) * np.exp(-t_axis(0.12) / 0.018)
+    motif = [293.66, 311.13, 369.99, 440.0]  # D4 Eb4 F#4 A4
+    riser = bp(noise(0.9), 2500, 9000) * np.linspace(0, 1, int(0.9 * SR)) ** 2
+    chord = [146.83, 293.66, 440.0, 587.33]  # D3 D4 A4 D5
+    parts = [(0.0, doum, 1.0), (0.42, tak, 0.35), (0.62, doum, 0.7)]
+    parts += [(0.3 + i * 0.17, pluck(f, 0.9, 0.995), 0.55) for i, f in enumerate(motif)]
+    parts += [(0.5, riser, 0.12)]
+    parts += [(1.4, pluck(f, 2.2, 0.9985), 0.5) for f in chord]
+    parts += [(1.4, bell(1174.66, 2.1, 1.1), 0.18), (1.46, bell(1760.0, 2.0, 0.9), 0.1), (1.4, doum, 0.9)]
+    x = place(*parts)
+    sfx("intro_sting", fade(x, 0.002, 0.6), -4)
+
+
 # --- ambience (seamless loops) -------------------------------------------------------------
 
 def shaped_loop(sec, shape):
@@ -328,5 +349,6 @@ if __name__ == "__main__":
     birds()
     ui()
     ambience()
+    intro()  # last, so the shared random stream (and every earlier sound) is unchanged
     files = sorted(os.listdir(SFX)) + sorted(os.listdir(AMB))
     print("%d sounds written to %s" % (len(files), OUT))

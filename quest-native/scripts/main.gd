@@ -5,9 +5,11 @@ extends Node3D
 ## back to an orbit camera with mouse and keyboard.
 ##
 ## Command-line (after "--"): --level=N --time=day --weather=rain --mode=vr
-##   --screenshot=path.png [--yaw=deg --pitch=deg --zoom=f]
+##   --screenshot=path.png [--yaw=deg --pitch=deg --zoom=f] [--intro=seconds]
 
-const ROTATE_SPEED := 1.6  # rad/s at full left-stick deflection
+const ROTATE_SPEEDS := [1.0, 1.6, 2.4]  # rad/s at full deflection: slow, normal, fast
+const SNAP_ANGLE := PI / 6.0
+const DEFAULT_BOARD_SCALE := 0.12
 const RESIZE_SPEED := 0.75
 
 var env: Environment
@@ -29,6 +31,9 @@ var _cam_yaw := 0.55
 var _cam_pitch := 0.78
 var _cam_zoom := 1.0
 var _drag_hand := ""
+var intro: StudioIntro
+var _intro_started := false
+var _snap_armed := true
 var injected_move := Vector2.ZERO  # automated tests drive the stick through the normal frame path
 
 
@@ -81,7 +86,8 @@ func _ready() -> void:
 	menu.setup(self)
 
 	game.level_completed.connect(_on_level_completed)
-	game.level_loaded.connect(func(n): sky.apply_level(n, _args.get("time", ""), _args.get("weather", "")))
+	game.level_loaded.connect(func(_n): apply_sky())
+	game.feedback.connect(_haptic_feedback)
 
 	xr = not _args.has("screenshot") and _args.get("xr", "1") != "0" and rig.start()
 	if xr:
@@ -89,7 +95,7 @@ func _ready() -> void:
 		rig.grip_tapped.connect(_on_grip_tap)
 		rig.grip_drag_started.connect(_on_drag_start)
 		rig.grip_drag_ended.connect(_on_drag_end)
-		rig.menu_pressed.connect(func(): menu.toggle(rig.head_transform()))
+		rig.menu_pressed.connect(_on_menu_button)
 		rig.focus_changed.connect(_on_focus)
 		rig.session_started.connect(_on_session)
 		surfaces = SceneSurfaces.new()
@@ -104,6 +110,8 @@ func _ready() -> void:
 	if not Save.can_play(start) and not (_args.has("screenshot") or _args.has("level")):
 		start = Save.current_level
 	game.load_level(start)
+	if not xr and _args.has("intro"):
+		_start_intro.call_deferred()
 	if _args.has("screenshot"):
 		_screenshot.call_deferred()
 	# Store builds only: verify the purchase within the first seconds of launch.
@@ -121,6 +129,75 @@ func _on_session() -> void:
 	sky.set_mixed_reality(m == "mr")
 
 
+## Weather follows the level unless the player chose "always clear"; command-line
+## and developer overrides still win.
+func apply_sky() -> void:
+	var weather: String = _args.get("weather", "")
+	if weather == "" and Save.weather_pref == "clear":
+		weather = "clear"
+	sky.apply_level(game.level, _args.get("time", ""), weather)
+
+
+func _start_intro() -> void:
+	_intro_started = true
+	if not Save.show_intro and not _args.has("intro"):
+		return
+	intro = StudioIntro.new()
+	intro.name = "StudioIntro"
+	add_child(intro)
+	if not xr:
+		_update_desktop_camera()
+	var head := rig.head_transform() if xr else desktop_cam.global_transform
+	intro.play(head, not _args.has("noveil"), xr)
+	intro.finished.connect(func(): intro = null)
+
+
+func intro_playing() -> bool:
+	return intro != null and intro.is_playing()
+
+
+func _on_menu_button() -> void:
+	if intro_playing():
+		intro.skip()
+		return
+	menu.toggle(rig.head_transform())
+
+
+## Hands: by default the right stick moves the hero and the left turns/resizes the
+## board; "left-handed" in the settings swaps them.
+func move_hand() -> String:
+	return "left" if Save.left_handed else "right"
+
+
+func board_hand() -> String:
+	return "right" if Save.left_handed else "left"
+
+
+func pulse_ui() -> void:
+	if xr:
+		rig.pulse("right", 0.2, 0.03)
+		rig.pulse("left", 0.2, 0.03)
+
+
+func _haptic_feedback(event: String, _at: Vector3) -> void:
+	if not xr:
+		return
+	match event:
+		"reject", "sequence_wrong": rig.pulse(move_hand(), 0.35, 0.06)
+		"push_start": rig.pulse(move_hand(), 0.2, 0.12)
+		"key", "gem", "unlock", "lever", "circuit", "sequence", "mirror", "dial", "portal", \
+		"pickup_weight", "place_weight", "pickup_brick", "place_brick":
+			rig.pulse(move_hand(), 0.25, 0.04)
+		"solved", "exit": rig.pulse(move_hand(), 0.5, 0.12)
+
+
+func reset_board_size() -> void:
+	board.set_board_scale(DEFAULT_BOARD_SCALE)
+	Save.board_scale = board.board_scale
+	Save.save()
+	menu.toast("أُعيد حجم اللوحة الافتراضي", 2.5)
+
+
 func _place_board() -> void:
 	var head := rig.head_transform()
 	if rig.mode == "mr" and board.surfaces.size() > 0 and board.place_on_surface(head):
@@ -131,16 +208,24 @@ func _place_board() -> void:
 	_placed = true
 	menu.notify_placement(board.placement_source)
 	if not Save.hint_shown:
-		_show_controller_hints()
+		show_controller_hints()
 
 
 var _hints: Array = []
 var _hint_t := 0.0
 
 
-## One-time, compact labels on the controllers (no instruction panel).
-func _show_controller_hints() -> void:
-	var texts := {"right": "عصا التحكم: تحريك الشخصية\nالزناد: تفاعل", "left": "عصا التحكم: تدوير وتكبير\nالقبضة: تموضع اللوحة\n☰ الإعدادات"}
+## Compact labels on the controllers (no instruction panel): shown once on first
+## launch, and again on request from the settings.
+func show_controller_hints() -> void:
+	if not xr:
+		return
+	for l in _hints:
+		l.queue_free()
+	_hints.clear()
+	var texts := {move_hand(): "عصا التحكم: تحريك الشخصية\nالزناد: تفاعل",
+		board_hand(): "عصا التحكم: تدوير وتكبير\nالقبضة: تموضع اللوحة"}
+	texts["left"] += "\n☰ الإعدادات"
 	for hand in texts:
 		var l := Label3D.new()
 		l.text = texts[hand]
@@ -171,7 +256,11 @@ func _update_hints(delta: float, moved: bool) -> void:
 
 
 func _on_trigger(hand: String, origin: Vector3, direction: Vector3) -> void:
+	if intro_playing():
+		intro.skip()
+		return
 	if menu.handle_ray(origin, direction):
+		rig.pulse(hand, 0.15, 0.025)
 		return
 	if not _placed or not board.visible:
 		return
@@ -213,7 +302,7 @@ func set_mode(m: String) -> void:
 
 ## Right stick in the board's frame: up = away from the viewer.
 func _move_vector() -> Vector2:
-	var raw := HeroMotor.read_stick(rig.stick("right"))
+	var raw := HeroMotor.read_stick(rig.stick(move_hand()))
 	if raw == Vector2.ZERO:
 		return Vector2.ZERO
 	var fwd := -rig.head_transform().basis.z
@@ -230,19 +319,16 @@ func _process(delta: float) -> void:
 	if xr:
 		if _session_time >= 0.0 and not _placed:
 			_session_time += delta
-			if _session_time > 0.6:
+			if _session_time > 0.3 and not _intro_started:
+				_start_intro()
+			if _session_time > 0.6 and _intro_started and not intro_playing():
 				_place_board()
 		if _placed and rig.focused and not menu.is_open():
-			var left := HeroMotor.read_stick(rig.stick("left"), 0.25)
-			if left.x != 0.0:
-				board.rotate_board(-left.x * ROTATE_SPEED * delta)
-			if left.y != 0.0:
-				board.set_board_scale(board.board_scale * exp(left.y * RESIZE_SPEED * delta))
-				Save.board_scale = board.board_scale
+			_board_stick(delta)
 		if _drag_hand != "":
 			board.update_drag(rig.hands[_drag_hand].grip.global_transform)
 		var move := _move_vector() if (_placed and rig.focused and not menu.is_open()) else Vector2.ZERO
-		if not rig.tracked("right"):
+		if not rig.tracked(move_hand()):
 			move = Vector2.ZERO
 		game.tick(delta, move)
 		_update_hints(delta, move != Vector2.ZERO)
@@ -250,6 +336,24 @@ func _process(delta: float) -> void:
 	else:
 		game.tick(delta, _desktop_move())
 		_update_desktop_camera()
+
+
+## Board stick: x turns the board (smoothly, or in 30° steps), y resizes it.
+func _board_stick(delta: float) -> void:
+	var raw := rig.stick(board_hand())
+	var stick := HeroMotor.read_stick(raw, 0.25)
+	if Save.turn_mode == "snap":
+		if absf(raw.x) < 0.3:
+			_snap_armed = true
+		elif _snap_armed and absf(raw.x) > 0.7:
+			_snap_armed = false
+			board.rotate_board(-signf(raw.x) * SNAP_ANGLE)
+			rig.pulse(board_hand(), 0.12, 0.02)
+	elif stick.x != 0.0:
+		board.rotate_board(-stick.x * ROTATE_SPEEDS[Save.turn_speed] * delta)
+	if stick.y != 0.0 and absf(stick.y) > absf(stick.x) * 0.5:
+		board.set_board_scale(board.board_scale * exp(stick.y * RESIZE_SPEED * delta))
+		Save.board_scale = board.board_scale
 
 
 func _update_pointers() -> void:
@@ -393,6 +497,15 @@ func _screenshot() -> void:
 		await get_tree().process_frame
 	if _args.has("nocard"):
 		menu._card.visible = false
+	if _args.has("menu"):  # documentation shots of a menu page, e.g. --menu=levels
+		desktop_cam.fov = 52.0
+		var head := desktop_cam.global_transform
+		menu.toggle(head.translated(Vector3(0, 0.12, 0)))
+		menu.open_page(_args.menu)
+		await get_tree().process_frame
+	if intro:
+		intro._t = float(_args.intro)
+		intro._update(intro._t)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(_args.screenshot)

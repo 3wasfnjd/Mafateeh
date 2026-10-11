@@ -16,6 +16,15 @@ var mode := "mr"  # "mr" (passthrough) | "vr"
 var board_scale := 0.12
 var dev_enabled := false
 var hint_shown := false
+# Settings page (all optional; defaults match the original experience).
+var sfx_volume := 1.0
+var ambience_volume := 1.0
+var turn_mode := "smooth"  # "smooth" | "snap" (left stick board rotation)
+var turn_speed := 1  # 0 slow, 1 normal, 2 fast
+var left_handed := false  # swaps the two sticks: left moves the hero
+var haptics := true
+var weather_pref := "auto"  # "auto" (per level) | "clear"
+var show_intro := true
 var dev_time := ""  # override: dawn/day/sunset/night
 var dev_weather := ""  # override: clear/rain
 
@@ -37,6 +46,14 @@ func load_data() -> void:
 	board_scale = clampf(float(cfg.get_value("settings", "board_scale", 0.12)), 0.06, 0.26)
 	dev_enabled = bool(cfg.get_value("dev", "enabled", false))
 	hint_shown = bool(cfg.get_value("settings", "hint_shown", false))
+	sfx_volume = clampf(float(cfg.get_value("settings", "sfx_volume", 1.0)), 0.0, 1.0)
+	ambience_volume = clampf(float(cfg.get_value("settings", "ambience_volume", 1.0)), 0.0, 1.0)
+	turn_mode = "snap" if str(cfg.get_value("settings", "turn_mode", "smooth")) == "snap" else "smooth"
+	turn_speed = clampi(int(cfg.get_value("settings", "turn_speed", 1)), 0, 2)
+	left_handed = bool(cfg.get_value("settings", "left_handed", false))
+	haptics = bool(cfg.get_value("settings", "haptics", true))
+	weather_pref = "clear" if str(cfg.get_value("settings", "weather", "auto")) == "clear" else "auto"
+	show_intro = bool(cfg.get_value("settings", "show_intro", true))
 	current_level = mini(current_level, unlocked_level) if not dev_tools_available() else current_level
 
 
@@ -52,6 +69,14 @@ func save() -> void:
 	cfg.set_value("settings", "board_scale", board_scale)
 	cfg.set_value("dev", "enabled", dev_enabled)
 	cfg.set_value("settings", "hint_shown", hint_shown)
+	cfg.set_value("settings", "sfx_volume", sfx_volume)
+	cfg.set_value("settings", "ambience_volume", ambience_volume)
+	cfg.set_value("settings", "turn_mode", turn_mode)
+	cfg.set_value("settings", "turn_speed", turn_speed)
+	cfg.set_value("settings", "left_handed", left_handed)
+	cfg.set_value("settings", "haptics", haptics)
+	cfg.set_value("settings", "weather", weather_pref)
+	cfg.set_value("settings", "show_intro", show_intro)
 	cfg.save(PATH)
 
 
@@ -75,6 +100,10 @@ func set_current(level: int) -> void:
 	if can_play(level):
 		current_level = level
 		save()
+
+
+func is_completed(level: int) -> bool:
+	return completed.has(level)
 
 
 func reset_progress() -> void:
