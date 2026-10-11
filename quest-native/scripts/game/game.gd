@@ -64,6 +64,7 @@ var _was_solved := false
 func _on_state_changed() -> void:
 	if state.solved and not _was_solved:
 		feedback.emit("solved", _w(Vector2(LevelData.EXIT_X, -3.2)))
+		hero.react("solved")
 	_was_solved = state.solved
 
 

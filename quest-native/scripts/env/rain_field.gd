@@ -141,12 +141,12 @@ func rebuild(state: PuzzleState) -> void:
 		if clear and not state.blocked(s.x, s.y, true):
 			var p := MeshInstance3D.new()
 			var m := CylinderMesh.new()
-			m.top_radius = 0.38
-			m.bottom_radius = 0.38
+			m.top_radius = 0.3
+			m.bottom_radius = 0.3
 			m.height = 0.004
 			m.radial_segments = 20
 			p.mesh = m
-			p.material_override = Kit.mat("water")
+			p.material_override = _puddle_mat()
 			p.position = Vector3(s.x, LevelData.surface_y(def, s.x, s.y) + 0.065, s.y)
 			p.scale = Vector3(1.0, 1.0, 0.6)
 			p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -157,3 +157,16 @@ func rebuild(state: PuzzleState) -> void:
 func _process(_dt: float) -> void:
 	for p in _puddles:
 		p.visible = amount > 0.3
+
+
+static var _puddle: StandardMaterial3D
+
+
+static func _puddle_mat() -> StandardMaterial3D:
+	if _puddle == null:
+		_puddle = StandardMaterial3D.new()
+		_puddle.albedo_color = Color(0.36, 0.33, 0.3, 0.45)
+		_puddle.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_puddle.roughness = 0.05
+		_puddle.metallic = 0.2
+	return _puddle

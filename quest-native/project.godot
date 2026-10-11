@@ -31,6 +31,11 @@ window/size/viewport_height=720
 
 enabled=PackedStringArray()
 
+[filesystem]
+
+import/blender/enabled=false
+import/fbx2gltf/enabled=false
+
 [internationalization]
 
 locale/include_text_server_data=true

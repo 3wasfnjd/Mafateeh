@@ -150,10 +150,10 @@ func follow(board: BoardPlacement) -> void:
 	if stand == null:
 		return
 	var s := board.board_scale
-	var w := 9.0 * s
-	var d := 8.4 * s
+	var w := 10.1 * s
+	var d := 9.4 * s
 	var h := board.surface_height
-	stand.global_transform = Transform3D(Basis(Vector3.UP, board.rotation.y), Vector3(board.global_position.x, h, board.global_position.z) + board.global_transform.basis.z.normalized() * -0.35 * s)
+	stand.global_transform = Transform3D(Basis(Vector3.UP, board.rotation.y), Vector3(board.global_position.x, h, board.global_position.z) + board.global_transform.basis.z.normalized() * -0.3 * s)
 	for c in stand.get_children():
 		if c.has_meta("corner"):
 			var k: Vector2 = c.get_meta("corner")

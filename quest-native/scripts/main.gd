@@ -39,7 +39,7 @@ func _ready() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_white = 6.0
-	env.tonemap_exposure = 1.05
+	env.tonemap_exposure = 0.92
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	world_env = WorldEnvironment.new()
 	world_env.environment = env
@@ -48,7 +48,7 @@ func _ready() -> void:
 	sun.name = "Sun"
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 4.0
+	sun.directional_shadow_max_distance = 4.0 if _args.get("xr", "1") != "0" and not _args.has("screenshot") else 40.0
 	sun.shadow_blur = 1.5
 	add_child(sun)
 
@@ -249,6 +249,7 @@ func _setup_desktop() -> void:
 	desktop_cam.fov = 40.0
 	add_child(desktop_cam)
 	desktop_cam.current = true
+	sky.follow_board = false
 	rig.visible = false
 	board.scale = Vector3.ONE
 	board.position = Vector3.ZERO
@@ -262,6 +263,8 @@ func _setup_desktop() -> void:
 
 func _update_desktop_camera() -> void:
 	var target := Vector3(0, 0.6 + (1.0 if game.state and game.state.def.get("storeys", false) else 0.0), -0.4)
+	if _args.has("focus_hero") and game.motor:
+		target = game.hero.global_position + Vector3(0, 0.55, 0)
 	var dist := 15.5 / _cam_zoom
 	desktop_cam.position = target + Vector3(sin(_cam_yaw) * cos(_cam_pitch), sin(_cam_pitch), cos(_cam_yaw) * cos(_cam_pitch)) * dist
 	desktop_cam.look_at(target)

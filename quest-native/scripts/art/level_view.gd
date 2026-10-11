@@ -24,6 +24,8 @@ var exit_open := 0.0
 var t := 0.0
 var water_nodes: Array = []
 var lantern_lights: Array = []
+var foliage: Array = []
+var wind := 0.3
 var _was_solved := false
 var _was_light := false
 var _was_balanced := false
@@ -63,6 +65,7 @@ func build(s: PuzzleState) -> void:
 		_build_balance_frame()
 	for r in def.get("roofs", []):
 		_build_roof(r)
+	_build_vegetation()
 	_was_solved = state.solved
 	_was_light = state.light
 	_was_balanced = state.balanced()
@@ -73,9 +76,10 @@ func build(s: PuzzleState) -> void:
 
 func _build_floor() -> void:
 	# Raised earthen plinth the miniature sits on.
-	var base := Kit.add(self, Kit.box(Vector3(8.9, 0.36, 8.3)), Kit.mat("plaster"), Vector3(0, -0.24, -0.35))
+	var base := Kit.add(self, Kit.box(Vector3(10.0, 0.36, 9.3)), Kit.mat("plaster"), Vector3(0, -0.24, -0.3))
 	base.name = "Plinth"
-	Kit.add(self, Kit.box(Vector3(9.05, 0.06, 8.45)), Kit.mat("plaster_top"), Vector3(0, -0.42, -0.35))
+	Kit.add(self, Kit.box(Vector3(10.15, 0.06, 9.45)), Kit.mat("plaster_top"), Vector3(0, -0.42, -0.3))
+	Kit.add(self, Kit.box(Vector3(9.9, 0.03, 9.2)), Kit.mat("sand"), Vector3(0, -0.05, -0.3), false)
 	# Paving: one multimesh, subtle per-tile tone variation.
 	var tiles: Array = []
 	for x in 8:
@@ -84,6 +88,10 @@ func _build_floor() -> void:
 			var pz := z - 3.0
 			if def.get("storeys", false) and pz < 0.5:
 				continue
+			if def.get("moat", false) and absf(pz) < 0.6:
+				continue  # water channel
+			if def.get("pool_room", false) and px > -3.6 and px < -0.5 and pz > -2.6 and pz < -0.3:
+				continue  # pool basin
 			tiles.append(Vector3(px, -0.015, pz))
 	if def.get("storeys", false):
 		for x in 8:
@@ -171,7 +179,9 @@ func _build_perimeter() -> void:
 			var hh := front_h + 0.12 if sz > 0 else back_h + 0.25
 			var y0 := ey if (sz < 0 and def.get("storeys", false)) else 0.0
 			var p := Vector3(sx * 4.09, y0 + hh / 2.0, sz * 3.59)
-			Kit.add_piece(self, "corner_tower", Kit.cylinder(0.24, 0.27, hh, 18), Kit.mat("plaster"), p)
+			var tower := Kit.add_piece(self, "corner_tower", Kit.cylinder(0.24, 0.27, hh, 18), Kit.mat("plaster"), p)
+			if Kit.has_piece("corner_tower"):
+				tower.scale = Vector3(0.54, hh, 0.54)
 			Kit.add(self, Kit.cylinder(0.27, 0.27, 0.05, 18), Kit.mat("plaster_top"), p + Vector3(0, hh / 2.0 + 0.02, 0))
 	# Crenellations (shurfat) along the back wall.
 	for i in 14:
@@ -273,7 +283,9 @@ func _build_storeys() -> void:
 		var x: float = s[0]
 		for i in 12:
 			var h: float = (i + 1) / 12.0 * H
-			Kit.add(self, Kit.box(Vector3(1.28, h, 0.165)), Kit.mat("stone"), Vector3(x, h / 2.0, 0.95 - (i + 0.5) * 1.9 / 12.0))
+			var zc := 0.95 - (i + 0.5) * 1.9 / 12.0
+			Kit.add(self, Kit.box(Vector3(1.28, h - 0.03, 0.165)), Kit.mat("plaster"), Vector3(x, (h - 0.03) / 2.0, zc))
+			Kit.add(self, Kit.box(Vector3(1.24, 0.035, 0.175)), Kit.mat("wood_light"), Vector3(x, h - 0.0125, zc))
 		for side in [-1, 1]:
 			var rail := Node3D.new()
 			rail.position = Vector3(x + side * 0.69, 0, 0)
@@ -284,12 +296,14 @@ func _build_storeys() -> void:
 
 
 func _build_moat() -> void:
-	var water := Kit.add(self, Kit.box(Vector3(7.97, 0.04, 1.22)), Kit.mat("water"), Vector3(0, 0.02, 0), false)
+	# Recessed water channel (falaj) with stone coping on both banks.
+	Kit.add(self, Kit.box(Vector3(7.97, 0.02, 1.2)), Kit.mat("pool_tile"), Vector3(0, -0.022, 0), false)
+	var water := Kit.add(self, Kit.box(Vector3(7.97, 0.02, 1.2)), Kit.mat("water"), Vector3(0, 0.012, 0), false)
 	water.name = "Moat"
 	water_nodes.append(water)
-	Kit.add(self, Kit.box(Vector3(7.97, 0.05, 1.2)), Kit.mat("pool_tile"), Vector3(0, -0.06, 0), false)
-	for z in [-0.66, 0.66]:
-		Kit.add(self, Kit.box(Vector3(7.97, 0.1, 0.12)), Kit.mat("stone_dark"), Vector3(0, 0.03, z))
+	for z in [-0.56, 0.56]:
+		Kit.add(self, Kit.box(Vector3(7.97, 0.16, 0.1)), Kit.mat("stone_dark"), Vector3(0, -0.02, z))
+		Kit.add(self, Kit.box(Vector3(7.97, 0.03, 0.14)), Kit.mat("stone"), Vector3(0, 0.07, z))
 
 
 func _build_pool_room() -> void:
@@ -302,8 +316,8 @@ func _build_pool_room() -> void:
 			Kit.add(root, Kit.box(Vector3(0.15, 0.95, 0.3)), Kit.mat("plaster"), Vector3(side * 0.775, 0.475, 0))
 		Kit.add_piece(root, "arch", Kit.box(Vector3(1.7, 0.22, 0.32)), Kit.mat("plaster"), Vector3(0, 1.0, 0))
 	# Courtyard pool: tiled basin, coping, water and a stepping-stone lane.
-	Kit.add(self, Kit.box(Vector3(2.9, 0.04, 2.1)), Kit.mat("pool_tile"), Vector3(-2.05, -0.04, -1.45), false)
-	var water := Kit.add(self, Kit.box(Vector3(2.86, 0.03, 2.06)), Kit.mat("water"), Vector3(-2.05, 0.05, -1.45), false)
+	Kit.add(self, Kit.box(Vector3(2.9, 0.02, 2.1)), Kit.mat("pool_tile"), Vector3(-2.05, -0.022, -1.45), false)
+	var water := Kit.add(self, Kit.box(Vector3(2.86, 0.02, 2.06)), Kit.mat("water"), Vector3(-2.05, 0.012, -1.45), false)
 	water_nodes.append(water)
 	for x in [-3.55, -0.55]:
 		Kit.add_piece(self, "pool_edge", Kit.box(Vector3(0.15, 0.19, 2.3)), Kit.mat("stone_dark"), Vector3(x, 0.095, -1.45))
@@ -334,6 +348,31 @@ func _build_roof(r: Array) -> void:
 			Kit.add(root, Kit.cylinder(0.07, 0.08, 1.3, 10), Kit.mat("plaster"),
 				Vector3(sx * (r[2] / 2.0 - 0.08), -0.66, sz * (r[3] / 2.0 - 0.08)))
 	roof_nodes.append({"node": root, "rect": r, "fade": 1.0})
+
+
+func _build_vegetation() -> void:
+	## Palms, a lote tree and shrubs stand on the planting strip outside the
+	## walls: they frame the courtyard without blocking the hero, clues or rays.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 900 + state.level
+	var spots := [["palm", Vector3(-4.62, 0, -3.95)], ["palm_small", Vector3(4.62, 0, -2.3)],
+		["tree", Vector3(-4.6, 0, 1.2)], ["shrub", Vector3(4.6, 0, 2.6)], ["shrub", Vector3(-4.6, 0, 3.7)],
+		["palm_small", Vector3(-2.6, 0, -4.45)], ["shrub", Vector3(3.6, 0, -4.4)]]
+	for sp in spots:
+		if rng.randf() < 0.18 and sp[0] == "shrub":
+			continue
+		var y0 := -0.05
+		var mi := Kit.add_piece(self, sp[0], Kit.cylinder(0.08, 0.1, 1.5, 6), Kit.mat("palm_trunk"), sp[1] + Vector3(0, y0, 0))
+		mi.rotation.y = rng.randf() * TAU
+		mi.scale = Vector3.ONE * rng.randf_range(0.9, 1.1)
+		mi.set_meta("sway", rng.randf() * TAU)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		foliage.append(mi)
+	# Lanterns on the gatehouse pillars (lit at dusk and night).
+	var ey := LevelData.exit_y(def)
+	for side in [-1, 1]:
+		Kit.add_piece(self, "lantern", Kit.box(Vector3(0.1, 0.25, 0.1)), Kit.mat("glow"),
+			Vector3(LevelData.EXIT_X + side * 0.82, ey + 1.56, -3.3))
 
 
 # --- mechanisms ------------------------------------------------------------------------
@@ -437,8 +476,10 @@ func _build_object(o: Dictionary) -> Dictionary:
 			item.position.y = 0.56
 			root.add_child(item)
 			var c := Kit.mat("brass")
-			Kit.add_piece(item, "key", Kit.torus(0.09, 0.15), c, Vector3(0, 0.16, 0)).rotation.x = PI / 2
-			if Kit.piece("key") == null:
+			if Kit.has_piece("key"):
+				Kit.add_piece(item, "key", null, c)
+			else:
+				Kit.add(item, Kit.torus(0.09, 0.15), c, Vector3(0, 0.16, 0)).rotation.x = PI / 2
 				Kit.add(item, Kit.box(Vector3(0.07, 0.36, 0.07)), c, Vector3(0, -0.08, 0))
 				Kit.add(item, Kit.box(Vector3(0.16, 0.06, 0.07)), c, Vector3(0.07, -0.2, 0))
 				Kit.add(item, Kit.box(Vector3(0.12, 0.06, 0.07)), c, Vector3(0.05, -0.1, 0))
@@ -713,8 +754,11 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 			n.root.position.y = surface(cfg.at[0], cfg.at[1]) + (1.0 if side else -1.0) * sin(scale_beam.rotation.z) * 0.9
 			for j in n.pile.size():
 				n.pile[j].visible = j < s[side]
-	for w in water_nodes:
-		w.position.y += sin(t * 1.3) * 0.0002
+	for f in foliage:
+		# Gentle sway; stronger, still restrained, in rain.
+		var ph: float = f.get_meta("sway")
+		f.rotation.z = sin(t * 0.9 + ph) * 0.02 * wind
+		f.rotation.x = sin(t * 0.7 + ph * 1.7) * 0.015 * wind
 	for r in roof_nodes:
 		var rect: Array = r.rect
 		var under: bool = absf(hero_pos.x - rect[0]) < rect[2] / 2.0 + 0.3 and absf(hero_pos.y - rect[1]) < rect[3] / 2.0 + 0.3

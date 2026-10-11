@@ -13,8 +13,8 @@ const PRESETS := {
 	"dawn": {"elev": 12.0, "azim": 70.0, "sun": Color("ffbf8f"), "energy": 1.15,
 		"ambient": Color("9a9cb8"), "amb_energy": 0.75, "top": Color("6d82b8"), "horizon": Color("f2b98e"),
 		"ground": Color("8a6e57"), "lanterns": 0.25},
-	"day": {"elev": 55.0, "azim": 35.0, "sun": Color("fff2dc"), "energy": 1.55,
-		"ambient": Color("c9cfd9"), "amb_energy": 0.7, "top": Color("4f8acb"), "horizon": Color("cfe0ec"),
+	"day": {"elev": 55.0, "azim": 35.0, "sun": Color("fff2dc"), "energy": 1.12,
+		"ambient": Color("c4c9d2"), "amb_energy": 0.5, "top": Color("4f8acb"), "horizon": Color("cfe0ec"),
 		"ground": Color("b49673"), "lanterns": 0.0},
 	"sunset": {"elev": 13.0, "azim": -65.0, "sun": Color("ffa062"), "energy": 1.3,
 		"ambient": Color("b08d98"), "amb_energy": 0.7, "top": Color("5a5e9c"), "horizon": Color("f6a35f"),
@@ -40,6 +40,7 @@ var _to := {}
 var rain: RainField
 var lanterns: Array = []
 var scenery: Node3D
+var follow_board := true  # false in desktop mode, where the board is not to scale
 
 
 func setup(e: Environment, s: DirectionalLight3D, b: Node3D, g: Node3D) -> void:
@@ -146,7 +147,8 @@ func _process(delta: float) -> void:
 	rain.amount = rain_amount
 	var hero_pos: Vector2 = game.motor.pos if game and game.get("motor") else Vector2.ZERO
 	rain.hero = hero_pos
-	if scenery.visible and board.visible:
+	scenery.stand.visible = follow_board and board.visible
+	if follow_board and scenery.visible and board.visible:
 		scenery.follow(board)
 
 
@@ -182,3 +184,5 @@ func _apply(p: Dictionary) -> void:
 	glow.emission_energy_multiplier = 1.6 + p.lanterns * 1.2
 	if scenery:
 		scenery.set_tint(p, wet)
+	if game and game.get("view") and game.view:
+		game.view.wind = 0.6 + wet * 0.9

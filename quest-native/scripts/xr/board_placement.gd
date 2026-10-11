@@ -10,7 +10,7 @@ signal placed(source: String)  # "front" | "detected_table" | "detected_floor" |
 const MIN_SCALE := 0.06
 const MAX_SCALE := 0.26
 const BASE_DEPTH := 0.42  # board units from the play floor down to the base
-const HALF_EXTENT := Vector2(4.6, 4.2)  # board-local footprint incl. exit tunnel
+const HALF_EXTENT := Vector2(5.05, 4.75)  # board-local footprint incl. exit tunnel
 
 var board_scale := 0.12
 var surface_height := 0.75  # meters, where the board base rests

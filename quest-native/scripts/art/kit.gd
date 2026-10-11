@@ -49,6 +49,9 @@ static func mat(name: String) -> Material:
 			m.uv1_triplanar = true
 			m.uv1_scale = Vector3(1.0, 1.0, 1.0)
 			m.roughness = 0.88
+		"sand":
+			m.albedo_color = Color("cfae80")
+			m.roughness = 1.0
 		"stone_dark":
 			m.albedo_color = Color("b79d74")
 			m.roughness = 0.9
@@ -143,6 +146,10 @@ static func mat(name: String) -> Material:
 				m.emission_enabled = true
 				m.emission = PUZZLE_COLORS[i % 4]
 				m.emission_energy_multiplier = 1.4
+	if m.albedo_texture != null and name in ["plaster", "plaster_top", "stone", "wood", "wood_light"]:
+		var tint: Color = {"plaster": Color(1, 1, 1), "plaster_top": Color(1.08, 1.06, 1.04), "stone": Color(1, 1, 1),
+			"wood": Color(0.95, 0.92, 0.9), "wood_light": Color(1.35, 1.3, 1.25)}[name]
+		m.albedo_color = tint
 	_materials[name] = m
 	return m
 
@@ -267,12 +274,21 @@ static func add(parent: Node3D, mesh: Mesh, material: Material, pos := Vector3.Z
 	return mi
 
 
-## Kit piece if present, else the fallback mesh. Kit pieces keep their own
-## material slots unless `material` is given.
+## Kit piece if present, else the fallback mesh. Pieces listed in
+## OWN_MATERIALS keep their authored materials (painted wood, iron, leaves);
+## the rest take the shared material so walls and paving stay one look.
+const OWN_MATERIALS := ["door_leaf", "crate", "key", "palm", "shrub", "lantern", "stepping_stone", "pool_edge", "tree"]
+
+
 static func add_piece(parent: Node3D, name: String, fallback: Mesh, material: Material, pos := Vector3.ZERO) -> MeshInstance3D:
 	var m := piece(name)
-	var mi := add(parent, m if m != null else fallback, material, pos)
+	var keep := m != null and name in OWN_MATERIALS
+	var mi := add(parent, m if m != null else fallback, null if keep else material, pos)
 	return mi
+
+
+static func has_piece(name: String) -> bool:
+	return piece(name) != null
 
 
 ## Symbols distinguish puzzle elements independently of colour:
