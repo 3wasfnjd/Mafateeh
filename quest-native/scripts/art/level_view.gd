@@ -233,8 +233,9 @@ func _build_exit() -> void:
 		hinge.name = "Leaf" + str(side)
 		exit_gate.add_child(hinge)
 		_door_leaf(hinge, -side * 0.31, 0.62, 1.3)
-	var plaque := Kit.emblem(gh, 1, Kit.mat("brass"), Vector3(0, 1.62, 0.3), 0.12)
-	plaque.rotation.x = PI / 2
+	if not def.has("circuit") and not def.has("sequence"):  # otherwise the puzzle sign sits here
+		var plaque := Kit.emblem(gh, 1, Kit.mat("brass"), Vector3(0, 1.62, 0.3), 0.12)
+		plaque.rotation.x = PI / 2
 
 
 func _door_leaf(hinge: Node3D, offset_x: float, width: float, height: float) -> void:
@@ -585,34 +586,52 @@ func _build_object(o: Dictionary) -> Dictionary:
 	return n
 
 
+## Puzzle signs on the gatehouse front, where the player looks while solving:
+## the sequence clues sit on the lintel above the gate; lamps share the lintel, or
+## get their own board above it when a level has both (level 10).
+func _facade_board(row: int, width: float) -> Node3D:
+	var ey := LevelData.exit_y(def)
+	var board := Node3D.new()
+	# Gatehouse front face is at z = -3.59 + 0.28; boards stand just proud of it.
+	board.position = Vector3(LevelData.EXIT_X, ey + (1.62 if row == 0 else 2.32), -3.59 + 0.3)
+	add_child(board)
+	if row == 1:  # raised sign over the crenellations, on two short posts
+		Kit.add(board, Kit.box(Vector3(width, 0.3, 0.06)), Kit.mat("plaster"), Vector3(0, 0, -0.02))
+		for sx in [-1, 1]:
+			Kit.add(board, Kit.box(Vector3(0.08, 0.36, 0.06)), Kit.mat("wood"), Vector3(sx * (width / 2.0 - 0.1), -0.3, -0.04))
+	Kit.add(board, Kit.box(Vector3(width - 0.06, 0.27, 0.02)), Kit.mat("brass_dark"), Vector3(0, 0, 0.0))
+	return board
+
+
+func _facade_emblem(board: Node3D, index: int, material: Material, x: float, size: float) -> Node3D:
+	var e := Kit.emblem(board, index, material, Vector3(x, 0, 0.02), size)
+	e.rotation.x = PI / 2  # stand the symbol up, facing the player
+	e.set_meta("base", e.position)
+	return e
+
+
 func _build_lamp_panel() -> void:
 	var cfg: Dictionary = def.circuit
-	var ey := LevelData.exit_y(def)
-	var panel := Node3D.new()
-	panel.position = Vector3(1.75, ey, -2.95)
-	add_child(panel)
-	Kit.add(panel, Kit.box(Vector3(1.5, 0.18, 0.44)), Kit.mat("wood"), Vector3(0, 0.12, 0))
+	var row := 1 if def.has("sequence") else 0
+	var spacing := 0.34
+	var board := _facade_board(row, cfg.count * spacing + 0.2)
 	for i in cfg.count:
-		var x: float = (i - (cfg.count - 1) / 2.0) * 0.34
-		var lamp := Kit.emblem(panel, i, Kit.mat("lamp_off"), Vector3(x, 0.3, 0), 0.11)
-		lamp_nodes.append(lamp)
+		var x: float = (i - (cfg.count - 1) / 2.0) * spacing
+		lamp_nodes.append(_facade_emblem(board, i, Kit.mat("lamp_off"), x, 0.1))
 
 
 func _build_clue_tablet() -> void:
 	var cfg: Dictionary = def.sequence
-	var ey := LevelData.exit_y(def)
-	var width: float = cfg.order.size() * 0.42 + 0.15
-	var tablet := Node3D.new()
-	tablet.position = Vector3(-0.5, ey, -2.87)
-	add_child(tablet)
-	Kit.add(tablet, Kit.box(Vector3(width, 0.14, 0.42)), Kit.mat("stone"), Vector3(0, 0.13, 0))
-	for i in cfg.order.size():
+	var n: int = cfg.order.size()
+	var spacing := minf(0.3, 1.7 / n)
+	var board := _facade_board(0, minf(n * spacing + 0.32, 1.98))
+	for i in n:
 		var id: int = cfg.order[i]
-		var clue := Kit.emblem(tablet, id, Kit.mat("puzzle_%d" % id), Vector3((i - (cfg.order.size() - 1) / 2.0) * 0.42, 0.22, 0), 0.095)
+		var clue := _facade_emblem(board, id, Kit.mat("puzzle_%d" % id), (i - (n - 1) / 2.0) * spacing + 0.07, 0.085)
 		clue_nodes.append({"node": clue, "id": id})
-	# Reading direction arrow.
-	var arrow := Kit.add(tablet, Kit.prism(Vector3(0.16, 0.16, 0.03)), Kit.mat("brass"), Vector3(-width / 2.0 - 0.18, 0.16, 0))
-	arrow.rotation = Vector3(-PI / 2, 0, -PI / 2)
+	# Reading direction arrow (left to right, like the clue order).
+	var arrow := Kit.add(board, Kit.prism(Vector3(0.1, 0.1, 0.03)), Kit.mat("brass"), Vector3(-(n - 1) / 2.0 * spacing - 0.15, 0, 0.03))
+	arrow.rotation = Vector3(0, 0, -PI / 2)
 
 
 func _build_optics() -> void:
@@ -725,10 +744,10 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 		var lit: bool = (state.bits & (1 << i)) != 0
 		for mi in lamp_nodes[i].get_children():
 			mi.material_override = Kit.mat("lit_%d" % i) if lit else Kit.mat("lamp_off")
-		lamp_nodes[i].position.y = 0.34 if lit else 0.3
+		lamp_nodes[i].position = lamp_nodes[i].get_meta("base") + Vector3(0, 0, 0.035 if lit else 0.0)
 	for i in clue_nodes.size():
 		var done := i < state.sequence
-		clue_nodes[i].node.position.y = 0.3 if done else 0.22
+		clue_nodes[i].node.position = clue_nodes[i].node.get_meta("base") + Vector3(0, 0, 0.035 if done else 0.0)
 		var mname := ("lit_%d" % clue_nodes[i].id) if done else ("puzzle_%d" % clue_nodes[i].id)
 		for mi in clue_nodes[i].node.get_children():
 			mi.material_override = Kit.mat(mname)

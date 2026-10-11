@@ -141,15 +141,12 @@ func apply_sky() -> void:
 
 func _start_intro() -> void:
 	_intro_started = true
-	if not Save.show_intro and not _args.has("intro"):
-		return
 	intro = StudioIntro.new()
 	intro.name = "StudioIntro"
 	add_child(intro)
-	if not xr:
+	if not xr and not _args.has("vrview"):
 		_update_desktop_camera()
-	var head := rig.head_transform() if xr else desktop_cam.global_transform
-	intro.play(head, xr)
+	intro.play(func(): return rig.head_transform() if xr else desktop_cam.global_transform, xr)
 	intro.finished.connect(func(): intro = null)
 
 
@@ -335,7 +332,9 @@ func _process(delta: float) -> void:
 	if xr:
 		if _session_time >= 0.0 and not _placed:
 			_session_time += delta
-			if _session_time > 0.3 and not _intro_started:
+			# Start once the headset reports a real head pose (not the origin), so
+			# the studio name appears where the player is looking.
+			if not _intro_started and _session_time > 0.3 and (rig.head_transform().origin.y > 0.3 or _session_time > 2.5):
 				_start_intro()
 			if _session_time > 0.6 and _intro_started and not intro_playing():
 				_place_board()
