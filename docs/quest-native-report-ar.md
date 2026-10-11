@@ -1,15 +1,15 @@
 # تقرير الإنجاز — مفاتيح (نسخة Meta Quest الأصلية)
 
-**عبودين قيمز — Aboden Games** · الإصدار {{VERSION}} (رقم البناء {{BUILD}})
+**عبودين قيمز — Aboden Games** · الإصدار 1.0.0 (رقم البناء 4)
 
 ## الحزمة القابلة للتنزيل
 
 | البند | القيمة |
 |---|---|
-| رابط التنزيل | {{URL}} |
-| الملف | `{{FILE}}` |
-| الحجم | {{SIZE}} |
-| SHA-256 | `{{SHA}}` |
+| رابط التنزيل | [mafateeh-quest-1.0.0-4.apk](https://github.com/3wasfnjd/Mafateeh/releases/download/quest-v1.0.0-build4/mafateeh-quest-1.0.0-4.apk) — صفحة الإصدار: https://github.com/3wasfnjd/Mafateeh/releases/tag/quest-v1.0.0-build4 |
+| الملف | `mafateeh-quest-1.0.0-4.apk` |
+| الحجم | 85,127,444 بايت (≈ 81.2 ميغابايت) |
+| SHA-256 | `f92911dce65e1a95ed440ad153c5671e9fe6ef21af3c86139ae5218315a21928` |
 | معرّف التطبيق | `com.abodengames.mafateeh` |
 | التوقيع | **مفتاح اختبار عام (للتحميل الجانبي فقط)** — ليس مفتاح إصدار، ولا يصلح للنشر في المتجر |
 | المعمارية | arm64-v8a فقط، OpenXR، فئة تشغيل Quest VR و IMMERSIVE_HMD |
