@@ -204,7 +204,9 @@ unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_meta_toolkit.so"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "com.oculus.intent.category.VR"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "org.khronos.openxr.intent.category.IMMERSIVE_HMD"
 "$BT/aapt2" dump badging "$APK" | grep -q "package: name='com.abodengames.mafateeh'"
-# Store requirements: headtracking required, Quest 3 / 3S only (the tested devices).
+# Store requirements: targetSdk 34 (Meta rejects higher), headtracking required,
+# Quest 3 / 3S only (the tested devices).
+"$BT/aapt2" dump badging "$APK" | grep -q "targetSdkVersion:'34'"
 "$BT/aapt2" dump badging "$APK" | grep -q "uses-feature: name='android.hardware.vr.headtracking'"
 ! "$BT/aapt2" dump badging "$APK" | grep -q "uses-feature-not-required: name='android.hardware.vr.headtracking'"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q 'Raw: "quest3|quest3s"' 

@@ -44,6 +44,9 @@ keytool -genkeypair -v -keystore mafateeh-release.keystore -storetype PKCS12 \
 - **«Alias … is not in the keystore. Aliases found: …»**: ضع في `MAFATEEH_KEYSTORE_ALIAS` الاسم الظاهر بعد «Aliases found».
 - **«has its own password»**: أُنشئ المفتاح بكلمتي مرور مختلفتين. أنشئه من جديد بأمر الخطوة 2 (`-storetype PKCS12`)، فهو يستخدم كلمة مرور واحدة.
 
+### اتفاقية التوزيع (مرة واحدة)
+قبل أول رفع لازم يوقّع مدير المنظمة «اتفاقية توزيع المطوّرين» (Developer Distribution Agreement) من صفحة المستندات القانونية لمنظمتك في developer.meta.com. بدونها يرفض المتجر أي رفع.
+
 ## 4) رفع نسخة إلى قناة ALPHA (بضغطة)
 افتح **Actions**، ثم **Quest APK**، ثم **Run workflow**، واختر الفرع `main`. فعّل **upload_alpha**، واختر الفئة العمرية:
 - `TEENS_AND_ADULTS` (الافتراضي، 13 سنة فأكثر).
@@ -67,7 +70,7 @@ keytool -genkeypair -v -keystore mafateeh-release.keystore -storetype PKCS12 \
 من صفحة التطبيق اختر **Submit for Review**. ميتا تنصح بالإرسال قبل موعد الإطلاق بأسبوعين على الأقل. إذا أرسلوا ملاحظات، أرسلها لي وأعالجها.
 
 ## ما تم تجهيزه في المستودع
-- إعدادات المتجر التقنية: 64-بت فقط، وتوقيع v2، و targetSdk 36، وميزة تتبع الرأس `required="true"`، والأجهزة المدعومة Quest 3 و3S فقط. خط البناء يتحقق منها كلها ويفشل إذا اختلّ أي منها.
+- إعدادات المتجر التقنية: 64-بت فقط، وتوقيع v2، و targetSdk 34 (الحد الأعلى المقبول في متجر Meta)، وميزة تتبع الرأس `required="true"`، والأجهزة المدعومة Quest 3 و3S فقط. خط البناء يتحقق منها كلها ويفشل إذا اختلّ أي منها.
 - فحص ملكية اللعبة عبر Godot Meta Toolkit 1.0.3، ويعمل فقط عند وجود `META_APP_ID`.
 - رفع آلي إلى ALPHA بأداة Meta الرسمية `ovr-platform-util`، مع منع الرفع بمفتاح الاختبار.
 - سياسة الخصوصية بالعربية والإنجليزية.
