@@ -6,6 +6,7 @@ extends Node
 ## stays on its visible source when the board moves, rotates or resizes.
 ##
 ## Buses: Master (limiter) <- SFX, Ambience, Rain (low-pass for indoors), UI.
+## Player volumes: master; effects (SFX + UI); ambience (Ambience + Rain).
 
 const SFX_DIR := "res://audio/sfx/"
 const AMB_DIR := "res://audio/ambience/"
@@ -291,7 +292,7 @@ func _process(delta: float) -> void:
 	_indoor = move_toward(_indoor, target_in, delta * 2.0)
 	if _rain_lpf:
 		_rain_lpf.cutoff_hz = lerpf(20000.0, 900.0, _indoor)
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Rain"), -5.0 - 6.0 * _indoor)
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Rain"), -5.0 - 6.0 * _indoor + _gain(Save.ambience_volume))
 
 
 func set_paused(p: bool) -> void:
@@ -304,6 +305,13 @@ func set_paused(p: bool) -> void:
 	AudioServer.set_bus_mute(0, p or Save.muted)
 
 
+static func _gain(v: float) -> float:
+	return linear_to_db(maxf(v, 0.0001))
+
+
 func apply_volume() -> void:
-	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(Save.master_volume, 0.0001)))
+	AudioServer.set_bus_volume_db(0, _gain(Save.master_volume))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), _gain(Save.sfx_volume))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("UI"), _gain(Save.sfx_volume))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Ambience"), -6.0 + _gain(Save.ambience_volume))
 	AudioServer.set_bus_mute(0, Save.muted or paused)

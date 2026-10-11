@@ -182,6 +182,12 @@ func ray(hand: String) -> Array:
 	return [t.origin, -t.basis.z.normalized()]
 
 
+## Short controller vibration (OpenXR "haptic" output); off when disabled in settings.
+func pulse(hand: String, amplitude := 0.3, seconds := 0.04) -> void:
+	if xr_active and Save.haptics and hands.has(hand) and tracked(hand):
+		hands[hand].aim.trigger_haptic_pulse("haptic", 0.0, amplitude, seconds, 0.0)
+
+
 func head_transform() -> Transform3D:
 	return camera.global_transform
 

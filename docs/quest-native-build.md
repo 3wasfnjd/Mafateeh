@@ -98,7 +98,7 @@ quest-native/
   scripts/art/     kit.gd (shared materials, kit pieces) · level_view.gd (level visuals)
   scripts/env/     sky_weather.gd (time of day) · rain_field.gd (weather) · vr_scenery.gd
   scripts/audio/   game_audio.gd
-  scripts/ui/      settings_menu.gd
+  scripts/ui/      settings_menu.gd, studio_intro.gd (Aboden Games mark at launch)
   assets/character/hero.glb · assets/kit/najdi_kit.glb · assets/textures · assets/fonts
   audio/sfx, audio/ambience (generated WAV, imported as QOA)
   art_source/      editable Blender files (ignored by Godot, not packaged)
@@ -119,6 +119,7 @@ python -m venv /opt/bpyenv && /opt/bpyenv/bin/pip install bpy==5.2.2
 /opt/bpyenv/bin/python tools/blender/build_kit.py -- assets/kit               # najdi_kit.glb + art_source/kit/najdi_kit.blend
 python3 tools/art/make_textures.py assets/textures
 python3 tools/audio/generate_audio.py audio                                   # needs numpy + scipy
+python3 tools/art/make_brand.py assets/brand <cairo-arabic.ttf> <cairo-latin.ttf> ../store  # studio mark
 ```
 
 All are deterministic (fixed seeds). The `.blend` files can be edited directly in Blender 5.2;
@@ -126,7 +127,8 @@ re-export with the same names to keep the game's lookups working.
 
 ## Developer options
 
-- Level selector, time and weather overrides: settings panel → *About* → tap the title seven
+- Players can replay any level they have reached (menu → *Levels*, or previous/next). Developer
+  tools unlock every level and add time and weather overrides: settings panel → *About* → tap the title seven
   times (toggles developer tools on this device), or set `mafateeh/dev/level_select=true` in
   `project.godot` for a developer build. `mafateeh/dev/force_time` / `force_weather` force a preset.
 - Desktop run without a headset (for development and screenshots): run the project normally; it falls
