@@ -3,6 +3,8 @@ name: Quest APK
 # Artifacts: APK, SHA-256, test report, APK verification report.
 # A GitHub pre-release with a public download link is published when run
 # manually with "publish" checked, or when the head commit message contains "[release]".
+# "sideload_test" builds a test-key APK without the store entitlement check (installs
+# directly on a headset in developer mode) and publishes it, even when store secrets exist.
 on:
   push:
     branches: [main, quest-native]
@@ -11,6 +13,10 @@ on:
     inputs:
       publish:
         description: 'Publish a GitHub pre-release with the APK'
+        type: boolean
+        default: false
+      sideload_test:
+        description: 'Sideload test build: test key, no store entitlement check, published as a pre-release'
         type: boolean
         default: false
       upload_alpha:
@@ -25,8 +31,10 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: quest-apk-${{ github.ref }}
-  cancel-in-progress: true
+  # Pushes supersede each other; manual runs (store uploads, sideload builds) never
+  # cancel one another or get cancelled by a push.
+  group: quest-apk-${{ github.ref }}-${{ github.event_name == 'push' && 'push' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -45,10 +53,10 @@ jobs:
         env:
           VERSION_CODE: ${{ github.run_number }}
           OUT_DIR: ${{ github.workspace }}/build
-          MAFATEEH_KEYSTORE_B64: ${{ secrets.MAFATEEH_KEYSTORE_B64 }}
-          MAFATEEH_KEYSTORE_ALIAS: ${{ secrets.MAFATEEH_KEYSTORE_ALIAS }}
-          MAFATEEH_KEYSTORE_PASSWORD: ${{ secrets.MAFATEEH_KEYSTORE_PASSWORD }}
-          META_APP_ID: ${{ secrets.META_APP_ID }}
+          MAFATEEH_KEYSTORE_B64: ${{ !inputs.sideload_test && secrets.MAFATEEH_KEYSTORE_B64 || '' }}
+          MAFATEEH_KEYSTORE_ALIAS: ${{ !inputs.sideload_test && secrets.MAFATEEH_KEYSTORE_ALIAS || '' }}
+          MAFATEEH_KEYSTORE_PASSWORD: ${{ !inputs.sideload_test && secrets.MAFATEEH_KEYSTORE_PASSWORD || '' }}
+          META_APP_ID: ${{ !inputs.sideload_test && secrets.META_APP_ID || '' }}
         run: bash quest-native/tools/ci/build_apk.sh
       - uses: actions/upload-artifact@v4
         if: always()
@@ -61,7 +69,7 @@ jobs:
             build/export.log
           if-no-files-found: warn
       - name: Publish pre-release
-        if: ${{ success() && (inputs.publish || contains(github.event.head_commit.message, '[release]')) }}
+        if: ${{ success() && (inputs.publish || inputs.sideload_test || contains(github.event.head_commit.message, '[release]')) }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -80,7 +88,7 @@ jobs:
           gh release create "$TAG" build/*.apk build/*.sha256 build/apk-report.txt build/test-report.txt \
             --target "${{ github.sha }}" --prerelease --title "Mafateeh Quest ${VERSION} (build ${{ github.run_number }})" --notes-file notes.md
       - name: Upload to Meta Horizon Store (ALPHA)
-        if: ${{ success() && inputs.upload_alpha }}
+        if: ${{ success() && inputs.upload_alpha && !inputs.sideload_test }}
         env:
           META_APP_ID: ${{ secrets.META_APP_ID }}
           META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
