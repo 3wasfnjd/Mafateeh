@@ -111,6 +111,10 @@ func tick(dt: float, move: Vector2) -> void:
 		elif transition <= 0.0 and _fade_dir < 0.0:
 			_fade_dir = 0.0
 		move = Vector2.ZERO
+	# Short, comfortable transition: the miniature sinks into its plinth and rises again.
+	var sink := smoothstep(0.0, 1.0, transition)
+	scale = Vector3(1.0, maxf(1.0 - sink, 0.02), 1.0)
+	visible = sink < 0.99
 	if state == null:
 		return
 	motor.update(dt, move)

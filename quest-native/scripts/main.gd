@@ -125,6 +125,44 @@ func _place_board() -> void:
 	board.visible = true
 	_placed = true
 	menu.notify_placement(board.placement_source)
+	if not Save.hint_shown:
+		_show_controller_hints()
+
+
+var _hints: Array = []
+var _hint_t := 0.0
+
+
+## One-time, compact labels on the controllers (no instruction panel).
+func _show_controller_hints() -> void:
+	var texts := {"right": "عصا التحكم: تحريك الشخصية\nالزناد: تفاعل", "left": "عصا التحكم: تدوير وتكبير\nالقبضة: تموضع اللوحة\n☰ الإعدادات"}
+	for hand in texts:
+		var l := Label3D.new()
+		l.text = texts[hand]
+		l.pixel_size = 0.00035
+		l.font_size = 40
+		l.outline_size = 8
+		l.font = menu._font
+		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		l.position = Vector3(0, 0.06, 0.02)
+		rig.hands[hand].grip.add_child(l)
+		_hints.append(l)
+	_hint_t = 15.0
+
+
+func _update_hints(delta: float, moved: bool) -> void:
+	if _hints.is_empty():
+		return
+	_hint_t -= delta * (3.0 if moved else 1.0)
+	for l in _hints:
+		l.modulate.a = clampf(_hint_t / 2.0, 0.0, 1.0)
+		l.outline_modulate.a = l.modulate.a
+	if _hint_t <= 0.0:
+		for l in _hints:
+			l.queue_free()
+		_hints.clear()
+		Save.hint_shown = true
+		Save.save()
 
 
 func _on_trigger(hand: String, origin: Vector3, direction: Vector3) -> void:
@@ -202,6 +240,7 @@ func _process(delta: float) -> void:
 		if not rig.tracked("right"):
 			move = Vector2.ZERO
 		game.tick(delta, move)
+		_update_hints(delta, move != Vector2.ZERO)
 		_update_pointers()
 	else:
 		game.tick(delta, _desktop_move())

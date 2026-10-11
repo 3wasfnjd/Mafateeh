@@ -19,12 +19,17 @@ echo "$INT"
 echo "$INT" | grep -q "INTEGRATION: PASS" || status=1
 echo "$INT" | grep -q "SCRIPT ERROR" && status=1
 echo
+echo "== Draw budget (static proxy; real frame time needs a headset)"
+DRW=$("$GODOT" --headless --xr-mode off --path . res://tests/draw_budget.tscn 2>&1 | grep -E "^level|DRAW_BUDGET")
+echo "$DRW" | tail -1
+echo "$DRW" | grep -q "PASS" || status=1
+echo
 echo "== Audio assets"
 AUD=$("$PY" tools/audio/check_audio.py audio 2>&1 | tail -4)
 echo "$AUD"
 echo "$AUD" | grep -q "RESULT: PASS" || status=1
 if [ -n "$REPORT" ]; then
-  { echo; echo "== Integration (main scene)"; echo "$INT"; echo; echo "== Audio assets"; echo "$AUD"; } >> "$REPORT"
+  { echo; echo "== Integration (main scene)"; echo "$INT"; echo; echo "== Draw budget"; echo "$DRW"; echo; echo "== Audio assets"; echo "$AUD"; } >> "$REPORT"
 fi
 echo
 echo "SUITE: $([ $status -eq 0 ] && echo PASS || echo FAIL)"

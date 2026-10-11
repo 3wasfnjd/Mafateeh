@@ -15,6 +15,7 @@ var muted := false
 var mode := "mr"  # "mr" (passthrough) | "vr"
 var board_scale := 0.12
 var dev_enabled := false
+var hint_shown := false
 var dev_time := ""  # override: dawn/day/sunset/night
 var dev_weather := ""  # override: clear/rain
 
@@ -35,6 +36,7 @@ func load_data() -> void:
 	mode = str(cfg.get_value("settings", "mode", "mr"))
 	board_scale = clampf(float(cfg.get_value("settings", "board_scale", 0.12)), 0.06, 0.26)
 	dev_enabled = bool(cfg.get_value("dev", "enabled", false))
+	hint_shown = bool(cfg.get_value("settings", "hint_shown", false))
 	current_level = mini(current_level, unlocked_level) if not dev_tools_available() else current_level
 
 
@@ -49,6 +51,7 @@ func save() -> void:
 	cfg.set_value("settings", "mode", mode)
 	cfg.set_value("settings", "board_scale", board_scale)
 	cfg.set_value("dev", "enabled", dev_enabled)
+	cfg.set_value("settings", "hint_shown", hint_shown)
 	cfg.save(PATH)
 
 
