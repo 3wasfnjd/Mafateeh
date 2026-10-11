@@ -390,7 +390,8 @@ def shemagh_point(th, z, offset=0.0):
     r += offset
     p = Vector((r * math.sin(th), -r * math.cos(th) + 0.006, z))
     # The forward peak above the brow that gives the shemagh its silhouette.
-    peak = 0.04 * math.exp(-(th / 0.33) ** 2) * math.exp(-((z - 1.1) / 0.06) ** 2)
+    # It rises above the agal, so the round cord sits cleanly below it.
+    peak = 0.04 * math.exp(-(th / 0.33) ** 2) * math.exp(-((z - 1.135) / 0.035) ** 2)
     p.y -= peak
     p.z += 0.6 * peak
     return p
@@ -444,26 +445,31 @@ def build_shemagh(b):
 
 
 def build_agal(b):
-    # Two black cord rings, tilted so they sit lower at the back. Each ring hugs the
-    # shemagh's real outer surface (including the forward peak over the brow), so
-    # the cloth never pokes through the cord.
-    tilt = math.radians(9)
+    # Two round black cord rings, tilted slightly so they sit lower at the back.
+    # Each circle is sized to clear the shemagh all the way round (checked against
+    # the real cloth surface at every azimuth), so the cloth never pokes through.
+    tilt_deg = 5.0
+    tilt = Matrix.Rotation(math.radians(-tilt_deg), 4, "X")
     cord = 0.013
-    for z0, lift in ((1.052, 0.0), (1.092, 0.0)):
+    for z0 in (1.045, 1.077):
+        clear = 0.0
+        for k in range(180):
+            a = 2 * math.pi * k / 180
+            th = a if a <= math.pi else a - 2 * math.pi
+            z = z0 + 0.2 * math.sin(math.radians(tilt_deg)) * math.cos(a)
+            surf = shemagh_point(th, z, 0.022)
+            clear = max(clear, math.hypot(surf.x, surf.y - 0.006))
+        r_major = clear + cord + 0.002
         rows = []
         n, m = 48, 8
         for i in range(n + 1):
             a = 2 * math.pi * i / n
-            th = a if a <= math.pi else a - 2 * math.pi
-            # Height of the tilted ring at this azimuth: higher at the front.
-            z = z0 + 0.19 * math.sin(tilt) * math.cos(a) + lift
-            surf = shemagh_point(th, z, 0.022)
-            d = Vector((math.sin(a), -math.cos(a), 0.0))  # outward, horizontal
-            centre = Vector((surf.x, surf.y, z)) + d * (cord + 0.004)
             ring = []
             for j in range(m):
                 c = 2 * math.pi * j / m
-                p = centre + d * (cord * math.cos(c)) + Vector((0, 0, cord * math.sin(c)))
+                rr = r_major + cord * math.cos(c)
+                p = Vector((rr * math.sin(a), -rr * math.cos(a), cord * math.sin(c)))
+                p = tilt @ p + Vector((0, 0.006, z0))
                 ring.append((b.vert(p, w_head(p)), (i / n, j / m)))
             rows.append(ring)
         for r in range(n):
