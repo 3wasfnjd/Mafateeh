@@ -48,10 +48,11 @@ placement (hold the grip button to move the board) and says so.
 | Trigger | Select: interact with puzzle objects, walk to a spot, push a crate; point at the character to put down a carried brick |
 | Grip (tap) | Recenter / re-place the board (snaps to a detected table in mixed reality) |
 | Grip (hold) | Drag the board |
-| Left menu button ☰ | Menu: resume, restart, previous/next level, level list (every level reached so far), settings (sound: master/effects/ambience, mute; controls: smooth or 30° snap turning, turn speed, left-handed stick swap, vibration, show controller hints; display: mixed reality / VR, weather per level or always clear, board size/position, studio intro on/off, reset progress), about |
+| Left menu button ☰ | Menu: resume, restart, previous/next level, level list (every level reached so far), settings (sound: master/effects/ambience, mute; controls: smooth or 30° snap turning, turn speed, left-handed stick swap, vibration, show controller hints; display: mixed reality / VR, weather per level or always clear, board size/position, language Arabic / English, graphics high / balanced, studio intro on/off, reset progress), about |
 
-At launch the Aboden Games studio mark plays for about four seconds; press the trigger or ☰
-to skip it, or turn it off under Settings → Display.
+At launch the studio name (عبودين قيمز — Aboden Games) floats in front of you for about four
+seconds; press the trigger or ☰ to skip it, or turn it off under Settings → Display. The
+interface follows the headset language (Arabic or English) until you pick one in the settings.
 
 ## Updating and uninstalling
 

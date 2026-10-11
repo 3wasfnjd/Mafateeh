@@ -37,6 +37,13 @@ keytool -genkeypair -v -keystore mafateeh-release.keystore -storetype PKCS12 \
 
 بعد إضافة `META_APP_ID` يتفعّل **التحقق من ملكية اللعبة** تلقائيًا في نسخ المتجر. أما نسخ التجربة الجانبية فلا تتأثر.
 
+### إذا فشل البناء بسبب المفتاح
+يفحص خط البناء المفتاح قبل أي شيء، ويكتب السبب بالضبط في سجل الخطوة **Build, test and verify APK**. المسافات والأسطر الزائدة في الأسرار تُحذف تلقائيًا.
+- **«is not valid Base64»**: انسخ نص Base64 للملف كاملًا من جديد، وضعه في `MAFATEEH_KEYSTORE_B64`.
+- **«did not open with MAFATEEH_KEYSTORE_PASSWORD»**: كلمة المرور في السر غير صحيحة.
+- **«Alias … is not in the keystore. Aliases found: …»**: ضع في `MAFATEEH_KEYSTORE_ALIAS` الاسم الظاهر بعد «Aliases found».
+- **«has its own password»**: أُنشئ المفتاح بكلمتي مرور مختلفتين. أنشئه من جديد بأمر الخطوة 2 (`-storetype PKCS12`)، فهو يستخدم كلمة مرور واحدة.
+
 ## 4) رفع نسخة إلى قناة ALPHA (بضغطة)
 افتح **Actions**، ثم **Quest APK**، ثم **Run workflow**، واختر الفرع `main`. فعّل **upload_alpha**، واختر الفئة العمرية:
 - `TEENS_AND_ADULTS` (الافتراضي، 13 سنة فأكثر).

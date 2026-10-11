@@ -117,6 +117,7 @@ func start() -> bool:
 		if xr_interface == null or not xr_interface.initialize():
 			return false
 	xr_active = true
+	apply_quality(Save.quality)
 	var vp := get_viewport()
 	vp.use_xr = true
 	# Quest refresh rate: keep the runtime default (72 Hz) unless asked otherwise.
@@ -127,6 +128,17 @@ func start() -> bool:
 	xr_interface.session_stopping.connect(func(): _set_focus(false))
 	xr_interface.pose_recentered.connect(func(): grip_tapped.emit("recenter"))
 	return true
+
+
+## Render quality: "high" renders above the headset's recommended resolution with
+## light foveation; "balanced" uses the recommended size and stronger foveation.
+func apply_quality(q: String) -> void:
+	if xr_interface == null:
+		return
+	var high := q == "high"
+	xr_interface.render_target_size_multiplier = 1.3 if high else 1.0
+	xr_interface.foveation_level = 1 if high else 2
+	xr_interface.foveation_dynamic = true
 
 
 func _on_session_begun() -> void:

@@ -25,6 +25,8 @@ var left_handed := false  # swaps the two sticks: left moves the hero
 var haptics := true
 var weather_pref := "auto"  # "auto" (per level) | "clear"
 var show_intro := true
+var quality := "high"  # "high" | "balanced" (render resolution, foveation, shadows)
+var language := ""  # "ar" | "en"; empty until chosen: follows the headset language
 var dev_time := ""  # override: dawn/day/sunset/night
 var dev_weather := ""  # override: clear/rain
 
@@ -54,6 +56,8 @@ func load_data() -> void:
 	haptics = bool(cfg.get_value("settings", "haptics", true))
 	weather_pref = "clear" if str(cfg.get_value("settings", "weather", "auto")) == "clear" else "auto"
 	show_intro = bool(cfg.get_value("settings", "show_intro", true))
+	language = str(cfg.get_value("settings", "language", ""))
+	quality = "balanced" if str(cfg.get_value("settings", "quality", "high")) == "balanced" else "high"
 	current_level = mini(current_level, unlocked_level) if not dev_tools_available() else current_level
 
 
@@ -77,7 +81,26 @@ func save() -> void:
 	cfg.set_value("settings", "haptics", haptics)
 	cfg.set_value("settings", "weather", weather_pref)
 	cfg.set_value("settings", "show_intro", show_intro)
+	cfg.set_value("settings", "language", language)
+	cfg.set_value("settings", "quality", quality)
 	cfg.save(PATH)
+
+
+## Interface language: the player's choice, else Arabic on an Arabic-language
+## headset and English otherwise.
+func lang() -> String:
+	if language == "ar" or language == "en":
+		return language
+	return "ar" if OS.get_locale_language() == "ar" else "en"
+
+
+func arabic() -> bool:
+	return lang() == "ar"
+
+
+## Picks the interface string for the current language.
+func text(ar: String, en: String) -> String:
+	return ar if arabic() else en
 
 
 func dev_tools_available() -> bool:

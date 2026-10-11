@@ -395,11 +395,13 @@ func _build_mechanism(m: Dictionary) -> Dictionary:
 				out.leaves.append([hinge, side])
 			Kit.add(root, Kit.box(Vector3(w + 0.34, 0.1, 0.36)), Kit.mat("wood"), Vector3(0, 0.98, 0))
 			# Plaque shows what opens this door, so it never depends on colour alone.
-			var icon: int = {"lock": 3, "circuit": 0, "dials": 2, "balance": 1}.get(m.condition, 0)
-			var plaque := Kit.add(root, Kit.box(Vector3(0.3, 0.3, 0.05)), Kit.mat("brass_dark"), Vector3(0, 1.2, 0.0))
-			plaque.name = "Plaque"
-			var e := Kit.emblem(root, icon, Kit.mat("brass"), Vector3(0, 1.2, 0.04), 0.09)
-			e.rotation.x = PI / 2
+			# Lock doors show their keyhole instead of a plaque.
+			if m.condition != "lock":
+				var icon: int = {"circuit": 0, "dials": 2, "balance": 1}.get(m.condition, 0)
+				var plaque := Kit.add(root, Kit.box(Vector3(0.3, 0.3, 0.05)), Kit.mat("brass_dark"), Vector3(0, 1.2, 0.0))
+				plaque.name = "Plaque"
+				var e := Kit.emblem(root, icon, Kit.mat("brass"), Vector3(0, 1.2, 0.04), 0.09)
+				e.rotation.x = PI / 2
 			if m.condition == "lock":
 				Kit.add(root, Kit.box(Vector3(0.18, 0.22, 0.08)), Kit.mat("brass_dark"), Vector3(0, 0.5, 0.08))
 				Kit.add(root, Kit.cylinder(0.025, 0.025, 0.02, 10), Kit.mat("iron"), Vector3(0, 0.53, 0.13)).rotation.x = PI / 2
@@ -421,8 +423,9 @@ func _build_mechanism(m: Dictionary) -> Dictionary:
 			Kit.add(gate, Kit.box(Vector3(1.24, 0.08, 0.09)), Kit.mat("wood"), Vector3(0, 0.8, 0))
 			Kit.add(gate, Kit.box(Vector3(1.24, 0.08, 0.09)), Kit.mat("wood"), Vector3(0, 0.2, 0))
 			var icon: int = {"circuit": 0, "light": 1, "choice": 1, "keyChoice": 3}.get(m.condition, 0)
-			var e := Kit.emblem(gate, icon, Kit.mat("brass"), Vector3(0, 0.95, 0.04), 0.09)
-			e.rotation.x = PI / 2
+			if icon != 3:  # no cross ("plus") marks above gates
+				var e := Kit.emblem(gate, icon, Kit.mat("brass"), Vector3(0, 0.95, 0.04), 0.09)
+				e.rotation.x = PI / 2
 			out["gate"] = gate
 		"pool_bridge":
 			var stones := Node3D.new()

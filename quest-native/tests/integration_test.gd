@@ -28,6 +28,7 @@ func frames(n: int, move := Vector2.ZERO) -> void:
 
 func _run() -> void:
 	Save.reset_progress()
+	Save.language = "ar"
 	main = load("res://scenes/main.tscn").instantiate()
 	get_tree().root.add_child(main)
 	await get_tree().process_frame
@@ -177,6 +178,12 @@ func _run() -> void:
 	await frames(70)
 	check(not main.sky.raining, "always-clear overrides the rainy level")
 	main.menu.press("الطقس")
+	check(main.menu.press("اللغة"), "language option")
+	check(not Save.arabic(), "switches to English")
+	check(main.menu.press("Reset progress"), "menu text follows the language")
+	main.menu.press("Cancel")
+	main.menu.press("Language")
+	check(Save.arabic(), "switches back to Arabic")
 	main.menu.press("مسح التقدم")
 	check(main.menu.page() == "reset", "reset asks for confirmation")
 	main.menu.press("إلغاء")

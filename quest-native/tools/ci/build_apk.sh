@@ -81,10 +81,34 @@ EOF
 log "Signing"
 KEYDIR="$(mktemp -d)"
 if [ -n "${MAFATEEH_KEYSTORE_B64:-}" ]; then
-  echo "$MAFATEEH_KEYSTORE_B64" | base64 -d > "$KEYDIR/release.keystore"
+  # Copy-pasted secrets often carry a stray newline, CR or space: strip them.
+  KS_ALIAS="$(printf '%s' "${MAFATEEH_KEYSTORE_ALIAS:?MAFATEEH_KEYSTORE_ALIAS secret missing}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  KS_PASS="$(printf '%s' "${MAFATEEH_KEYSTORE_PASSWORD:?MAFATEEH_KEYSTORE_PASSWORD secret missing}" | tr -d '\r\n')"
+  if ! printf '%s' "$MAFATEEH_KEYSTORE_B64" | tr -d ' \r\n\t' | base64 -d > "$KEYDIR/release.keystore" 2>/dev/null \
+     || [ ! -s "$KEYDIR/release.keystore" ]; then
+    echo "::error::MAFATEEH_KEYSTORE_B64 is not valid Base64. Re-copy the whole Base64 text of the keystore file."
+    exit 1
+  fi
+  echo "keystore: $(stat -c %s "$KEYDIR/release.keystore") bytes, sha256 $(sha256sum "$KEYDIR/release.keystore" | cut -c1-12)…"
+  KT="$JAVA/bin/keytool"
+  if ! "$KT" -list -keystore "$KEYDIR/release.keystore" -storepass "$KS_PASS" >/dev/null 2>"$KEYDIR/kt.err"; then
+    echo "::error::The keystore did not open with MAFATEEH_KEYSTORE_PASSWORD ($(grep -v "^Picked up" "$KEYDIR/kt.err" | head -c 200 | tr '\n' ' ')). Either the password secret is wrong or the Base64 text is not the full keystore file."
+    exit 1
+  fi
+  if ! "$KT" -list -keystore "$KEYDIR/release.keystore" -storepass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
+    echo "::error::Alias '$KS_ALIAS' (MAFATEEH_KEYSTORE_ALIAS) is not in the keystore. Aliases found: $("$KT" -list -keystore "$KEYDIR/release.keystore" -storepass "$KS_PASS" 2>/dev/null | sed -n 's/^\([^,]*\), .*PrivateKeyEntry.*/\1/p' | paste -sd, -)"
+    exit 1
+  fi
+  # A JKS keystore may hold a key password different from the store password;
+  # Godot signs with one password for both.
+  if ! "$KT" -certreq -keystore "$KEYDIR/release.keystore" -storepass "$KS_PASS" -keypass "$KS_PASS" -alias "$KS_ALIAS" >/dev/null 2>&1; then
+    echo "::error::The key '$KS_ALIAS' has its own password, different from the keystore password. Recreate the keystore with -storetype PKCS12 (one password) as in docs/meta-store-submission.md."
+    exit 1
+  fi
+  echo "keystore check: password and alias OK"
   export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KEYDIR/release.keystore"
-  export GODOT_ANDROID_KEYSTORE_RELEASE_USER="${MAFATEEH_KEYSTORE_ALIAS:?}"
-  export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="${MAFATEEH_KEYSTORE_PASSWORD:?}"
+  export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$KS_ALIAS"
+  export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$KS_PASS"
   SIGNING="private key from repository secrets"
 else
   # Public, test-only key so successive test builds can be installed over each other.

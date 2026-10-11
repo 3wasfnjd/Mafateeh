@@ -1,7 +1,8 @@
-"""Aboden Games (عبودين قيمز) studio mark for the intro sequence.
+"""Aboden Games (عبودين قيمز) studio name art.
 python make_brand.py <quest-native/assets/brand> [cairo-arabic.ttf cairo-latin.ttf] [store_dir]
-Writes aboden_emblem.png (1024, transparent): an eight-point Najdi star in gold with
-the letter ع, aboden_wordmark.png (names only); with [store_dir], also aboden_logo.png (full lockup) there.
+Writes aboden_wordmark.png (the names عبودين قيمز / ABODEN GAMES on transparency), used by
+the launch intro. With [store_dir], also aboden_logo.png there: the full lockup with the
+eight-point Najdi star and the letter ع, for the store page and docs (not in the APK).
 Needs Pillow with libraqm (Arabic shaping) and TTF copies of the Cairo font."""
 import math, os, sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
@@ -66,7 +67,6 @@ d = ImageDraw.Draw(glyph)
 bb = d.textbbox((0, 0), "ع", font=font, direction="rtl", language="ar")
 d.text((C - (bb[0] + bb[2]) / 2, C - (bb[1] + bb[3]) / 2 + 6), "ع", font=font, fill=255, direction="rtl", language="ar")
 emblem.alpha_composite(layer(glyph, gradient(GOLD_HI, GOLD_LO)))
-emblem.save(os.path.join(out, "aboden_emblem.png"))
 
 # Full lockup (emblem + wordmark) on transparency.
 W, H = 2048, 1400
