@@ -116,7 +116,7 @@ static func mat(name: String) -> Material:
 			m.albedo_color = Color("ffd98a")
 			m.emission_enabled = true
 			m.emission = Color("ffb950")
-			m.emission_energy_multiplier = 1.6
+			m.emission_energy_multiplier = 0.9
 		"lamp_off":
 			m.albedo_color = Color("5b6a66")
 			m.roughness = 0.6
@@ -145,11 +145,14 @@ static func mat(name: String) -> Material:
 				m.albedo_color = PUZZLE_COLORS[i % 4]
 				m.emission_enabled = true
 				m.emission = PUZZLE_COLORS[i % 4]
-				m.emission_energy_multiplier = 1.4
+				m.emission_energy_multiplier = 0.9
 	if m.albedo_texture != null and name in ["plaster", "plaster_top", "stone", "wood", "wood_light"]:
 		var tint: Color = {"plaster": Color(1, 1, 1), "plaster_top": Color(1.08, 1.06, 1.04), "stone": Color(1, 1, 1),
 			"wood": Color(0.95, 0.92, 0.9), "wood_light": Color(1.35, 1.3, 1.25)}[name]
 		m.albedo_color = tint
+	if m.albedo_texture != null:
+		# Sharp paving and walls at grazing angles (floor seen at arm's length).
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_materials[name] = m
 	return m
 

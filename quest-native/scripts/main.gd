@@ -85,6 +85,7 @@ func _ready() -> void:
 	add_child(menu)
 	menu.setup(self)
 
+	apply_quality()
 	game.level_completed.connect(_on_level_completed)
 	game.level_loaded.connect(func(_n): apply_sky())
 	game.feedback.connect(_haptic_feedback)
@@ -148,7 +149,7 @@ func _start_intro() -> void:
 	if not xr:
 		_update_desktop_camera()
 	var head := rig.head_transform() if xr else desktop_cam.global_transform
-	intro.play(head, not _args.has("noveil"), xr)
+	intro.play(head, xr)
 	intro.finished.connect(func(): intro = null)
 
 
@@ -191,11 +192,26 @@ func _haptic_feedback(event: String, _at: Vector3) -> void:
 		"solved", "exit": rig.pulse(move_hand(), 0.5, 0.12)
 
 
+## Text that is already on screen follows a language change at once.
+func refresh_language() -> void:
+	if not _hints.is_empty():
+		show_controller_hints()
+
+
+func apply_quality() -> void:
+	var high := Save.quality == "high"
+	RenderingServer.directional_shadow_atlas_set_size(4096 if high else 2048, true)
+	RenderingServer.directional_soft_shadow_filter_set_quality(
+		RenderingServer.SHADOW_QUALITY_SOFT_LOW if high else RenderingServer.SHADOW_QUALITY_HARD)
+	if xr:
+		rig.apply_quality(Save.quality)
+
+
 func reset_board_size() -> void:
 	board.set_board_scale(DEFAULT_BOARD_SCALE)
 	Save.board_scale = board.board_scale
 	Save.save()
-	menu.toast("أُعيد حجم اللوحة الافتراضي", 2.5)
+	menu.toast(Save.text("أُعيد حجم اللوحة الافتراضي", "Board size reset"), 2.5)
 
 
 func _place_board() -> void:
@@ -223,9 +239,9 @@ func show_controller_hints() -> void:
 	for l in _hints:
 		l.queue_free()
 	_hints.clear()
-	var texts := {move_hand(): "عصا التحكم: تحريك الشخصية\nالزناد: تفاعل",
-		board_hand(): "عصا التحكم: تدوير وتكبير\nالقبضة: تموضع اللوحة"}
-	texts["left"] += "\n☰ الإعدادات"
+	var texts := {move_hand(): Save.text("عصا التحكم: تحريك الشخصية\nالزناد: تفاعل", "Stick: move the character\nTrigger: interact"),
+		board_hand(): Save.text("عصا التحكم: تدوير وتكبير\nالقبضة: تموضع اللوحة", "Stick: turn and resize\nGrip: place the board")}
+	texts["left"] += Save.text("\n☰ الإعدادات", "\n☰ Menu")
 	for hand in texts:
 		var l := Label3D.new()
 		l.text = texts[hand]
@@ -335,7 +351,8 @@ func _process(delta: float) -> void:
 		_update_pointers()
 	else:
 		game.tick(delta, _desktop_move())
-		_update_desktop_camera()
+		if not _args.has("vrview"):
+			_update_desktop_camera()
 
 
 ## Board stick: x turns the board (smoothly, or in 30° steps), y resizes it.
@@ -404,6 +421,16 @@ func _setup_desktop() -> void:
 	board.position = Vector3.ZERO
 	board.visible = true
 	_placed = true
+	if _args.has("vrview"):  # see the scene as a standing VR player does (board to scale)
+		var head := Transform3D(Basis(), Vector3(0, 1.6, 0))
+		board.set_board_scale(DEFAULT_BOARD_SCALE)
+		board.place_in_front(head, 0.62)
+		sky.follow_board = true
+		desktop_cam.fov = 80.0
+		desktop_cam.position = head.origin
+		desktop_cam.rotation = Vector3(deg_to_rad(float(_args.get("pitch", -22))), deg_to_rad(float(_args.get("yaw", 0))), 0)
+		set_mode("vr")
+		return
 	_cam_yaw = deg_to_rad(float(_args.get("yaw", 32)))
 	_cam_pitch = deg_to_rad(float(_args.get("pitch", 45)))
 	_cam_zoom = float(_args.get("zoom", 1.0))

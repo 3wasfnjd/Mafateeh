@@ -63,8 +63,8 @@ func setup(e: Environment, s: DirectionalLight3D, b: Node3D, g: Node3D) -> void:
 	for side in [-1, 1]:
 		var l := OmniLight3D.new()
 		l.light_color = Color("ffb35c")
-		l.omni_range = 3.2
-		l.omni_attenuation = 1.6
+		l.omni_range = 1.6
+		l.omni_attenuation = 1.4
 		l.shadow_enabled = false
 		l.position = Vector3(LevelData.EXIT_X + side * 0.82, 1.35, -3.25)
 		board.add_child(l)
@@ -147,6 +147,11 @@ func _process(delta: float) -> void:
 	rain.amount = rain_amount
 	var hero_pos: Vector2 = game.motor.pos if game and game.get("motor") else Vector2.ZERO
 	rain.hero = hero_pos
+	# Light range is in world metres and ignores the board's scale: keep the
+	# lantern glow around the gatehouse (about 1.6 board units) at any board size.
+	var k := board.global_transform.basis.get_scale().x
+	for l in lanterns:
+		l.omni_range = 1.6 * k
 	scenery.stand.visible = follow_board and board.visible
 	if follow_board and scenery.visible and board.visible:
 		scenery.follow(board)
@@ -167,9 +172,15 @@ func _apply(p: Dictionary) -> void:
 	sky_mat.ground_horizon_color = p.horizon.lerp(p.ground, 0.5)
 	sky_mat.ground_bottom_color = p.ground
 	sky_mat.sun_angle_max = 6.0 if time_name == "night" else 20.0
+	# Soft lantern light: a warm hint at dusk and night, never a hot spot.
 	for l in lanterns:
-		l.light_energy = p.lanterns * 1.6
+		l.light_energy = p.lanterns * 0.6
 		l.visible = p.lanterns > 0.05
+	var lantern := Kit.piece("lantern")
+	if lantern and lantern.get_surface_count() > 1:
+		var glass := lantern.surface_get_material(1) as StandardMaterial3D
+		if glass:
+			glass.emission_energy_multiplier = 0.15 + p.lanterns * 0.45
 	# Wet stone: darker and glossier, but no screen-space reflections.
 	for name in ["stone", "stone_dark", "plaster", "plaster_top"]:
 		var m := Kit.mat(name) as StandardMaterial3D
@@ -181,7 +192,7 @@ func _apply(p: Dictionary) -> void:
 		m.roughness = lerpf(m.get_meta("dry_rough"), 0.38 if name.begins_with("stone") else 0.75, wet)
 		m.albedo_color = dry.darkened(wet * factor)
 	var glow := Kit.mat("glow") as StandardMaterial3D
-	glow.emission_energy_multiplier = 1.6 + p.lanterns * 1.2
+	glow.emission_energy_multiplier = 0.7 + p.lanterns * 0.3
 	if scenery:
 		scenery.set_tint(p, wet)
 	if game and game.get("view") and game.view:

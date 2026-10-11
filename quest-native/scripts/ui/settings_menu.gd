@@ -189,7 +189,7 @@ func _rebuild() -> void:
 
 
 static func _pct(v: float) -> String:
-	return "%d٪" % roundi(v * 100)
+	return Save.text("%d٪", "%d%%") % roundi(v * 100)
 
 
 func _main_rows() -> Array:
@@ -198,20 +198,20 @@ func _main_rows() -> Array:
 	var prev := _neighbour(lvl, -1)
 	var next := _neighbour(lvl, 1)
 	var rows: Array = [
-		{"text": "مفاتيح  ·  المرحلة %d — %s" % [lvl, d.title_ar]},
-		{"text": "متابعة", "action": close},
-		{"text": "إعادة المرحلة", "action": func(): close(); main.game.restart()},
-		# Right to left: the previous level sits on the right, the next on the left.
-		[_nav_item("التالية", next), {"text": "المراحل", "w": 1.3, "action": func(): open_page("levels")},
-			_nav_item("السابقة", prev)],
-		{"text": "الإعدادات", "action": func(): open_page("audio")},
-		{"text": "حول اللعبة والتراخيص", "action": func(): open_page("credits")},
+		{"text": T("مفاتيح  ·  المرحلة %d — %s", "Mafateeh  ·  Level %d — %s") % [lvl, _title(d)]},
+		{"text": T("متابعة", "Resume"), "action": close},
+		{"text": T("إعادة المرحلة", "Restart level"), "action": func(): close(); main.game.restart()},
+		# Reading order: previous first (on the right in Arabic, on the left in English).
+		_dir([_nav_item(T("السابقة", "Previous"), prev), {"text": T("المراحل", "Levels"), "w": 1.3, "action": func(): open_page("levels")},
+			_nav_item(T("التالية", "Next"), next)]),
+		{"text": T("الإعدادات", "Settings"), "action": func(): open_page("audio")},
+		{"text": T("حول اللعبة والتراخيص", "About and licenses"), "action": func(): open_page("credits")},
 	]
 	if Save.dev_tools_available():
 		var sky: SkyWeather = main.sky
-		rows.append({"text": "— أدوات المطوّر —", "small": true})
-		rows.append([{"text": "الوقت: " + _time_ar(sky.time_name), "action": func(): sky.cycle_time(); Save.dev_time = sky.time_name; _rebuild()},
-			{"text": "الطقس: " + ("مطر" if sky.raining else "صافٍ"), "action": func(): sky.toggle_rain(); Save.dev_weather = "rain" if sky.raining else "clear"; _rebuild()}])
+		rows.append({"text": T("— أدوات المطوّر —", "— Developer tools —"), "small": true})
+		rows.append([{"text": T("الوقت: ", "Time: ") + _time_name(sky.time_name), "action": func(): sky.cycle_time(); Save.dev_time = sky.time_name; _rebuild()},
+			{"text": T("الطقس: ", "Weather: ") + (T("مطر", "rain") if sky.raining else T("صافٍ", "clear")), "action": func(): sky.toggle_rain(); Save.dev_weather = "rain" if sky.raining else "clear"; _rebuild()}])
 	return rows
 
 
@@ -242,7 +242,7 @@ func _level_rows() -> Array:
 		if Save.is_completed(n):
 			done += 1
 	var rows: Array = [
-		{"text": "المراحل  ·  أنجزت %d من %d" % [done, LevelData.COUNT]},
+		{"text": T("المراحل  ·  أنجزت %d من %d", "Levels  ·  %d of %d complete") % [done, LevelData.COUNT]},
 		{"text": _level_info(cur), "small": true, "info": true},
 	]
 	var n := 1
@@ -254,9 +254,8 @@ func _level_rows() -> Array:
 			else:
 				row.append(_level_cell(n, cur))
 			n += 1
-		row.reverse()  # level 1 starts at the right, like Arabic text
-		rows.append(row)
-	rows.append({"text": "رجوع", "action": func(): open_page("main")})
+		rows.append(_dir(row))  # level 1 starts on the right in Arabic, on the left in English
+	rows.append({"text": T("رجوع", "Back"), "action": func(): open_page("main")})
 	return rows
 
 
@@ -272,20 +271,19 @@ func _level_cell(n: int, cur: int) -> Dictionary:
 
 static func _level_info(n: int) -> String:
 	var d := LevelData.get_level(n)
-	var state := "مكتملة" if Save.is_completed(n) else ("مقفلة" if not Save.can_play(n) else "لم تكتمل بعد")
-	return "%d — %s  ·  %s" % [n, d.title_ar, state]
+	var state := T("مكتملة", "complete") if Save.is_completed(n) else (T("مقفلة", "locked") if not Save.can_play(n) else T("لم تكتمل بعد", "not complete yet"))
+	return "%d — %s  ·  %s" % [n, _title(d), state]
 
 
 func _tabs() -> Array:
-	var names := {"audio": "الصوت", "controls": "التحكم", "display": "العرض"}
+	var names := {"audio": T("الصوت", "Sound"), "controls": T("التحكم", "Controls"), "display": T("العرض", "Display")}
 	var row: Array = []
 	for t in SETTINGS_TABS:
 		var it := {"text": names[t], "action": func(): open_page(t)}
 		if t == _page:
 			it["style"] = "tab_on"
 		row.append(it)
-	row.reverse()
-	return row
+	return _dir(row)
 
 
 func _stepper(text: String, minus: Callable, plus: Callable) -> Array:
@@ -293,42 +291,45 @@ func _stepper(text: String, minus: Callable, plus: Callable) -> Array:
 
 
 func _settings_rows() -> Array:
-	var rows: Array = [{"text": "الإعدادات"}, _tabs()]
+	var rows: Array = [{"text": T("الإعدادات", "Settings")}, _tabs()]
 	match _page:
 		"audio":
-			rows.append(_stepper("الصوت العام " + _pct(Save.master_volume), func(): _volume("master", -0.1), func(): _volume("master", 0.1)))
-			rows.append(_stepper("المؤثرات " + _pct(Save.sfx_volume), func(): _volume("sfx", -0.1), func(): _volume("sfx", 0.1)))
-			rows.append(_stepper("الأجواء والمطر " + _pct(Save.ambience_volume), func(): _volume("ambience", -0.1), func(): _volume("ambience", 0.1)))
-			rows.append({"text": "إلغاء الكتم" if Save.muted else "كتم الصوت", "action": func(): Save.muted = not Save.muted; _changed()})
+			rows.append(_stepper(T("الصوت العام ", "Master ") + _pct(Save.master_volume), func(): _volume("master", -0.1), func(): _volume("master", 0.1)))
+			rows.append(_stepper(T("المؤثرات ", "Effects ") + _pct(Save.sfx_volume), func(): _volume("sfx", -0.1), func(): _volume("sfx", 0.1)))
+			rows.append(_stepper(T("الأجواء والمطر ", "Ambience and rain ") + _pct(Save.ambience_volume), func(): _volume("ambience", -0.1), func(): _volume("ambience", 0.1)))
+			rows.append({"text": T("إلغاء الكتم", "Unmute") if Save.muted else T("كتم الصوت", "Mute"), "action": func(): Save.muted = not Save.muted; _changed()})
 		"controls":
-			rows.append({"text": "التدوير: " + ("متدرّج 30°" if Save.turn_mode == "snap" else "سلس"),
+			rows.append({"text": T("التدوير: ", "Turning: ") + (T("متدرّج 30°", "30° steps") if Save.turn_mode == "snap" else T("سلس", "smooth")),
 				"action": func(): Save.turn_mode = "smooth" if Save.turn_mode == "snap" else "snap"; _changed()})
-			rows.append({"text": "سرعة التدوير: " + ["بطيئة", "عادية", "سريعة"][Save.turn_speed],
+			rows.append({"text": T("سرعة التدوير: ", "Turn speed: ") + [T("بطيئة", "slow"), T("عادية", "normal"), T("سريعة", "fast")][Save.turn_speed],
 				"action": func(): Save.turn_speed = (Save.turn_speed + 1) % 3; _changed()})
-			rows.append({"text": "يد الحركة: " + ("اليسرى" if Save.left_handed else "اليمنى"),
+			rows.append({"text": T("يد الحركة: ", "Movement hand: ") + (T("اليسرى", "left") if Save.left_handed else T("اليمنى", "right")),
 				"action": func(): Save.left_handed = not Save.left_handed; _changed()})
-			rows.append({"text": "الاهتزاز: " + ("يعمل" if Save.haptics else "متوقف"),
+			rows.append({"text": T("الاهتزاز: ", "Vibration: ") + (T("يعمل", "on") if Save.haptics else T("متوقف", "off")),
 				"action": func(): Save.haptics = not Save.haptics; _changed(); main.pulse_ui()})
-			rows.append({"text": "إظهار إرشادات التحكم", "action": func(): close(); main.show_controller_hints()})
+			rows.append({"text": T("إظهار إرشادات التحكم", "Show controller hints"), "action": func(): close(); main.show_controller_hints()})
 		"display":
-			rows.append({"text": "الوضع: " + ("الواقع المختلط" if Save.mode == "mr" else "الواقع الافتراضي"),
+			rows.append({"text": T("الوضع: ", "Mode: ") + (T("الواقع المختلط", "mixed reality") if Save.mode == "mr" else T("الواقع الافتراضي", "virtual reality")),
 				"action": func(): main.set_mode("vr" if Save.mode == "mr" else "mr"); _rebuild()})
-			rows.append({"text": "الطقس: " + ("صافٍ دائمًا" if Save.weather_pref == "clear" else "حسب المرحلة"),
+			rows.append({"text": T("الطقس: ", "Weather: ") + (T("صافٍ دائمًا", "always clear") if Save.weather_pref == "clear" else T("حسب المرحلة", "per level")),
 				"action": func(): Save.weather_pref = "auto" if Save.weather_pref == "clear" else "clear"; _changed(); main.apply_sky()})
-			rows.append([{"text": "حجم اللوحة الافتراضي", "small": true, "action": func(): main.reset_board_size()},
-				{"text": "إعادة تموضع اللوحة", "small": true, "action": func(): close(); main._on_grip_tap("menu")}])
-			rows.append({"text": "شعار البداية: " + ("يظهر" if Save.show_intro else "لا يظهر"),
+			rows.append(_dir([{"text": T("إعادة تموضع اللوحة", "Re-place board"), "small": true, "action": func(): close(); main._on_grip_tap("menu")},
+				{"text": T("حجم اللوحة الافتراضي", "Default board size"), "small": true, "action": func(): main.reset_board_size()}]))
+			rows.append(_dir([{"text": T("اللغة: العربية", "Language: English"), "action": _toggle_language},
+				{"text": T("الجودة: ", "Graphics: ") + (T("عالية", "high") if Save.quality == "high" else T("متوازنة", "balanced")),
+					"action": func(): Save.quality = "balanced" if Save.quality == "high" else "high"; _changed(); main.apply_quality()}]))
+			rows.append({"text": T("شعار البداية: ", "Studio intro: ") + (T("يظهر", "on") if Save.show_intro else T("لا يظهر", "off")),
 				"action": func(): Save.show_intro = not Save.show_intro; _changed()})
-			rows.append({"text": "مسح التقدم…", "style": "danger", "action": func(): open_page("reset")})
-	rows.append({"text": "رجوع", "action": func(): open_page("main")})
+			rows.append({"text": T("مسح التقدم…", "Reset progress…"), "style": "danger", "action": func(): open_page("reset")})
+	rows.append({"text": T("رجوع", "Back"), "action": func(): open_page("main")})
 	return rows
 
 
 func _reset_rows() -> Array:
 	return [
-		{"text": "مسح كل التقدم؟"},
-		{"text": "تعود إلى المرحلة 1 وتُقفل المراحل الأخرى", "small": true},
-		[{"text": "مسح", "style": "danger", "action": _reset_progress}, {"text": "إلغاء", "action": func(): open_page("display")}],
+		{"text": T("مسح كل التقدم؟", "Reset all progress?")},
+		{"text": T("تعود إلى المرحلة 1 وتُقفل المراحل الأخرى", "You return to level 1 and the other levels lock"), "small": true},
+		_dir([{"text": T("إلغاء", "Cancel"), "action": func(): open_page("display")}, {"text": T("مسح", "Reset"), "style": "danger", "action": _reset_progress}]),
 	]
 
 
@@ -336,26 +337,51 @@ func _reset_progress() -> void:
 	Save.reset_progress()
 	close()
 	main.game.go_to_level(1)
-	toast("تم مسح التقدم")
+	toast(T("تم مسح التقدم", "Progress reset"))
 
 
 func _credit_rows() -> Array:
 	return [
 		{"text": "مفاتيح — Mafateeh", "action": _title_tap},
-		{"text": "عبودين قيمز — Aboden Games", "small": true},
-		{"text": "ترخيص MIT · © Aboden Games", "small": true},
+		{"text": T("عبودين قيمز — Aboden Games", "Aboden Games — عبودين قيمز"), "small": true},
+		{"text": T("ترخيص MIT · © Aboden Games", "MIT license · © Aboden Games"), "small": true},
 		{"text": "Godot Engine (MIT) · OpenXR Vendors (MIT)", "small": true},
 		{"text": "Godot Meta Toolkit (MIT) · Meta Platform SDK", "small": true},
 		{"text": "OpenXR Loader (Apache-2.0) · Meta OpenXR SDK", "small": true},
 		{"text": "Cairo font (SIL OFL 1.1)", "small": true},
-		{"text": "الأصوات والنماذج أصلية ضمن المشروع", "small": true},
-		{"text": "التفاصيل الكاملة في ملفات التراخيص", "small": true},
-		{"text": "رجوع", "action": func(): open_page("main")},
+		{"text": T("الأصوات والنماذج أصلية ضمن المشروع", "Sounds and models are original to the project"), "small": true},
+		{"text": T("التفاصيل الكاملة في ملفات التراخيص", "Full details in the license files"), "small": true},
+		{"text": T("رجوع", "Back"), "action": func(): open_page("main")},
 	]
 
 
-static func _time_ar(t: String) -> String:
-	return {"dawn": "فجر", "day": "نهار", "sunset": "غروب", "night": "ليل"}.get(t, t)
+static func _time_name(t: String) -> String:
+	return {"dawn": T("فجر", "dawn"), "day": T("نهار", "day"), "sunset": T("غروب", "sunset"), "night": T("ليل", "night")}.get(t, t)
+
+
+static func T(ar: String, en: String) -> String:
+	return Save.text(ar, en)
+
+
+static func _title(d: Dictionary) -> String:
+	return d.title_ar if Save.arabic() else d.title_en
+
+
+## Rows are laid out left to right; Arabic reads right to left.
+static func _dir(row: Array) -> Array:
+	var r := row.duplicate()
+	if Save.arabic():
+		r.reverse()
+	return r
+
+
+func _toggle_language() -> void:
+	Save.language = "en" if Save.arabic() else "ar"
+	Save.save()
+	_rebuild()
+	if main.game.level > 0:
+		_show_card(main.game.level)
+	main.refresh_language()
 
 
 func _title_tap() -> void:
@@ -364,7 +390,7 @@ func _title_tap() -> void:
 		_title_taps = 0
 		Save.dev_enabled = not Save.dev_enabled
 		Save.save()
-		toast("أدوات المطوّر: " + ("مفعّلة" if Save.dev_enabled else "معطّلة"))
+		toast(T("أدوات المطوّر: ", "Developer tools: ") + (T("مفعّلة", "on") if Save.dev_enabled else T("معطّلة", "off")))
 
 
 func _changed() -> void:
@@ -459,19 +485,19 @@ func toast(text: String, seconds := 4.0) -> void:
 func notify_placement(source: String) -> void:
 	match source:
 		"detected_table":
-			toast("وُضعت اللوحة على طاولة مكتشفة")
+			toast(T("وُضعت اللوحة على طاولة مكتشفة", "Board placed on a detected table"))
 		"detected_floor":
-			toast("وُضعت اللوحة على الأرضية المكتشفة")
+			toast(T("وُضعت اللوحة على الأرضية المكتشفة", "Board placed on the detected floor"))
 		"manual":
-			toast("وضع يدوي — اضغط المقبض مطولًا لتحريك اللوحة")
+			toast(T("وضع يدوي — اضغط المقبض مطولًا لتحريك اللوحة", "Manual placement — hold the grip to move the board"))
 		_:
 			if main.xr and main.rig.mode == "mr":
-				toast("وضع يدوي — اضغط المقبض مطولًا لتحريك اللوحة")
+				toast(T("وضع يدوي — اضغط المقبض مطولًا لتحريك اللوحة", "Manual placement — hold the grip to move the board"))
 
 
 func _show_card(n: int) -> void:
 	var d := LevelData.get_level(n)
-	_card.text = "%d  ·  %s" % [n, d.title_ar]
+	_card.text = "%d  ·  %s" % [n, _title(d)]
 	_card.position = Vector3(-0.5, LevelData.exit_y(d) + 2.6, -3.3)
 	_card.visible = true
 	_card_t = 3.0
