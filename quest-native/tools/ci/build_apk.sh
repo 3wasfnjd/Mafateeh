@@ -117,8 +117,16 @@ fi
 log "Export"
 mkdir -p "$OUT"
 APK="$OUT/mafateeh-quest-${APP_VERSION}-${VERSION_CODE}.apk"
-rm -rf "$ROOT/android/build"
-"$GODOT" --headless --xr-mode off --path "$ROOT" --install-android-build-template --export-release "Quest" "$APK" 2>&1 | grep -v "OpenXR-Loader" | tee "$OUT/export.log"
+# Install the Godot Android build template the same way the editor does, then add
+# the store manifest hook (see tools/ci/store_manifest.gradle).
+rm -rf "$ROOT/android"
+mkdir -p "$ROOT/android/build"
+unzip -q "$TPL/android_source.zip" -d "$ROOT/android/build"
+rm -rf "$ROOT/android/build/src/main/assets"
+echo "$GODOT_TEMPLATE_DIR" > "$ROOT/android/.build_version"
+touch "$ROOT/android/build/.gdignore"
+{ echo; cat "$ROOT/tools/ci/store_manifest.gradle"; } >> "$ROOT/android/build/build.gradle"
+"$GODOT" --headless --xr-mode off --path "$ROOT" --export-release "Quest" "$APK" 2>&1 | grep -v "OpenXR-Loader" | tee "$OUT/export.log"
 test -s "$APK" || { echo "Export failed: no APK produced"; exit 1; }
 
 log "Verify"

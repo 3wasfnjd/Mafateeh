@@ -1,0 +1,21 @@
+// Appended to the Godot Android build template by tools/ci/build_apk.sh.
+// Godot 4.6 writes <uses-feature android.hardware.vr.headtracking required="false">
+// into the generated manifest (it omits it only for boundaryless apps). The Meta
+// Horizon Store requires required="true", so flip it just before the manifest is
+// processed. CI then verifies the result in the built APK.
+tasks.configureEach { task ->
+    if (task.name ==~ /process.*MainManifest/) {
+        task.doFirst {
+            fileTree(projectDir) { include 'AndroidManifest.xml', 'src/**/AndroidManifest.xml' }.each { f ->
+                def text = f.getText('UTF-8')
+                def fixed = text.replaceAll(
+                    /(android:name="android\.hardware\.vr\.headtracking"[^>]*?)android:required="false"/,
+                    '$1android:required="true"')
+                if (fixed != text) {
+                    f.write(fixed, 'UTF-8')
+                    println "Mafateeh: headtracking set to required in ${f}"
+                }
+            }
+        }
+    }
+}
