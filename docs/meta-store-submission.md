@@ -62,7 +62,7 @@ keytool -genkeypair -v -keystore mafateeh-release.keystore -storetype PKCS12 \
 
 ## 6) صفحة المتجر
 - انسخ النصوص من `store/listing.md`، وارفع الصور من مجلد `store/`.
-- رابط سياسة الخصوصية: `https://3wasfnjd.github.io/Mafateeh/privacy.html`
+- رابط سياسة الخصوصية: `https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md` (يعمل ما دام المستودع عامًا، ولا يحتاج نشر الموقع). وفي اللعبة نسخة مختصرة: حول اللعبة ← سياسة الخصوصية
 - أكمل **استبيان التصنيف العمري (IARC)** و**Data Use Checkup**. جواب الاستبيان: اللعبة لا تجمع بيانات، ولا فيها شراء داخل اللعبة، ولا محادثة، ولا محتوى عنيف.
 - حدّد السعر، والدول، وموعد الإطلاق.
 
