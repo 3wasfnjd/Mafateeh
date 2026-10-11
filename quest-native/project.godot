@@ -1,0 +1,71 @@
+; Mafateeh — native Meta Quest project (Godot 4.6.3-stable, OpenXR Vendors 5.1.0-stable).
+; See docs/quest-native-build.md for pinned tool versions.
+
+config_version=5
+
+[application]
+
+config/name="مفاتيح — Mafateeh"
+config/description="A miniature Diriyah puzzle adventure by Aboden Games — عبودين قيمز."
+config/version="1.0.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.105, 0.086, 0.07, 1)
+boot_splash/show_image=false
+
+[audio]
+
+buses/default_bus_layout="res://audio/default_bus_layout.tres"
+
+[autoload]
+
+Save="*res://scripts/core/save_data.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[editor_plugins]
+
+enabled=PackedStringArray()
+
+[internationalization]
+
+locale/include_text_server_data=true
+
+[mafateeh]
+
+dev/level_select=false
+dev/force_time=""
+dev/force_weather=""
+
+[physics]
+
+common/physics_ticks_per_second=72
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_3d=2
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+lights_and_shadows/positional_shadow/atlas_size=0
+environment/defaults/default_clear_color=Color(0.105, 0.086, 0.07, 1)
+
+[xr]
+
+openxr/enabled=true
+openxr/reference_space=2
+openxr/environment_blend_mode=2
+openxr/foveation_level=2
+openxr/foveation_dynamic=true
+openxr/startup_alert=false
+shaders/enabled=true
+openxr/extensions/hand_tracking=false
+openxr/extensions/meta/passthrough=true
+openxr/extensions/meta/render_model=true
+openxr/extensions/meta/scene_api=true

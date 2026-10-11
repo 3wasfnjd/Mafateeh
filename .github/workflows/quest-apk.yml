@@ -1,0 +1,71 @@
+name: Quest APK
+# Builds, tests and verifies the native Meta Quest APK (quest-native/).
+# Artifacts: APK, SHA-256, test report, APK verification report.
+# A GitHub pre-release with a public download link is published when run
+# manually with "publish" checked, or when the head commit message contains "[release]".
+on:
+  push:
+    branches: [main, quest-native]
+    paths: ['quest-native/**', '.github/workflows/quest-apk.yml']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish a GitHub pre-release with the APK'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: quest-apk-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/mafateeh-godot
+          key: godot-4.6.3-stable-v1
+      - name: Build, test and verify APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          OUT_DIR: ${{ github.workspace }}/build
+          MAFATEEH_KEYSTORE_B64: ${{ secrets.MAFATEEH_KEYSTORE_B64 }}
+          MAFATEEH_KEYSTORE_ALIAS: ${{ secrets.MAFATEEH_KEYSTORE_ALIAS }}
+          MAFATEEH_KEYSTORE_PASSWORD: ${{ secrets.MAFATEEH_KEYSTORE_PASSWORD }}
+        run: bash quest-native/tools/ci/build_apk.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mafateeh-quest-${{ github.run_number }}
+          path: |
+            build/*.apk
+            build/*.sha256
+            build/*.txt
+            build/export.log
+          if-no-files-found: warn
+      - name: Publish pre-release
+        if: ${{ success() && (inputs.publish || contains(github.event.head_commit.message, '[release]')) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' quest-native/project.godot)
+          TAG="quest-v${VERSION}-build${{ github.run_number }}"
+          {
+            echo "Native Meta Quest build of مفاتيح — Mafateeh (Aboden Games — عبودين قيمز)."
+            echo
+            echo "This is a sideload test build. It is not a Meta Horizon Store release."
+            echo "Install with developer mode + adb or Meta Quest Developer Hub: see docs/quest-native-install.md."
+            echo
+            echo '```'
+            cat build/apk-report.txt
+            echo '```'
+          } > notes.md
+          gh release create "$TAG" build/*.apk build/*.sha256 build/apk-report.txt build/test-report.txt \
+            --target "${{ github.sha }}" --prerelease --title "Mafateeh Quest ${VERSION} (build ${{ github.run_number }})" --notes-file notes.md
