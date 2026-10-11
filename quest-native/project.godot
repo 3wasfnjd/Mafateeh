@@ -29,7 +29,7 @@ window/size/viewport_height=720
 
 [editor_plugins]
 
-enabled=PackedStringArray()
+enabled=PackedStringArray("res://addons/mafateeh_export/plugin.cfg")
 
 [filesystem]
 
@@ -45,6 +45,7 @@ locale/include_text_server_data=true
 dev/level_select=false
 dev/force_time=""
 dev/force_weather=""
+store/meta_app_id=""
 
 [physics]
 

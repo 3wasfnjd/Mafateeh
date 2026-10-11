@@ -106,6 +106,11 @@ func _ready() -> void:
 	game.load_level(start)
 	if _args.has("screenshot"):
 		_screenshot.call_deferred()
+	# Store builds only: verify the purchase within the first seconds of launch.
+	var entitlement := StoreEntitlement.new()
+	entitlement.name = "StoreEntitlement"
+	add_child(entitlement)
+	entitlement.run.call_deferred()
 
 
 # --- XR -------------------------------------------------------------------------------
@@ -348,10 +353,46 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_Y: sky.toggle_rain()
 
 
+func _title_overlay(layout: String) -> void:
+	## Store cover art: the exact app name, inside the safe (non-bleed) area.
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var size := get_viewport().get_visible_rect().size
+	var font: FontFile = menu._font
+	var lines: Array = ["مفاتيح — Mafateeh"] if layout == "line" else ["مفاتيح", "Mafateeh"]
+	var big := size.y * (0.13 if layout == "line" else 0.12)
+	var y := size.y * (0.08 if layout != "bottom" else 0.62)
+	for i in lines.size():
+		var l := Label.new()
+		l.text = lines[i]
+		l.add_theme_font_override("font", font)
+		var fs := int(big if i == 0 else big * 0.55)
+		l.add_theme_font_size_override("font_size", fs)
+		l.add_theme_color_override("font_color", Color("fff3df"))
+		l.add_theme_color_override("font_outline_color", Color(0.22, 0.12, 0.06, 0.95))
+		l.add_theme_constant_override("outline_size", int(fs * 0.12))
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.35))
+		l.add_theme_constant_override("shadow_offset_y", int(fs * 0.05))
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.position = Vector2(0, y)
+		l.size = Vector2(size.x, fs * 1.4)
+		layer.add_child(l)
+		y += fs * 1.5
+
+
 func _screenshot() -> void:
+	if _args.has("nocard"):
+		menu._card_t = 0.0
+		menu._card.visible = false
+	if _args.has("title"):
+		_title_overlay(_args.title)
+	if _args.has("noscenery"):
+		sky.scenery.visible = false
 	for i in 20:
 		game.tick(1.0 / 60.0, Vector2.ZERO)
 		await get_tree().process_frame
+	if _args.has("nocard"):
+		menu._card.visible = false
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(_args.screenshot)

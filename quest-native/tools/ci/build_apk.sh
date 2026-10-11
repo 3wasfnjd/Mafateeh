@@ -95,6 +95,12 @@ else
 fi
 echo "$SIGNING"
 
+if [ -n "${META_APP_ID:-}" ]; then
+  # Store build: enable the Meta Horizon Store entitlement check.
+  sed -i "s/^store\/meta_app_id=.*/store\/meta_app_id=\"${META_APP_ID}\"/" "$ROOT/project.godot"
+  echo "Entitlement check enabled for Meta App ID ${META_APP_ID}"
+fi
+
 log "Version ${APP_VERSION} (${VERSION_CODE})"
 sed -i "s/^version\/code=.*/version\/code=${VERSION_CODE}/; s/^version\/name=.*/version\/name=\"${APP_VERSION}\"/" "$ROOT/export_presets.cfg"
 
@@ -146,6 +152,10 @@ unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_android.so"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "com.oculus.intent.category.VR"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "org.khronos.openxr.intent.category.IMMERSIVE_HMD"
 "$BT/aapt2" dump badging "$APK" | grep -q "package: name='com.abodengames.mafateeh'"
+# Store requirements: headtracking required, Quest 3 / 3S only (the tested devices).
+"$BT/aapt2" dump badging "$APK" | grep -q "uses-feature: name='android.hardware.vr.headtracking'"
+! "$BT/aapt2" dump badging "$APK" | grep -q "uses-feature-not-required: name='android.hardware.vr.headtracking'"
+"$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q 'Raw: "quest3|quest3s"' 
 sha256sum "$APK" | tee "$APK.sha256"
 echo "APK=$APK" >> "${GITHUB_ENV:-/dev/null}"
 log "Done: $APK"

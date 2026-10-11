@@ -792,6 +792,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../art_source/character")
     os.makedirs(src, exist_ok=True)
+    bpy.ops.file.pack_all()  # textures travel inside the editable .blend
     bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(src, "hero.blend")))
     bpy.ops.object.select_all(action="DESELECT")
     arm.select_set(True)

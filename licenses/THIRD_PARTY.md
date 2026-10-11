@@ -19,6 +19,7 @@ animations, textures, sounds, level designs) is part of Mafateeh and covered by 
 | Godot OpenXR Vendors plugin | 5.1.0-stable | MIT | [`quest-native/addons/godotopenxrvendors/LICENSE`](../quest-native/addons/godotopenxrvendors/LICENSE) |
 | Khronos OpenXR loader (shipped with the plugin) | per plugin | Apache-2.0 | [`…/meta/LICENSE-LOADER`](../quest-native/addons/godotopenxrvendors/meta/LICENSE-LOADER) |
 | Meta OpenXR Mobile SDK headers/libraries used by the plugin | per plugin | Oculus SDK License | [`…/meta/LICENSE-SDK`](../quest-native/addons/godotopenxrvendors/meta/LICENSE-SDK) |
+| Godot Meta Toolkit (Meta Platform SDK bindings, store entitlement check) | 1.0.3-stable | MIT; bundled Meta Platform SDK under its own terms | [`…/godot_meta_toolkit/LICENSE.txt`](../quest-native/addons/godot_meta_toolkit/LICENSE.txt), [`THIRD_PARTY_NOTICES.txt`](../quest-native/addons/godot_meta_toolkit/THIRD_PARTY_NOTICES.txt) |
 | Cairo typeface (Arabic + Latin subsets) | @fontsource/cairo 5.1.0 | SIL Open Font License 1.1 | [`quest-native/assets/fonts/OFL-Cairo.txt`](../quest-native/assets/fonts/OFL-Cairo.txt) |
 
 The trimmed OpenXR Vendors plugin also carries the license files of its other vendor
