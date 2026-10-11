@@ -148,6 +148,8 @@ BT="$SDK/build-tools/$ANDROID_BUILD_TOOLS"
 # Hard checks: valid signature, arm64 only, OpenXR/Quest launch entries present.
 "$BT/apksigner" verify "$APK"
 unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_android.so"
+unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodotopenxrvendors.so"
+unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_meta_toolkit.so"
 ! unzip -l "$APK" | grep -qE "lib/(armeabi-v7a|x86|x86_64)/"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "com.oculus.intent.category.VR"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "org.khronos.openxr.intent.category.IMMERSIVE_HMD"
