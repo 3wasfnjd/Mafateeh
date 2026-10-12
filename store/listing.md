@@ -19,6 +19,7 @@ Copy these into the Developer Dashboard (Store → Details). The title must stay
 - واقع مختلط: ضع اللوحة على طاولتك الحقيقية، أو العب في الواقع الافتراضي وسط الكثبان والنخيل.
 - فجر ونهار وغروب وليل، وصحو أو مطر، بأجواء صوتية هادئة.
 - تحكّم مريح: لا حاجة للمشي في غرفتك. حرّك الشخصية بالعصا، ودوّر العالم المصغّر وكبّره كما تشاء.
+- واجهة بالعربية والإنجليزية، وإعدادات للراحة: تدوير سلس أو متدرّج، وتبديل اليدين، وجودة رسم قابلة للتعديل.
 - دون إعلانات، ودون جمع بيانات، ويعمل دون إنترنت.
 
 من عبودين قيمز — Aboden Games.
@@ -39,6 +40,7 @@ Guide the elder in his thobe, shemagh and agal as you push crates, carry bricks 
 - Mixed reality: set the board on your real table, or play in VR among dunes and date palms.
 - Dawn, day, golden hour and night, in clear skies or gentle rain, with calm ambient sound.
 - Comfortable controls: no walking around your room — move the character with the thumbstick, rotate and resize the miniature as you like.
+- Arabic and English interface, with comfort options: smooth or snap turning, left-handed controls and adjustable graphics quality.
 - No ads, no data collection, plays offline.
 
 By Aboden Games — عبودين قيمز.
@@ -53,9 +55,9 @@ By Aboden Games — عبودين قيمز.
 | Supported controllers | Touch controllers (hand tracking not supported) |
 | Supported devices | Meta Quest 3, Meta Quest 3S |
 | Mixed reality | Yes — passthrough; uses Space Setup tables if allowed |
-| Languages | Arabic (in-app text); store text Arabic + English |
+| Languages | Arabic and English (in-app and store text) |
 | Internet required | No |
-| Privacy policy URL | https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md |
+| Privacy policy URL | https://3wasfnjd.github.io/Mafateeh/privacy.html (alternative: https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md) |
 | Age group (upload) | Your decision: TEENS_AND_ADULTS (default) or MIXED_AGES |
 
 ## Art (all in this folder)
