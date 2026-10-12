@@ -210,6 +210,9 @@ unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_meta_toolkit.so"
 "$BT/aapt2" dump badging "$APK" | grep -q "uses-feature: name='android.hardware.vr.headtracking'"
 ! "$BT/aapt2" dump badging "$APK" | grep -q "uses-feature-not-required: name='android.hardware.vr.headtracking'"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q 'Raw: "quest3|quest3s"' 
+# Studio name on the system splash the moment the app opens (Meta instant splash).
+"$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "com.oculus.ossplash"
+unzip -l "$APK" | grep -q "vr_splash"
 sha256sum "$APK" | tee "$APK.sha256"
 echo "APK=$APK" >> "${GITHUB_ENV:-/dev/null}"
 log "Done: $APK"
