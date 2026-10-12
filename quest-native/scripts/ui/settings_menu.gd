@@ -175,6 +175,49 @@ func toggle(head: Transform3D) -> void:
 		main.game.motor.cancel()
 
 
+## Studio name at launch: «عبودين قيمز / ABODEN GAMES» in plain white, floating
+## in front of the player with no frame or background, held long enough to read
+## (fade in, hold, fade out), with the oud sting. Then `done` runs.
+const SPLASH_IN := 0.7
+const SPLASH_HOLD := 3.0
+const SPLASH_OUT := 0.7
+var splash: Node3D
+
+
+func play_splash(head: Transform3D, done: Callable) -> void:
+	if splash:
+		return  # already showing
+	splash = Node3D.new()
+	splash.name = "StudioSplash"
+	add_child(splash)
+	var fwd := -head.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
+	splash.global_position = head.origin + fwd * 1.4
+	splash.look_at(head.origin, Vector3.UP, true)
+	var ar := _label("عبودين قيمز", 0.0011)
+	ar.font_size = 96
+	var en := _label("ABODEN GAMES", 0.0011)
+	en.font_size = 40
+	en.position.y = -0.11
+	for l in [ar, en]:
+		l.outline_size = 0
+		l.modulate = Color(1, 1, 1, 0)
+		splash.add_child(l)
+	if not Save.muted:
+		_sting.play()
+	var tw := create_tween()
+	tw.tween_property(ar, "modulate:a", 1.0, SPLASH_IN)
+	tw.parallel().tween_property(en, "modulate:a", 0.9, SPLASH_IN)
+	tw.tween_interval(SPLASH_HOLD)
+	tw.tween_property(ar, "modulate:a", 0.0, SPLASH_OUT)
+	tw.parallel().tween_property(en, "modulate:a", 0.0, SPLASH_OUT)
+	tw.tween_callback(func():
+		splash.queue_free()
+		splash = null
+		done.call())
+
+
 ## Start screen: the studio name, the game title and the choice of mixed or
 ## virtual reality. Shown once per launch, before the board appears.
 func open_start(head: Transform3D, sting := true) -> void:

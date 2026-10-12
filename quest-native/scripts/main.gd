@@ -32,6 +32,7 @@ var _cam_pitch := 0.78
 var _cam_zoom := 1.0
 var _drag_hand := ""
 var _start_shown := false
+var _splash_done := false
 var _snap_armed := true
 var injected_move := Vector2.ZERO  # automated tests drive the stick through the normal frame path
 
@@ -147,8 +148,16 @@ func apply_sky() -> void:
 ## player's answer, so it is always seen, however long the system loading screen
 ## stays up.
 func _show_start() -> void:
+	if not _splash_done:
+		# First the studio name on its own, long enough to read; then the choice.
+		if not _start_shown:
+			_start_shown = true
+			menu.play_splash(rig.head_transform(), func():
+				_splash_done = true
+				menu.open_start(rig.head_transform(), false))
+		return
 	_start_shown = true
-	menu.open_start(rig.head_transform())
+	menu.open_start(rig.head_transform(), false)
 
 
 ## Keep the start screen in view: if the player is looking well away from it
@@ -360,7 +369,7 @@ func _process(delta: float) -> void:
 			if not _start_shown and rig.focused and _session_time > 0.5 \
 					and (rig.head_transform().origin.y > 0.3 or _session_time > 3.0):
 				_show_start()
-			elif _start_shown and menu.is_open() and menu.page() == "start":
+			elif _splash_done and menu.is_open() and menu.page() == "start":
 				_keep_start_in_view()
 		if _placed and rig.focused and not menu.is_open():
 			_board_stick(delta)
