@@ -23,7 +23,9 @@ var turn_mode := "smooth"  # "smooth" | "snap" (left stick board rotation)
 var turn_speed := 1  # 0 slow, 1 normal, 2 fast
 var left_handed := false  # swaps the two sticks: left moves the hero
 var haptics := true
-var weather_pref := "auto"  # "auto" (per level) | "clear"
+var weather_pref := "cycle"  # "cycle" (passing showers) | "level" (as designed) | "clear"
+var day_cycle := true  # time of day moves on by itself (dawn → day → sunset → night)
+var dust := true  # light drifting dust in clear weather
 var quality := "high"  # "high" | "balanced" (render resolution, foveation, shadows)
 var language := ""  # "ar" | "en"; empty until chosen: follows the headset language
 var dev_time := ""  # override: dawn/day/sunset/night
@@ -61,7 +63,10 @@ func load_data() -> void:
 	turn_speed = clampi(int(cfg.get_value("settings", "turn_speed", 1)), 0, 2)
 	left_handed = bool(cfg.get_value("settings", "left_handed", false))
 	haptics = bool(cfg.get_value("settings", "haptics", true))
-	weather_pref = "clear" if str(cfg.get_value("settings", "weather", "auto")) == "clear" else "auto"
+	var wp := str(cfg.get_value("settings", "weather", "cycle"))
+	weather_pref = wp if wp in ["cycle", "level", "clear"] else "cycle"  # old "auto" → automatic
+	day_cycle = bool(cfg.get_value("settings", "day_cycle", true))
+	dust = bool(cfg.get_value("settings", "dust", true))
 	language = str(cfg.get_value("settings", "language", ""))
 	quality = "balanced" if str(cfg.get_value("settings", "quality", "high")) == "balanced" else "high"
 	current_level = mini(current_level, unlocked_level) if not dev_tools_available() else current_level
@@ -86,6 +91,8 @@ func save() -> void:
 	cfg.set_value("settings", "left_handed", left_handed)
 	cfg.set_value("settings", "haptics", haptics)
 	cfg.set_value("settings", "weather", weather_pref)
+	cfg.set_value("settings", "day_cycle", day_cycle)
+	cfg.set_value("settings", "dust", dust)
 	cfg.set_value("settings", "language", language)
 	cfg.set_value("settings", "quality", quality)
 	cfg.save(PATH)

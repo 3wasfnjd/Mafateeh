@@ -389,11 +389,8 @@ def shemagh_point(th, z, offset=0.0):
     r += below * (0.012 * math.sin(th * 9 + 0.4) + 0.006 * math.sin(th * 17))
     r += offset
     p = Vector((r * math.sin(th), -r * math.cos(th) + 0.006, z))
-    # The forward peak above the brow that gives the shemagh its silhouette.
-    # It rises above the agal, so the round cord sits cleanly below it.
-    peak = 0.04 * math.exp(-(th / 0.33) ** 2) * math.exp(-((z - 1.135) / 0.035) ** 2)
-    p.y -= peak
-    p.z += 0.6 * peak
+    # No forward peak: a smooth, round crown reads cleanly at miniature scale and
+    # leaves no bump on top of the head.
     return p
 
 

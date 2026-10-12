@@ -12,6 +12,7 @@ signal exit_started
 signal level_finished
 signal walk_rejected(obj: Dictionary)
 signal brick_dropped(at: Vector2)
+signal weight_dropped(at: Vector2)
 
 const SPEED := 2.1  # board units per second
 const MAX_DT := 0.04
@@ -140,6 +141,33 @@ func start_exit() -> bool:
 	return true
 
 
+## Put the carried weight down: on the spot the player pointed at (walking there
+## first), or right in front of the hero.
+func drop_weight(at = null) -> bool:
+	if busy() or state.carried < 0:
+		return false
+	if at != null and pos.distance_to(at) > 0.9:
+		var path := nav.find_path(pos, at)
+		if path.is_empty():
+			return false
+		route = path
+		pending_obj = {"type": "_drop_weight", "x": at.x, "z": at.y}
+		mode = "walking"
+		needs_release = true
+		return true
+	var target: Vector2 = at if at != null else pos + Vector2(sin(yaw), cos(yaw)) * 0.75
+	var spot = state.drop_weight(target, yaw)
+	if spot == null:
+		last_result = {"ok": false, "event": "reject", "reason": "no_room"}
+		acted.emit({"type": "drop"}, last_result)
+		return false
+	route.clear()
+	_begin_act({"type": "_drop", "x": spot.x, "z": spot.y}, 0.5)
+	act_applied = true
+	weight_dropped.emit(spot)
+	return true
+
+
 func drop_brick() -> bool:
 	if busy() or state.brick_mode != "carried":
 		return false
@@ -265,6 +293,8 @@ func _follow_route(dt: float) -> void:
 			return
 		match o.type:
 			"_push": _begin_push(o.index)
+			"_drop_weight":
+				drop_weight()  # arrived: set it down just in front
 			"_exit":
 				_set_mode("finishing")
 				exit_started.emit()

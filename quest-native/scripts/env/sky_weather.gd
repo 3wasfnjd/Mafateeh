@@ -41,6 +41,15 @@ var rain: RainField
 var lanterns: Array = []
 var scenery: Node3D
 var follow_board := true  # false in desktop mode, where the board is not to scale
+var dust: DustField
+# Automatic atmosphere (settings): the day moves on and showers come and go.
+# Purely visual, like everything here.
+const PHASE_SECONDS := {"dawn": 90.0, "day": 210.0, "sunset": 90.0, "night": 150.0}
+var auto_enabled := true  # off for screenshots, tests and developer overrides
+var _phase_t := 0.0
+var _rain_t := 150.0
+var _blend_seconds := 2.5
+var _rng := RandomNumberGenerator.new()
 
 
 func setup(e: Environment, s: DirectionalLight3D, b: Node3D, g: Node3D) -> void:
@@ -69,6 +78,10 @@ func setup(e: Environment, s: DirectionalLight3D, b: Node3D, g: Node3D) -> void:
 		l.position = Vector3(LevelData.EXIT_X + side * 0.82, 1.35, -3.25)
 		board.add_child(l)
 		lanterns.append(l)
+	dust = DustField.new()
+	dust.name = "Dust"
+	board.add_child(dust)
+	_rng.randomize()
 	scenery = VRScenery.new()
 	scenery.name = "VRScenery"
 	add_child(scenery)
@@ -88,15 +101,18 @@ func apply_level(n: int, force_time := "", force_weather := "") -> void:
 	if force_weather != "": w = force_weather
 	set_time(t, false)
 	set_rain(w == "rain", false)
+	_phase_t = 0.0
+	_rain_t = _rng.randf_range(60.0, 150.0) if w == "clear" else _rng.randf_range(40.0, 80.0)
 	rain.rebuild(game.state)
 	for i in lanterns.size():
 		lanterns[i].position.y = LevelData.exit_y(d) + 1.35
 
 
-func set_time(t: String, smooth := true) -> void:
+func set_time(t: String, smooth := true, seconds := 2.5) -> void:
 	if not PRESETS.has(t):
 		return
 	time_name = t
+	_blend_seconds = seconds
 	_from = _cur.duplicate()
 	_to = PRESETS[t]
 	_blend = 0.0 if smooth else 1.0
@@ -130,13 +146,19 @@ func set_mixed_reality(on: bool) -> void:
 func _process(delta: float) -> void:
 	var changed := false
 	if _blend < 1.0:
-		_blend = minf(1.0, _blend + delta / 2.5)
+		_blend = minf(1.0, _blend + delta / _blend_seconds)
 		var k := smoothstep(0.0, 1.0, _blend)
 		for key in _to:
 			var a = _from[key]
 			var b = _to[key]
 			_cur[key] = a.lerp(b, k) if a is Color else lerpf(a, b, k)
 		changed = true
+	if auto_enabled and Save.dev_time == "" and Save.dev_weather == "":
+		_auto_atmosphere(delta)
+	if dust:
+		var clear_air := 1.0 - rain_amount
+		var night := 0.35 if time_name == "night" else 1.0
+		dust.amount = (0.0 if not Save.dust else clear_air * night)
 	var target := 1.0 if raining else 0.0
 	if absf(rain_amount - target) > 0.001:
 		rain_amount = move_toward(rain_amount, target, delta / 3.0)
@@ -155,6 +177,21 @@ func _process(delta: float) -> void:
 	scenery.stand.visible = follow_board and board.visible
 	if follow_board and scenery.visible and board.visible:
 		scenery.follow(board)
+
+
+func _auto_atmosphere(delta: float) -> void:
+	if Save.day_cycle:
+		_phase_t += delta
+		if _phase_t >= PHASE_SECONDS.get(time_name, 120.0):
+			_phase_t = 0.0
+			# A slow, 20-second sweep into the next part of the day.
+			set_time(TIMES[(TIMES.find(time_name) + 1) % TIMES.size()], true, 20.0)
+	if Save.weather_pref == "cycle":
+		_rain_t -= delta
+		if _rain_t <= 0.0:
+			set_rain(not raining)
+			# Showers are short and occasional; dry spells are long.
+			_rain_t = _rng.randf_range(45.0, 90.0) if raining else _rng.randf_range(150.0, 320.0)
 
 
 func _apply(p: Dictionary) -> void:

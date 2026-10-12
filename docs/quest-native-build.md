@@ -89,22 +89,25 @@ quest-native/
   project.godot, export_presets.cfg, openxr_action_map.tres
   scripts/core/    level_data.gd (21 levels, data only) · puzzle_state.gd (rules) ·
                    navigator.gd (collision, pathfinding) · hero_motor.gd (character control) ·
-                   save_data.gd (autoload: progress + settings)
+                   save_data.gd (autoload: progress + settings) ·
+                   level_hints.gd (one hint per level, AR/EN)
   scripts/xr/      xr_rig.gd (OpenXR, passthrough, controller input) · board_placement.gd
                    (board transform, scale, drag, surface snap) · scene_surfaces.gd +
                    scene_anchor_probe.gd (Meta Scene API tables/floors)
   scripts/game/    game.gd (level lifecycle, picking) · hero_view.gd (animation, footsteps) ·
                    shemagh_spring.gd (secondary motion)
   scripts/art/     kit.gd (shared materials, kit pieces) · level_view.gd (level visuals)
-  scripts/env/     sky_weather.gd (time of day) · rain_field.gd (weather) · vr_scenery.gd
+  scripts/env/     sky_weather.gd (time of day, automatic day/rain cycle) · rain_field.gd (weather) ·
+                   dust_field.gd (light dust) · vr_scenery.gd
   scripts/audio/   game_audio.gd
-  scripts/ui/      settings_menu.gd, studio_intro.gd (Aboden Games mark at launch)
-  assets/character/hero.glb · assets/kit/najdi_kit.glb · assets/textures · assets/fonts
+  scripts/ui/      settings_menu.gd (start screen with the Aboden Games name and MR/VR choice,
+                   Najdi-styled menu, level cards, hints, settings tabs)
+  assets/character/hero.glb · assets/kit/najdi_kit.glb · assets/textures · assets/fonts · assets/ui (menu icons, level thumbnails)
   audio/sfx, audio/ambience (generated WAV, imported as QOA)
   art_source/      editable Blender files (ignored by Godot, not packaged)
   tools/blender/   build_character.py, build_kit.py, render_previews.py, render_kit.py
   tools/audio/     generate_audio.py, check_audio.py
-  tools/art/       make_textures.py, make_icon.py
+  tools/art/       make_textures.py, make_icon.py, make_icons.py (menu icons)
   tests/           solver, unit, integration and budget tests (not packaged)
 ```
 
@@ -118,6 +121,7 @@ python -m venv /opt/bpyenv && /opt/bpyenv/bin/pip install bpy==5.2.2
 /opt/bpyenv/bin/python tools/blender/build_character.py -- assets/character   # hero.glb + art_source/character/hero.blend
 /opt/bpyenv/bin/python tools/blender/build_kit.py -- assets/kit               # najdi_kit.glb + art_source/kit/najdi_kit.blend
 python3 tools/art/make_textures.py assets/textures
+python3 tools/art/make_icons.py assets/ui/icons
 python3 tools/audio/generate_audio.py audio                                   # needs numpy + scipy
 python3 tools/art/make_brand.py assets/brand <cairo-arabic.ttf> <cairo-latin.ttf> ../store  # studio mark
 ```

@@ -33,6 +33,7 @@ func _initialize() -> void:
 			_test_solver(n)
 	if not args.has("skip-movement"):
 		_test_movement()
+	_test_weights()
 	_test_save()
 	var summary := "%d failure(s) in %.1fs" % [failures.size(), (Time.get_ticks_msec() - t0) / 1000.0]
 	_log("")
@@ -219,6 +220,36 @@ func _test_movement() -> void:
 	_sim(m, 15.0)
 	check(m.mode == "complete", "level 21: completes through the exit")
 	_log("  release, walls, water, stairs, crates, tap override, interruption, carrying, keys, level 21 run")
+
+
+func _test_weights() -> void:
+	_log("== Weights")
+	var st := PuzzleState.new(19)
+	var w: Dictionary = st.objects.filter(func(o): return o.type == "weight")[0]
+	var pans: Array = st.objects.filter(func(o): return o.type == "pan")
+	check(st.activate(w).ok and st.carried == w.id, "pick up a weight")
+	check(st.activate(pans[0]).ok and st.weight_places[w.id] == 0, "place it on a pan")
+	check(st.activate(pans[0]).ok and st.carried == w.id, "take it back from the pan")
+	st.hero = Vector2(1.0, 2.1)
+	var inside = st.drop_weight(Vector2(0.5, 0.5), 0.0)  # inside the house: not allowed
+	check(inside == null or not _in_rects(st, inside), "never put down inside a wall or building")
+	if inside != null:
+		st.activate(w)
+	var spot = st.drop_weight(Vector2(1.0, 2.1), 0.0)
+	check(spot != null and st.carried == -1 and st.weight_places[w.id] == -1, "put the weight down on the floor")
+	check(spot != null and Vector2(w.x, w.z).distance_to(spot) < 0.01, "weight stays where it was put down")
+	check(st.is_visible(w) and st.activate(w).ok and st.carried == w.id, "pick it up again from its new spot")
+	var mot := HeroMotor.new(st)
+	mot.pos = Vector2(1.0, 2.1)
+	check(mot.drop_weight(), "hero can set the carried weight down in front")
+	_log("  pick up, pan, take back, put down anywhere, pick up again")
+
+
+static func _in_rects(st, p: Vector2) -> bool:
+	for q in st.active_rects():
+		if p.x > q[0] and p.x < q[1] and p.y > q[2] and p.y < q[3]:
+			return true
+	return false
 
 
 func _test_save() -> void:
