@@ -107,6 +107,10 @@ func _ready() -> void:
 		surfaces.surfaces_changed.connect(func(): board.surfaces = surfaces.surfaces())
 		board.set_board_scale(Save.board_scale)
 		board.visible = false
+		# Count from the first frame, not from the session signal: the runtime can
+		# begin the session before this node connects to it, and then the signal
+		# never arrives here.
+		_session_time = 0.0
 	else:
 		_setup_desktop()
 	var start := int(_args.get("level", Save.current_level))
@@ -147,6 +151,22 @@ func _show_start() -> void:
 	menu.open_start(rig.head_transform())
 
 
+## Keep the start screen in view: if the player is looking well away from it
+## (it appeared while the system loading screen was up, or they turned), bring
+## it back in front of them.
+func _keep_start_in_view() -> void:
+	var head := rig.head_transform()
+	var to_panel := menu.panel.global_position - head.origin
+	to_panel.y = 0.0
+	var fwd := -head.basis.z
+	fwd.y = 0.0
+	if to_panel.length_squared() < 0.0001 or fwd.length_squared() < 0.0001:
+		return
+	if to_panel.normalized().dot(fwd.normalized()) < cos(deg_to_rad(40.0)) \
+			or absf(menu.panel.global_position.y - head.origin.y) > 0.6:
+		menu.open_start(head, false)
+
+
 ## The player chose how to play: switch mode and put the board down.
 func start_game(m: String) -> void:
 	set_mode(m)
@@ -156,6 +176,9 @@ func start_game(m: String) -> void:
 
 
 func _on_menu_button() -> void:
+	if not _placed:
+		_show_start()
+		return
 	menu.toggle(rig.head_transform())
 
 
@@ -277,6 +300,11 @@ func _on_trigger(hand: String, origin: Vector3, direction: Vector3) -> void:
 
 
 func _on_grip_tap(_hand: String) -> void:
+	# Before a mode is chosen, a grip or a system recenter brings the start screen
+	# in front of the player instead of putting the board down.
+	if not _placed:
+		_show_start()
+		return
 	if surfaces:
 		board.surfaces = surfaces.surfaces()
 	_place_board()
@@ -332,6 +360,8 @@ func _process(delta: float) -> void:
 			if not _start_shown and rig.focused and _session_time > 0.5 \
 					and (rig.head_transform().origin.y > 0.3 or _session_time > 3.0):
 				_show_start()
+			elif _start_shown and menu.is_open() and menu.page() == "start":
+				_keep_start_in_view()
 		if _placed and rig.focused and not menu.is_open():
 			_board_stick(delta)
 		if _drag_hand != "":

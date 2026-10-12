@@ -177,13 +177,15 @@ func toggle(head: Transform3D) -> void:
 
 ## Start screen: the studio name, the game title and the choice of mixed or
 ## virtual reality. Shown once per launch, before the board appears.
-func open_start(head: Transform3D) -> void:
+func open_start(head: Transform3D, sting := true) -> void:
+	var was_open := _open and _page == "start"
 	_open = true
 	_page = "start"
 	_place(head, 0.75, 0.02)
-	_rebuild()
+	if not was_open:
+		_rebuild()
 	panel.visible = true
-	if not Save.muted:
+	if sting and not was_open and not Save.muted:
 		_sting.play()
 
 

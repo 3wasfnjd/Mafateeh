@@ -225,6 +225,13 @@ func _run() -> void:
 	check(main.menu.page() == "start" and main.menu.is_open(), "start screen shows")
 	main.menu.toggle(Transform3D())
 	check(main.menu.is_open(), "start screen stays until a mode is chosen")
+	# Looking away brings it back in front (same page, no rebuild of the answer).
+	var turned := Transform3D(Basis(Vector3.UP, PI), Vector3(0, 1.4, 1.0))
+	main.menu.open_start(turned, false)
+	var fwd := -turned.basis.z
+	var to_panel: Vector3 = main.menu.panel.global_position - turned.origin
+	check(main.menu.page() == "start" and to_panel.normalized().dot(fwd) > 0.9,
+		"start screen follows the player's gaze")
 	check(main.menu.press("الواقع الافتراضي"), "choose virtual reality")
 	check(not main.menu.is_open() and Save.mode == "vr", "game starts in the chosen mode")
 
