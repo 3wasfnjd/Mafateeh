@@ -42,6 +42,7 @@ func load_level(n: int) -> void:
 	motor.exit_started.connect(func(): feedback.emit("exit", _w(Vector2(LevelData.EXIT_X, -3.6))))
 	motor.level_finished.connect(_on_level_finished)
 	motor.brick_dropped.connect(func(at): feedback.emit("drop_brick", _w(at)))
+	motor.weight_dropped.connect(func(at): feedback.emit("place_weight", _w(at)))
 	state.changed.connect(_on_state_changed)
 	view = LevelView.new()
 	view.name = "Level%02d" % level
@@ -244,6 +245,8 @@ func activate(hit: Dictionary) -> void:
 		"hero":
 			if motor.carrying() == "brick":
 				motor.drop_brick()
+			elif motor.carrying() == "weight":
+				motor.drop_weight()
 			else:
 				hero.react("think")
 				feedback.emit("think", hit.point)
@@ -259,6 +262,13 @@ func activate(hit: Dictionary) -> void:
 					return
 			if absf(p.x - LevelData.EXIT_X) < 0.82 and p.z < -2.8:
 				motor.start_exit()
+				return
+			# Carrying a weight: put it down where the player points.
+			if motor.carrying() == "weight":
+				if motor.drop_weight(Vector2(p.x, p.z)):
+					feedback.emit("tap", p)
+				else:
+					feedback.emit("reject", p)
 				return
 			if motor.walk_to(Vector2(p.x, p.z)):
 				marker.position = Vector3(p.x, LevelData.surface_y(state.def, p.x, p.z) + 0.08, p.z)

@@ -272,6 +272,7 @@ func _snapshot() -> Dictionary:
 	return {"keys": keys, "gems": gems, "unlocked": unlocked, "choice": choice, "bits": bits,
 		"sequence": sequence, "dials": dial_values.duplicate(), "weights": weight_places.duplicate(),
 		"carried": carried, "brick_mode": brick_mode, "brick_at": brick_at,
+		"weight_at": objects.filter(func(o): return o.type == "weight").map(func(o): return Vector2(o.x, o.z)),
 		"mirrors": objects.filter(func(o): return o.type == "mirror").map(func(o): return o.dir)}
 
 
@@ -279,6 +280,12 @@ func _restore(s: Dictionary) -> void:
 	keys = s.keys; gems = s.gems; unlocked = s.unlocked; choice = s.choice; bits = s.bits
 	sequence = s.sequence; dial_values = s.dials; weight_places = s.weights; carried = s.carried
 	brick_mode = s.brick_mode; brick_at = s.brick_at
+	var w := 0
+	for o in objects:
+		if o.type == "weight" and s.has("weight_at"):
+			o.x = s.weight_at[w].x
+			o.z = s.weight_at[w].y
+			w += 1
 	var i := 0
 	for o in objects:
 		if o.type == "mirror":
@@ -390,6 +397,46 @@ func activate(o: Dictionary) -> Dictionary:
 
 func _reject(reason: String) -> Dictionary:
 	return {"ok": false, "event": "reject", "reason": reason}
+
+
+## Put the carried weight down on the floor at (or as close as possible to) `at`,
+## so a wrong choice on the balance can be undone freely. Returns the spot or null.
+func drop_weight(at: Vector2, facing_yaw: float) -> Variant:
+	if carried < 0:
+		return null
+	var obstacles := active_rects()
+	var tries: Array = [at]
+	for ring in [0.75, 1.1]:
+		for i in 8:
+			var a := facing_yaw + i * PI / 4.0
+			tries.append(at + Vector2(sin(a), cos(a)) * ring)
+	for p in tries:
+		if p.x < -3.4 or p.x > 3.4 or p.y < -2.7 or p.y > 2.65:
+			continue
+		var r := [p.x - 0.32, p.x + 0.32, p.y - 0.32, p.y + 0.32]
+		var blocked := false
+		for q in obstacles:
+			if r[0] < q[1] and r[1] > q[0] and r[2] < q[3] and r[3] > q[2]:
+				blocked = true
+				break
+		for o in objects:  # keep a clear gap from other floor objects
+			if not blocked and o.type != "weight" and o.type != "lock" and is_visible(o) and Vector2(o.x, o.z).distance_to(p) < 0.6:
+				blocked = true
+		for o in objects:
+			if not blocked and o.type == "weight" and o.id != carried and weight_places[o.id] == -1 and Vector2(o.x, o.z).distance_to(p) < 0.62:
+				blocked = true
+		if blocked:
+			continue
+		for o in objects:
+			if o.type == "weight" and o.id == carried:
+				o.x = p.x
+				o.z = p.y
+		weight_places[carried] = -1
+		carried = -1
+		_refresh()
+		changed.emit()
+		return p
+	return null
 
 
 ## Level 21: put the carried brick down near the hero. Returns the drop point

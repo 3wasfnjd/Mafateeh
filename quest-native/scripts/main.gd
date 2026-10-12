@@ -5,7 +5,7 @@ extends Node3D
 ## back to an orbit camera with mouse and keyboard.
 ##
 ## Command-line (after "--"): --level=N --time=day --weather=rain --mode=vr
-##   --screenshot=path.png [--yaw=deg --pitch=deg --zoom=f] [--intro=seconds]
+##   --screenshot=path.png [--yaw=deg --pitch=deg --zoom=f] [--menu=page]
 
 const ROTATE_SPEEDS := [1.0, 1.6, 2.4]  # rad/s at full deflection: slow, normal, fast
 const SNAP_ANGLE := PI / 6.0
@@ -31,8 +31,7 @@ var _cam_yaw := 0.55
 var _cam_pitch := 0.78
 var _cam_zoom := 1.0
 var _drag_hand := ""
-var intro: StudioIntro
-var _intro_started := false
+var _start_shown := false
 var _snap_armed := true
 var injected_move := Vector2.ZERO  # automated tests drive the stick through the normal frame path
 
@@ -75,6 +74,9 @@ func _ready() -> void:
 	add_child(sky)
 	sky.setup(env, sun, board, game)
 
+	# Automatic atmosphere only in normal play (not screenshots or forced presets).
+	sky.auto_enabled = not (_args.has("screenshot") or _args.has("time") or _args.has("weather") or _args.has("noauto"))
+
 	audio = GameAudio.new()
 	audio.name = "Audio"
 	add_child(audio)
@@ -111,8 +113,6 @@ func _ready() -> void:
 	if not Save.can_play(start) and not (_args.has("screenshot") or _args.has("level")):
 		start = Save.current_level
 	game.load_level(start)
-	if not xr and _args.has("intro"):
-		_start_intro.call_deferred()
 	if _args.has("screenshot"):
 		_screenshot.call_deferred()
 	# Store builds only: verify the purchase within the first seconds of launch.
@@ -139,25 +139,23 @@ func apply_sky() -> void:
 	sky.apply_level(game.level, _args.get("time", ""), weather)
 
 
-func _start_intro() -> void:
-	_intro_started = true
-	intro = StudioIntro.new()
-	intro.name = "StudioIntro"
-	add_child(intro)
-	if not xr and not _args.has("vrview"):
-		_update_desktop_camera()
-	intro.play(func(): return rig.head_transform() if xr else desktop_cam.global_transform, xr)
-	intro.finished.connect(func(): intro = null)
+## Start screen (studio name, title, mixed reality / VR choice). It needs the
+## player's answer, so it is always seen, however long the system loading screen
+## stays up.
+func _show_start() -> void:
+	_start_shown = true
+	menu.open_start(rig.head_transform())
 
 
-func intro_playing() -> bool:
-	return intro != null and intro.is_playing()
+## The player chose how to play: switch mode and put the board down.
+func start_game(m: String) -> void:
+	set_mode(m)
+	menu.close()
+	if xr and not _placed:
+		_place_board()
 
 
 func _on_menu_button() -> void:
-	if intro_playing():
-		intro.skip()
-		return
 	menu.toggle(rig.head_transform())
 
 
@@ -269,9 +267,6 @@ func _update_hints(delta: float, moved: bool) -> void:
 
 
 func _on_trigger(hand: String, origin: Vector3, direction: Vector3) -> void:
-	if intro_playing():
-		intro.skip()
-		return
 	if menu.handle_ray(origin, direction):
 		rig.pulse(hand, 0.15, 0.025)
 		return
@@ -332,12 +327,11 @@ func _process(delta: float) -> void:
 	if xr:
 		if _session_time >= 0.0 and not _placed:
 			_session_time += delta
-			# Start once the headset reports a real head pose (not the origin), so
-			# the studio name appears where the player is looking.
-			if not _intro_started and _session_time > 0.3 and (rig.head_transform().origin.y > 0.3 or _session_time > 2.5):
-				_start_intro()
-			if _session_time > 0.6 and _intro_started and not intro_playing():
-				_place_board()
+			# Show the start screen once the app has focus and the headset reports a
+			# real head pose, so it appears where the player is looking.
+			if not _start_shown and rig.focused and _session_time > 0.5 \
+					and (rig.head_transform().origin.y > 0.3 or _session_time > 3.0):
+				_show_start()
 		if _placed and rig.focused and not menu.is_open():
 			_board_stick(delta)
 		if _drag_hand != "":
@@ -526,12 +520,12 @@ func _screenshot() -> void:
 	if _args.has("menu"):  # documentation shots of a menu page, e.g. --menu=levels
 		desktop_cam.fov = 52.0
 		var head := desktop_cam.global_transform
-		menu.toggle(head.translated(Vector3(0, 0.12, 0)))
-		menu.open_page(_args.menu)
+		if _args.menu == "start":
+			menu.open_start(head.translated(Vector3(0, 0.1, 0)))
+		else:
+			menu.toggle(head.translated(Vector3(0, 0.12, 0)))
+			menu.open_page(_args.menu)
 		await get_tree().process_frame
-	if intro:
-		intro._t = float(_args.intro)
-		intro._update(intro._t)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(_args.screenshot)

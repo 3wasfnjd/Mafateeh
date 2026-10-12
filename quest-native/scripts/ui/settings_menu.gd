@@ -1,32 +1,42 @@
 class_name SettingsMenu
 extends Node3D
-## Compact settings panel, opened with the left controller's menu button.
-## Nothing is shown during play except a short level card and a brief board
-## placement notice.
+## The game's floating panel: start screen, pause menu, level list, hints and
+## settings. Styled after Diriyah: dark mud-brown board, gold frame and a row of
+## Najdi crenellations along the top, with an icon on every action (a Najdi door
+## for levels, a lantern for hints, a watchtower for "about", a palm for VR).
+## Nothing is shown during play except a short level card and brief notices.
 ##
-## Pages: main (continue, restart, previous/next level, level list, settings,
-## about), levels (every reached level, playable again), settings in three tabs
-## (sound, controls, display), reset confirmation, about. Developer tools
-## (all levels, time/weather overrides) appear only when enabled: project
-## setting mafateeh/dev/level_select, or tapping the title on the about page
-## seven times.
+## Pages: start (studio name + mixed reality / VR choice), main, levels (cards with
+## a picture of every level; reached ones replayable), hint, settings in four tabs
+## (sound, controls, display, atmosphere), reset confirmation, about, privacy.
+## Developer tools (all levels, time/weather overrides) appear only when enabled:
+## project setting mafateeh/dev/level_select, or tapping the title on the about
+## page seven times.
 
-const WIDTH := 0.36
-const ROW := 0.046
-const PIXEL := 0.00042
+const ROW := 0.05
+const HEADER := 0.064
+const PIXEL := 0.00044
 const GRID_COLS := 7
-const SETTINGS_TABS := ["audio", "controls", "display"]
+const SETTINGS_TABS := ["audio", "controls", "display", "atmosphere"]
+const ICON_DIR := "res://assets/ui/icons/"
+const THUMB_DIR := "res://assets/ui/levels/"
+const GOLD := Color(0.86, 0.68, 0.36)
+const CREAM := Color("fff4e0")
 
 var main: Node
 var panel: Node3D
-var buttons: Array = []  # {rect: Rect2, action: Callable, mesh: MeshInstance3D, base: Material, hover: String}
+var buttons: Array = []  # {rect, action, mesh, base, hover}
+var width := 0.42
 var _open := false
 var _page := "main"
 var _font: FontFile
 var _btn_mat: StandardMaterial3D
 var _btn_hover: StandardMaterial3D
 var _bg_mat: StandardMaterial3D
+var _band_mat: StandardMaterial3D
+var _gold_mat: StandardMaterial3D
 var _styles := {}
+var _tex_mats := {}
 var _toast: Label3D
 var _toast_t := 0.0
 var _card: Label3D
@@ -34,6 +44,7 @@ var _card_t := 0.0
 var _title_taps := 0
 var _info: Label3D
 var _info_default := ""
+var _sting: AudioStreamPlayer
 
 
 func setup(m: Node) -> void:
@@ -43,16 +54,20 @@ func setup(m: Node) -> void:
 		var latin := load("res://assets/fonts/cairo-latin-700-normal.woff2") as FontFile
 		if latin:
 			_font.fallbacks = [latin]
-	_bg_mat = _flat(Color(0.16, 0.11, 0.08, 0.94))
-	_bg_mat.render_priority = -1  # translucent backdrop sorts behind the (translucent) text
-	_btn_mat = _flat(Color(0.42, 0.28, 0.17, 1.0))
-	_btn_hover = _flat(Color(0.72, 0.5, 0.26, 1.0))
+	_bg_mat = _flat(Color(0.12, 0.085, 0.06, 0.95))
+	_bg_mat.render_priority = -2  # translucent backdrop sorts behind everything on it
+	_band_mat = _flat(Color(0.2, 0.135, 0.085, 0.97))
+	_band_mat.render_priority = -1
+	_gold_mat = _flat(GOLD)
+	_btn_mat = _flat(Color(0.33, 0.22, 0.14, 1.0))
+	_btn_hover = _flat(Color(0.72, 0.52, 0.27, 1.0))
 	_styles = {
-		"done": _flat(Color(0.33, 0.4, 0.2, 1.0)),
-		"current": _flat(Color(0.78, 0.56, 0.24, 1.0)),
-		"locked": _flat(Color(0.22, 0.16, 0.12, 1.0)),
-		"tab_on": _flat(Color(0.6, 0.42, 0.22, 1.0)),
-		"danger": _flat(Color(0.52, 0.17, 0.12, 1.0)),
+		"done": _flat(Color(0.3, 0.38, 0.2, 1.0)),
+		"current": _flat(Color(0.74, 0.55, 0.26, 1.0)),
+		"locked": _flat(Color(0.18, 0.13, 0.1, 1.0)),
+		"tab_on": _flat(Color(0.58, 0.41, 0.22, 1.0)),
+		"danger": _flat(Color(0.5, 0.17, 0.12, 1.0)),
+		"primary": _flat(Color(0.62, 0.43, 0.21, 1.0)),
 	}
 	panel = Node3D.new()
 	panel.visible = false
@@ -64,6 +79,10 @@ func setup(m: Node) -> void:
 	_card.visible = false
 	main.board.add_child(_card)
 	_card.pixel_size = 0.012
+	_sting = AudioStreamPlayer.new()
+	_sting.stream = load("res://audio/sfx/intro_sting.wav")
+	_sting.volume_db = -3.0
+	add_child(_sting)
 	main.game.level_loaded.connect(_show_card)
 	main.game.level_loaded.connect(func(_n): if _open: _rebuild())
 
@@ -77,22 +96,51 @@ static func _flat(c: Color) -> StandardMaterial3D:
 	return m
 
 
+## Unshaded textured material (icons, thumbnails), cached per texture and tint.
+func _tex_mat(path: String, tint := Color.WHITE, alpha := true) -> StandardMaterial3D:
+	var key := "%s|%s" % [path, tint.to_html()]
+	if _tex_mats.has(key):
+		return _tex_mats[key]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = load(path)
+	m.albedo_color = tint
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	if alpha:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.render_priority = 1
+	_tex_mats[key] = m
+	return m
+
+
 func _label(text: String, pixel: float) -> Label3D:
 	var l := Label3D.new()
 	l.text = text
 	l.pixel_size = pixel
 	l.font_size = 48
 	l.outline_size = 10
-	l.outline_modulate = Color(0.1, 0.06, 0.03, 0.9)
-	l.modulate = Color("fff4e0")
+	l.outline_modulate = Color(0.08, 0.05, 0.03, 0.9)
+	l.modulate = CREAM
 	if _font:
 		l.font = _font
 	l.no_depth_test = false
-	l.render_priority = 1
+	l.render_priority = 2
 	l.double_sided = false
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.text_direction = TextServer.DIRECTION_AUTO
 	return l
+
+
+func _quad(size: Vector2, mat: Material, pos: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = size
+	mi.mesh = q
+	mi.material_override = mat
+	mi.position = pos
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	panel.add_child(mi)
+	return mi
 
 
 func is_open() -> bool:
@@ -103,22 +151,40 @@ func page() -> String:
 	return _page
 
 
+func _place(head: Transform3D, distance: float, drop: float) -> void:
+	var fwd := -head.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
+	panel.global_position = head.origin + fwd * distance + Vector3(0, -drop, 0)
+	panel.look_at(head.origin, Vector3.UP, true)
+
+
 func toggle(head: Transform3D) -> void:
+	if _page == "start" and _open:
+		return  # the start screen stays until a mode is chosen
 	if _open:
 		close()
 		return
 	_open = true
 	_page = "main"
-	var fwd := -head.basis.z
-	fwd.y = 0.0
-	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
-	panel.global_position = head.origin + fwd * 0.5 + Vector3(0, -0.12, 0)
-	panel.look_at(head.origin, Vector3.UP, true)
+	_place(head, 0.5, 0.1)
 	_rebuild()
 	panel.visible = true
 	main.audio.ui("open")
 	if main.game.motor:
 		main.game.motor.cancel()
+
+
+## Start screen: the studio name, the game title and the choice of mixed or
+## virtual reality. Shown once per launch, before the board appears.
+func open_start(head: Transform3D) -> void:
+	_open = true
+	_page = "start"
+	_place(head, 0.75, 0.02)
+	_rebuild()
+	panel.visible = true
+	if not Save.muted:
+		_sting.play()
 
 
 func close() -> void:
@@ -134,63 +200,183 @@ func open_page(p: String) -> void:
 
 # --- layout ------------------------------------------------------------------------------
 
+func _page_width() -> float:
+	match _page:
+		"levels": return 0.52
+		"start": return 0.58
+		"audio", "controls", "display", "atmosphere": return 0.54
+	return 0.44
+
+
 func _rebuild() -> void:
 	for c in panel.get_children():
 		c.queue_free()
 	buttons.clear()
 	_info = null
+	width = _page_width()
 	var rows: Array = []
 	match _page:
+		"start": rows = _start_rows()
 		"levels": rows = _level_rows()
-		"audio", "controls", "display": rows = _settings_rows()
+		"hint": rows = _hint_rows()
+		"audio", "controls", "display", "atmosphere": rows = _settings_rows()
 		"reset": rows = _reset_rows()
 		"credits": rows = _credit_rows()
 		"privacy": rows = _privacy_rows()
 		_: rows = _main_rows()
-	var height := rows.size() * ROW + 0.03
-	var bg := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(WIDTH + 0.02, height)
-	bg.mesh = q
-	bg.material_override = _bg_mat
-	bg.position = Vector3(0, 0, -0.002)
-	panel.add_child(bg)
-	var y := height / 2.0 - 0.015 - ROW / 2.0
-	for row in rows:
-		var items: Array = row if row is Array else [row]
+	var heights: Array = []
+	var height := 0.045  # top margin under the crenellations + bottom margin
+	for i in rows.size():
+		var items: Array = rows[i] if rows[i] is Array else [rows[i]]
+		var h := HEADER if i == 0 else ROW
+		for it in items:
+			h = maxf(h, float(it.get("h", 0.0)))
+		heights.append(h)
+		height += h
+	_frame(height)
+	var y := height / 2.0 - 0.03
+	for i in rows.size():
+		var items: Array = rows[i] if rows[i] is Array else [rows[i]]
+		var h: float = heights[i]
 		var total := 0.0
 		for it in items:
 			total += it.get("w", 1.0)
-		var x := -WIDTH / 2.0
+		var x := -width / 2.0
 		for it in items:
-			var w: float = WIDTH * it.get("w", 1.0) / total
-			var center := Vector2(x + w / 2.0, y)
-			if it.has("action") or it.has("style"):
-				var m := MeshInstance3D.new()
-				var bq := QuadMesh.new()
-				bq.size = Vector2(w - 0.006, ROW - 0.008)
-				m.mesh = bq
-				var base: Material = _styles.get(it.get("style", ""), _btn_mat)
-				m.material_override = base
-				m.position = Vector3(center.x, center.y, 0)
-				panel.add_child(m)
-				if it.has("action"):
-					buttons.append({"rect": Rect2(center - Vector2(w, ROW) / 2.0, Vector2(w, ROW)),
-						"action": it.action, "mesh": m, "base": base, "hover": it.get("hover", "")})
-			var l := _label(it.text, PIXEL * (0.8 if it.get("small", false) else 1.0))
-			if it.get("style", "") == "locked":
-				l.modulate = Color(1.0, 0.96, 0.88, 0.45)
-			l.position = Vector3(center.x, center.y, 0.002)
-			panel.add_child(l)
-			if it.get("info", false):
-				_info = l
-				_info_default = it.text
+			var w: float = width * it.get("w", 1.0) / total
+			var center := Vector2(x + w / 2.0, y - h / 2.0)
+			_item(it, center, Vector2(w, h), i == 0)
 			x += w
-		y -= ROW
+		y -= h
+
+
+## Board, gold frame, header band and the crenellated top edge.
+func _frame(height: float) -> void:
+	var w := width + 0.024
+	_quad(Vector2(w, height), _bg_mat, Vector3(0, 0, -0.003))
+	_quad(Vector2(w, HEADER + 0.012), _band_mat, Vector3(0, height / 2.0 - 0.012 - HEADER / 2.0, -0.002))
+	var t := 0.0025
+	_quad(Vector2(w, t), _gold_mat, Vector3(0, height / 2.0, -0.001))
+	_quad(Vector2(w, t), _gold_mat, Vector3(0, -height / 2.0, -0.001))
+	_quad(Vector2(t, height), _gold_mat, Vector3(-w / 2.0, 0, -0.001))
+	_quad(Vector2(t, height), _gold_mat, Vector3(w / 2.0, 0, -0.001))
+	_quad(Vector2(w - 0.02, t * 0.6), _gold_mat, Vector3(0, height / 2.0 - 0.018 - HEADER, -0.001))
+	# Najdi crenellations standing on the top edge (tiled strip texture).
+	var cren := _quad(Vector2(w, 0.022), _cren_mat(w), Vector3(0, height / 2.0 + 0.011, -0.002))
+	cren.name = "Crenellations"
+
+
+func _cren_mat(w: float) -> StandardMaterial3D:
+	var m := _tex_mat(ICON_DIR + "crenellation.png", Color(0.2, 0.135, 0.085)).duplicate() as StandardMaterial3D
+	m.uv1_scale = Vector3(w / 0.176, 1, 1)  # one 8-tooth strip every 17.6 cm
+	m.texture_repeat = true
+	m.render_priority = -1
+	return m
+
+
+func _item(it: Dictionary, center: Vector2, size: Vector2, header: bool) -> void:
+	var kind: String = it.get("kind", "")
+	if kind == "card":
+		_card_item(it, center, size)
+		return
+	if kind == "image":
+		var tex: Texture2D = load(it.path)
+		var ih: float = size.y * 0.92
+		var iw := ih * float(tex.get_width()) / float(tex.get_height())
+		_quad(Vector2(iw, ih), _tex_mat(it.path), Vector3(center.x, center.y, 0.001))
+		return
+	var styled: bool = it.has("action") or it.has("style")
+	if styled:
+		var base: Material = _styles.get(it.get("style", ""), _btn_mat)
+		var m := _quad(Vector2(size.x - 0.008, size.y - 0.01), base, Vector3(center.x, center.y, 0))
+		if it.has("action"):
+			buttons.append({"rect": Rect2(center - size / 2.0, size), "action": it.action, "mesh": m,
+				"base": base, "hover": it.get("hover", "")})
+	var text_center := center.x
+	if it.has("icon"):
+		var isz := minf(size.y * 0.62, (0.032 if not it.get("big", false) else 0.05) * (0.8 if it.get("small", false) else 1.0))
+		var only_icon: bool = it.get("text", "") == ""
+		var ix := center.x if only_icon else (center.x + size.x / 2.0 - isz * 0.9 if Save.arabic() else center.x - size.x / 2.0 + isz * 0.9)
+		var tint: Color = CREAM if it.get("style", "") != "locked" else Color(1, 0.95, 0.85, 0.4)
+		var iq := _quad(Vector2(isz, isz), _tex_mat(ICON_DIR + it.icon + ".png", tint), Vector3(ix, center.y, 0.001))
+		if it.icon == "back" and Save.arabic():
+			iq.scale.x = -1.0  # "back" points right when reading right to left
+		if not only_icon:
+			text_center += (-isz * 0.55 if Save.arabic() else isz * 0.55)
+	if kind == "body":
+		var b := _label(it.text, PIXEL * 0.82)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.width = (size.x - 0.04) / (PIXEL * 0.82)
+		b.position = Vector3(center.x, center.y, 0.002)
+		panel.add_child(b)
+		return
+	if it.get("text", "") == "":
+		return
+	var scale := 1.0
+	if header:
+		scale = 1.12
+	elif it.get("small", false):
+		scale = 0.8
+	elif it.get("big", false):
+		scale = 1.15
+	var l := _label(it.text, PIXEL * scale)
+	if header:
+		l.modulate = Color("ffe4b0")
+	if it.get("style", "") == "locked":
+		l.modulate = Color(1.0, 0.96, 0.88, 0.45)
+	l.position = Vector3(text_center, center.y, 0.002)
+	panel.add_child(l)
+	if it.get("info", false):
+		_info = l
+		_info_default = it.text
+
+
+## A level card: picture of the level, number, and a badge (done / locked).
+func _card_item(it: Dictionary, center: Vector2, size: Vector2) -> void:
+	var n: int = it.n
+	var style: String = it.get("style", "")
+	var base: Material = _styles.get(style, _btn_mat)
+	var m := _quad(Vector2(size.x - 0.006, size.y - 0.006), base, Vector3(center.x, center.y, 0))
+	if it.has("action"):
+		buttons.append({"rect": Rect2(center - size / 2.0, size), "action": it.action, "mesh": m,
+			"base": base, "hover": it.get("hover", "")})
+	var tw := size.x - 0.014
+	var th := tw * 9.0 / 16.0
+	var path := THUMB_DIR + "level_%02d.jpg" % n
+	var locked := style == "locked"
+	if ResourceLoader.exists(path):
+		var tint := Color(0.35, 0.3, 0.27) if locked else Color.WHITE
+		_quad(Vector2(tw, th), _tex_mat(path, tint, false), Vector3(center.x, center.y + size.y / 2.0 - th / 2.0 - 0.006, 0.001))
+	var l := _label(str(n), PIXEL * 0.9)
+	l.position = Vector3(center.x, center.y - size.y / 2.0 + 0.013, 0.002)
+	if locked:
+		l.modulate = Color(1, 0.95, 0.85, 0.5)
+	panel.add_child(l)
+	var badge := "lock" if locked else ("check" if it.get("done", false) else "")
+	if badge != "":
+		var bz := 0.018
+		_quad(Vector2(bz, bz), _tex_mat(ICON_DIR + badge + ".png", CREAM if badge == "lock" else Color("c9f2a6")),
+			Vector3(center.x + size.x / 2.0 - bz, center.y + size.y / 2.0 - bz, 0.003))
 
 
 static func _pct(v: float) -> String:
 	return Save.text("%d٪", "%d%%") % roundi(v * 100)
+
+
+# --- pages -----------------------------------------------------------------------------
+
+func _start_rows() -> Array:
+	return [
+		{"kind": "image", "path": "res://assets/brand/aboden_wordmark.png", "h": 0.12},
+		{"text": "مفاتيح — Mafateeh", "big": true, "h": 0.06},
+		{"text": T("اختر طريقة اللعب", "Choose how to play"), "small": true},
+		_dir([{"text": T("الواقع المختلط", "Mixed reality"), "icon": "mr", "big": true, "h": 0.085, "style": "primary",
+				"action": func(): main.start_game("mr")},
+			{"text": T("الواقع الافتراضي", "Virtual reality"), "icon": "vr", "big": true, "h": 0.085, "style": "primary",
+				"action": func(): main.start_game("vr")}]),
+		{"text": T("اللعبة على طاولتك في غرفتك، أو في الدرعية بين النخيل", "The board on your own table, or in Diriyah among the palms"), "small": true},
+		{"text": T("English", "العربية"), "icon": "language", "small": true, "w": 1.0, "action": _toggle_language},
+	]
 
 
 func _main_rows() -> Array:
@@ -199,14 +385,16 @@ func _main_rows() -> Array:
 	var prev := _neighbour(lvl, -1)
 	var next := _neighbour(lvl, 1)
 	var rows: Array = [
-		{"text": T("مفاتيح  ·  المرحلة %d — %s", "Mafateeh  ·  Level %d — %s") % [lvl, _title(d)]},
-		{"text": T("متابعة", "Resume"), "action": close},
-		{"text": T("إعادة المرحلة", "Restart level"), "action": func(): close(); main.game.restart()},
+		{"text": T("المرحلة %d — %s", "Level %d — %s") % [lvl, _title(d)]},
+		{"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close},
+		_dir([{"text": T("إعادة المرحلة", "Restart level"), "icon": "restart", "action": func(): close(); main.game.restart()},
+			{"text": T("تلميح", "Hint"), "icon": "hint", "action": func(): open_page("hint")}]),
 		# Reading order: previous first (on the right in Arabic, on the left in English).
-		_dir([_nav_item(T("السابقة", "Previous"), prev), {"text": T("المراحل", "Levels"), "w": 1.3, "action": func(): open_page("levels")},
-			_nav_item(T("التالية", "Next"), next)]),
-		{"text": T("الإعدادات", "Settings"), "action": func(): open_page("audio")},
-		{"text": T("حول اللعبة والتراخيص", "About and licenses"), "action": func(): open_page("credits")},
+		_dir([_nav_item(T("السابقة", "Previous"), prev, "next" if Save.arabic() else "prev"),
+			{"text": T("المراحل", "Levels"), "icon": "levels", "w": 1.3, "action": func(): open_page("levels")},
+			_nav_item(T("التالية", "Next"), next, "prev" if Save.arabic() else "next")]),
+		_dir([{"text": T("الإعدادات", "Settings"), "icon": "settings", "action": func(): open_page("audio")},
+			{"text": T("حول اللعبة", "About"), "icon": "about", "action": func(): open_page("credits")}]),
 	]
 	if Save.dev_tools_available():
 		var sky: SkyWeather = main.sky
@@ -216,10 +404,10 @@ func _main_rows() -> Array:
 	return rows
 
 
-func _nav_item(text: String, target: int) -> Dictionary:
+func _nav_item(text: String, target: int, icon: String) -> Dictionary:
 	if target < 1:
-		return {"text": text, "w": 0.9, "style": "locked", "small": true}
-	return {"text": text, "w": 0.9, "small": true, "action": func(): play_level(target)}
+		return {"text": text, "icon": icon, "w": 0.9, "style": "locked", "small": true}
+	return {"text": text, "icon": icon, "w": 0.9, "small": true, "action": func(): play_level(target)}
 
 
 ## Nearest playable level in a direction (-1 / +1), or 0.
@@ -236,6 +424,16 @@ func play_level(n: int) -> void:
 		main.game.go_to_level(n)
 
 
+func _hint_rows() -> Array:
+	var lvl: int = main.game.target_level()
+	return [
+		{"text": T("تلميح — المرحلة %d", "Hint — level %d") % lvl},
+		{"kind": "body", "text": LevelHints.text(lvl), "h": 0.13},
+		_dir([{"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")},
+			{"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close}]),
+	]
+
+
 func _level_rows() -> Array:
 	var cur: int = main.game.target_level()
 	var done := 0
@@ -243,30 +441,31 @@ func _level_rows() -> Array:
 		if Save.is_completed(n):
 			done += 1
 	var rows: Array = [
-		{"text": T("المراحل  ·  أنجزت %d من %d", "Levels  ·  %d of %d complete") % [done, LevelData.COUNT]},
+		{"text": T("المراحل  ·  أنجزت %d من %d", "Levels  ·  %d of %d complete") % [done, LevelData.COUNT], "icon": "levels"},
 		{"text": _level_info(cur), "small": true, "info": true},
 	]
 	var n := 1
 	while n <= LevelData.COUNT:
 		var row: Array = []
 		for c in GRID_COLS:
-			if n > LevelData.COUNT:
-				row.append({"text": ""})
-			else:
+			if n <= LevelData.COUNT:
 				row.append(_level_cell(n, cur))
 			n += 1
 		rows.append(_dir(row))  # level 1 starts on the right in Arabic, on the left in English
-	rows.append({"text": T("رجوع", "Back"), "action": func(): open_page("main")})
+	rows.append({"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")})
 	return rows
 
 
 func _level_cell(n: int, cur: int) -> Dictionary:
+	var it := {"kind": "card", "n": n, "text": str(n), "h": 0.07, "done": Save.is_completed(n), "hover": _level_info(n)}
 	if not Save.can_play(n):
-		return {"text": str(n), "style": "locked"}
-	var style := "current" if n == cur else ("done" if Save.is_completed(n) else "")
-	var it := {"text": str(n), "hover": _level_info(n), "action": func(): close(); play_level(n)}
-	if style != "":
-		it["style"] = style
+		it["style"] = "locked"
+		return it
+	if n == cur:
+		it["style"] = "current"
+	elif Save.is_completed(n):
+		it["style"] = "done"
+	it["action"] = func(): close(); play_level(n)
 	return it
 
 
@@ -277,10 +476,12 @@ static func _level_info(n: int) -> String:
 
 
 func _tabs() -> Array:
-	var names := {"audio": T("الصوت", "Sound"), "controls": T("التحكم", "Controls"), "display": T("العرض", "Display")}
+	var names := {"audio": T("الصوت", "Sound"), "controls": T("التحكم", "Controls"),
+		"display": T("العرض", "Display"), "atmosphere": T("الأجواء", "Atmosphere")}
+	var icons := {"audio": "sound", "controls": "controls", "display": "display", "atmosphere": "atmosphere"}
 	var row: Array = []
 	for t in SETTINGS_TABS:
-		var it := {"text": names[t], "action": func(): open_page(t)}
+		var it := {"text": names[t], "icon": icons[t], "small": true, "action": func(): open_page(t)}
 		if t == _page:
 			it["style"] = "tab_on"
 		row.append(it)
@@ -292,13 +493,13 @@ func _stepper(text: String, minus: Callable, plus: Callable) -> Array:
 
 
 func _settings_rows() -> Array:
-	var rows: Array = [{"text": T("الإعدادات", "Settings")}, _tabs()]
+	var rows: Array = [{"text": T("الإعدادات", "Settings"), "icon": "settings"}, _tabs()]
 	match _page:
 		"audio":
 			rows.append(_stepper(T("الصوت العام ", "Master ") + _pct(Save.master_volume), func(): _volume("master", -0.1), func(): _volume("master", 0.1)))
 			rows.append(_stepper(T("المؤثرات ", "Effects ") + _pct(Save.sfx_volume), func(): _volume("sfx", -0.1), func(): _volume("sfx", 0.1)))
 			rows.append(_stepper(T("الأجواء والمطر ", "Ambience and rain ") + _pct(Save.ambience_volume), func(): _volume("ambience", -0.1), func(): _volume("ambience", 0.1)))
-			rows.append({"text": T("إلغاء الكتم", "Unmute") if Save.muted else T("كتم الصوت", "Mute"), "action": func(): Save.muted = not Save.muted; _changed()})
+			rows.append({"text": T("إلغاء الكتم", "Unmute") if Save.muted else T("كتم الصوت", "Mute"), "icon": "sound", "action": func(): Save.muted = not Save.muted; _changed()})
 		"controls":
 			rows.append({"text": T("التدوير: ", "Turning: ") + (T("متدرّج 30°", "30° steps") if Save.turn_mode == "snap" else T("سلس", "smooth")),
 				"action": func(): Save.turn_mode = "smooth" if Save.turn_mode == "snap" else "snap"; _changed()})
@@ -308,25 +509,39 @@ func _settings_rows() -> Array:
 				"action": func(): Save.left_handed = not Save.left_handed; _changed()})
 			rows.append({"text": T("الاهتزاز: ", "Vibration: ") + (T("يعمل", "on") if Save.haptics else T("متوقف", "off")),
 				"action": func(): Save.haptics = not Save.haptics; _changed(); main.pulse_ui()})
-			rows.append({"text": T("إظهار إرشادات التحكم", "Show controller hints"), "action": func(): close(); main.show_controller_hints()})
+			rows.append({"text": T("إظهار إرشادات التحكم", "Show controller hints"), "icon": "controls", "action": func(): close(); main.show_controller_hints()})
 		"display":
 			rows.append({"text": T("الوضع: ", "Mode: ") + (T("الواقع المختلط", "mixed reality") if Save.mode == "mr" else T("الواقع الافتراضي", "virtual reality")),
-				"action": func(): main.set_mode("vr" if Save.mode == "mr" else "mr"); _rebuild()})
-			rows.append({"text": T("الطقس: ", "Weather: ") + (T("صافٍ دائمًا", "always clear") if Save.weather_pref == "clear" else T("حسب المرحلة", "per level")),
-				"action": func(): Save.weather_pref = "auto" if Save.weather_pref == "clear" else "clear"; _changed(); main.apply_sky()})
-			rows.append(_dir([{"text": T("إعادة تموضع اللوحة", "Re-place board"), "small": true, "action": func(): close(); main._on_grip_tap("menu")},
+				"icon": "mr" if Save.mode == "mr" else "vr", "action": func(): main.set_mode("vr" if Save.mode == "mr" else "mr"); _rebuild()})
+			rows.append(_dir([{"text": T("إعادة تموضع اللوحة", "Re-place board"), "icon": "board", "small": true, "action": func(): close(); main._on_grip_tap("menu")},
 				{"text": T("حجم اللوحة الافتراضي", "Default board size"), "small": true, "action": func(): main.reset_board_size()}]))
-			rows.append(_dir([{"text": T("اللغة: العربية", "Language: English"), "action": _toggle_language},
-				{"text": T("الجودة: ", "Graphics: ") + (T("عالية", "high") if Save.quality == "high" else T("متوازنة", "balanced")),
+			rows.append(_dir([{"text": T("اللغة: العربية", "Language: English"), "icon": "language", "action": _toggle_language},
+				{"text": T("الجودة: ", "Graphics: ") + (T("عالية", "high") if Save.quality == "high" else T("متوازنة", "balanced")), "icon": "quality",
 					"action": func(): Save.quality = "balanced" if Save.quality == "high" else "high"; _changed(); main.apply_quality()}]))
-			rows.append({"text": T("مسح التقدم…", "Reset progress…"), "style": "danger", "action": func(): open_page("reset")})
-	rows.append({"text": T("رجوع", "Back"), "action": func(): open_page("main")})
+			rows.append({"text": T("مسح التقدم…", "Reset progress…"), "icon": "reset", "style": "danger", "action": func(): open_page("reset")})
+		"atmosphere":
+			rows.append({"text": T("دورة اليوم: ", "Day cycle: ") + (T("تلقائية", "automatic") if Save.day_cycle else T("ثابتة حسب المرحلة", "fixed per level")),
+				"icon": "atmosphere", "action": func(): Save.day_cycle = not Save.day_cycle; _changed(); main.apply_sky()})
+			var wnames := {"cycle": T("أمطار متقطعة تلقائية", "passing showers"), "level": T("حسب المرحلة", "per level"), "clear": T("صافٍ دائمًا", "always clear")}
+			rows.append({"text": T("الطقس: ", "Weather: ") + wnames[Save.weather_pref],
+				"action": _cycle_weather})
+			rows.append({"text": T("الغبار الخفيف: ", "Light dust: ") + (T("يعمل", "on") if Save.dust else T("متوقف", "off")),
+				"action": func(): Save.dust = not Save.dust; _changed()})
+			rows.append({"text": T("الأجواء بصرية فقط ولا تغيّر حل أي لغز", "Atmosphere is visual only and never changes a solution"), "small": true})
+	rows.append({"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")})
 	return rows
+
+
+func _cycle_weather() -> void:
+	var order := ["cycle", "level", "clear"]
+	Save.weather_pref = order[(order.find(Save.weather_pref) + 1) % order.size()]
+	_changed()
+	main.apply_sky()
 
 
 func _reset_rows() -> Array:
 	return [
-		{"text": T("مسح كل التقدم؟", "Reset all progress?")},
+		{"text": T("مسح كل التقدم؟", "Reset all progress?"), "icon": "reset"},
 		{"text": T("تعود إلى المرحلة 1 وتُقفل المراحل الأخرى", "You return to level 1 and the other levels lock"), "small": true},
 		_dir([{"text": T("إلغاء", "Cancel"), "action": func(): open_page("display")}, {"text": T("مسح", "Reset"), "style": "danger", "action": _reset_progress}]),
 	]
@@ -341,7 +556,7 @@ func _reset_progress() -> void:
 
 func _credit_rows() -> Array:
 	return [
-		{"text": "مفاتيح — Mafateeh", "action": _title_tap},
+		{"text": "مفاتيح — Mafateeh", "icon": "about", "action": _title_tap},
 		{"text": T("عبودين قيمز — Aboden Games", "Aboden Games — عبودين قيمز"), "small": true},
 		{"text": T("ترخيص MIT · © Aboden Games", "MIT license · © Aboden Games"), "small": true},
 		{"text": "Godot Engine (MIT) · OpenXR Vendors (MIT)", "small": true},
@@ -349,16 +564,15 @@ func _credit_rows() -> Array:
 		{"text": "OpenXR Loader (Apache-2.0) · Meta OpenXR SDK", "small": true},
 		{"text": "Cairo font (SIL OFL 1.1)", "small": true},
 		{"text": T("الأصوات والنماذج أصلية ضمن المشروع", "Sounds and models are original to the project"), "small": true},
-		{"text": T("التفاصيل الكاملة في ملفات التراخيص", "Full details in the license files"), "small": true},
-		{"text": T("سياسة الخصوصية", "Privacy policy"), "action": func(): open_page("privacy")},
-		{"text": T("رجوع", "Back"), "action": func(): open_page("main")},
+		_dir([{"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")},
+			{"text": T("سياسة الخصوصية", "Privacy policy"), "icon": "privacy", "action": func(): open_page("privacy")}]),
 	]
 
 
 ## Short in-game version of PRIVACY.md (the full text is linked from the store page).
 func _privacy_rows() -> Array:
 	return [
-		{"text": T("سياسة الخصوصية", "Privacy policy")},
+		{"text": T("سياسة الخصوصية", "Privacy policy"), "icon": "privacy"},
 		{"text": T("لا تجمع اللعبة أي بيانات شخصية", "The game collects no personal data"), "small": true},
 		{"text": T("لا إعلانات ولا تحليلات ولا حسابات", "No ads, no analytics, no accounts"), "small": true},
 		{"text": T("اللعبة نفسها لا تتصل بالإنترنت", "The game itself does not go online"), "small": true},
@@ -366,7 +580,7 @@ func _privacy_rows() -> Array:
 		{"text": T("بيانات المساحة للّعب فقط ولا تُحفظ ولا تُرسل", "Space data is used to play, never stored or sent"), "small": true},
 		{"text": T("تحقّق ملكية النسخة من المتجر تديره Meta", "Store ownership check is handled by Meta"), "small": true},
 		{"text": T("النص الكامل: github.com/3wasfnjd/Mafateeh", "Full text: github.com/3wasfnjd/Mafateeh"), "small": true},
-		{"text": T("رجوع", "Back"), "action": func(): open_page("credits")},
+		{"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("credits")},
 	]
 
 
@@ -438,13 +652,12 @@ func _hit(o: Vector3, d: Vector3) -> Dictionary:
 	if t < 0.0:
 		return {}
 	var p := lo + ld * t
-	var size := Vector2(WIDTH + 0.02, 1.0)
 	var hit := {"point": panel.global_transform * p, "interactive": false, "local": Vector2(p.x, p.y)}
 	for b in buttons:
 		if b.rect.has_point(Vector2(p.x, p.y)):
 			hit.interactive = true
 			hit["button"] = b
-	if absf(p.x) > size.x / 2.0 and not hit.interactive:
+	if absf(p.x) > (width + 0.024) / 2.0 and not hit.interactive:
 		return {}
 	return hit
 

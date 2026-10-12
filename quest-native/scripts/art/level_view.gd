@@ -568,6 +568,18 @@ func _build_object(o: Dictionary) -> Dictionary:
 					Vector3(((j % 3) - 1) * 0.15, floorf(j / 6.0) * 0.14, ((int(j / 3.0) % 2) - 0.5) * 0.16)))
 			n["pile"] = balls
 			n["side"] = o.id
+			# Running total above the pan, so a wrong choice is easy to see and fix.
+			var sum := Label3D.new()
+			sum.font_size = 64
+			sum.pixel_size = 0.006
+			sum.outline_size = 14
+			sum.modulate = Color("ffe9b8")
+			sum.outline_modulate = Color(0.2, 0.12, 0.05, 0.9)
+			sum.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			sum.position.y = 1.15
+			sum.no_depth_test = false
+			root.add_child(sum)
+			n["sum"] = sum
 			pan_nodes.append(n)
 		"weight":
 			Kit.add(root, Kit.cylinder(0.27, 0.31, 0.1, 18), Kit.mat("stone_dark"), Vector3(0, 0.1, 0))
@@ -720,6 +732,8 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 			continue
 		var visible := state.is_visible(o)
 		n.root.visible = visible or o.type in ["lock"]
+		if o.type == "weight" and visible:  # weights can be put down anywhere
+			n.root.position = Vector3(o.x, surface(o.x, o.z), o.z)
 		match o.type:
 			"key", "gem":
 				n.item.rotation.y += dt * 0.8
@@ -776,6 +790,8 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 			n.root.position.y = surface(cfg.at[0], cfg.at[1]) + (1.0 if side else -1.0) * sin(scale_beam.rotation.z) * 0.9
 			for j in n.pile.size():
 				n.pile[j].visible = j < s[side]
+			n.sum.text = str(s[side])
+			n.sum.modulate = Color("b8f0a0") if s[0] == s[1] and s[0] > 0 else Color("ffe9b8")
 	for f in foliage:
 		# Gentle sway; stronger, still restrained, in rain.
 		var ph: float = f.get_meta("sway")

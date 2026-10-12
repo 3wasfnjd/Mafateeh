@@ -29,6 +29,9 @@ func frames(n: int, move := Vector2.ZERO) -> void:
 func _run() -> void:
 	Save.reset_progress()
 	Save.language = "ar"
+	Save.weather_pref = "cycle"
+	Save.day_cycle = true
+	Save.dust = true
 	main = load("res://scenes/main.tscn").instantiate()
 	get_tree().root.add_child(main)
 	await get_tree().process_frame
@@ -36,6 +39,7 @@ func _run() -> void:
 	var game: Game = main.game
 	var audio: GameAudio = main.audio
 	var sky: SkyWeather = main.sky
+	sky.auto_enabled = false  # deterministic weather while testing; the cycle is tested explicitly
 	check(not main.xr, "desktop fallback active without a headset")
 	check(game.level == 1, "fresh save starts at level 1 (got %d)" % game.level)
 
@@ -173,13 +177,31 @@ func _run() -> void:
 	main.menu.press("التدوير:")
 	check(Save.turn_mode == "snap", "snap turning option")
 	main.menu.press("التدوير:")
-	check(main.menu.press("العرض"), "display tab")
+	check(main.menu.press("الأجواء"), "atmosphere tab")
+	check(Save.weather_pref == "cycle" and Save.day_cycle and Save.dust, "automatic atmosphere is the default")
+	main.menu.press("الطقس")
+	check(Save.weather_pref == "level", "weather per level option")
 	main.menu.press("الطقس")
 	check(Save.weather_pref == "clear", "always-clear weather option")
 	game.go_to_level(21)
 	await frames(70)
 	check(not main.sky.raining, "always-clear overrides the rainy level")
 	main.menu.press("الطقس")
+	check(Save.weather_pref == "cycle", "back to automatic weather")
+	main.menu.press("الغبار")
+	check(not Save.dust, "dust can be switched off")
+	main.menu.press("الغبار")
+	# Automatic day cycle moves the time of day on by itself.
+	var before_time: String = main.sky.time_name
+	main.sky._phase_t = 10000.0
+	main.sky._auto_atmosphere(0.016)
+	check(main.sky.time_name != before_time, "day cycle advances (%s → %s)" % [before_time, main.sky.time_name])
+	main.sky._rain_t = 0.0
+	var was_raining: bool = main.sky.raining
+	main.sky._auto_atmosphere(0.016)
+	check(main.sky.raining != was_raining, "passing showers start and stop by themselves")
+	main.sky.set_rain(false, false)
+	check(main.menu.press("العرض"), "display tab")
 	check(main.menu.press("اللغة"), "language option")
 	check(not Save.arabic(), "switches to English")
 	check(main.menu.press("Reset progress"), "menu text follows the language")
@@ -190,11 +212,21 @@ func _run() -> void:
 	check(main.menu.page() == "reset", "reset asks for confirmation")
 	main.menu.press("إلغاء")
 	check(Save.unlocked_level >= 4, "cancel keeps progress")
+	main.menu.open_page("main")
+	check(main.menu.press("تلميح"), "hint from the menu")
+	check(main.menu.page() == "hint", "hint page shown")
 	main.menu.open_page("credits")
 	check(main.menu.press("سياسة الخصوصية"), "privacy policy reachable from About")
 	check(main.menu.page() == "privacy", "privacy page shown")
 	main.menu.close()
 	check(not main.menu.is_open(), "settings closes")
+	# Start screen: the studio name and the mixed reality / VR choice.
+	main.menu.open_start(Transform3D(Basis(), Vector3(0, 1.4, 1.0)))
+	check(main.menu.page() == "start" and main.menu.is_open(), "start screen shows")
+	main.menu.toggle(Transform3D())
+	check(main.menu.is_open(), "start screen stays until a mode is chosen")
+	check(main.menu.press("الواقع الافتراضي"), "choose virtual reality")
+	check(not main.menu.is_open() and Save.mode == "vr", "game starts in the chosen mode")
 
 	Save.reset_progress()
 	print("INTEGRATION: ", "PASS" if failures.is_empty() else "FAIL", " (", failures.size(), " failures)")
