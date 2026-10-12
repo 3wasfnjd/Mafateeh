@@ -1,4 +1,5 @@
 """Close portrait of the hero for store icons (Cycles, transparent background).
+Without Blender, tools/store/render_portrait.gd renders the same portrait in Godot.
 python -m bpy render_icon.py -- <hero.blend> <out.png>"""
 import math, sys
 import bpy

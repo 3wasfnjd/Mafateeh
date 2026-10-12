@@ -2,7 +2,7 @@
 # Renders Meta Horizon Store art from the real game scenes (desktop renderer).
 # Output: ../store/  (repo root, not part of the Godot project or the APK).
 # Sizes follow Meta's asset guidelines: cover landscape 2560x1440, square 1440x1440,
-# portrait 1008x1440, hero 3000x900, screenshots 2560x1440, trailer cover 2560x1440.
+# portrait 1008x1440, hero 3000x900, mini landscape 1080x360, screenshots 2560x1440, trailer cover 2560x1440.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 OUT="$(cd .. && pwd)/store"
@@ -23,6 +23,7 @@ shot "$OUT/cover_landscape_2560x1440.png" 2560x1440 20 sunset clear -25 42 1.25 
 shot "$OUT/cover_square_1440x1440.png" 1440x1440 21 sunset clear 200 24 3.2 --focus_hero --title=stack
 shot "$OUT/cover_portrait_1008x1440.png" 1008x1440 13 sunset clear 15 46 0.78 --title=stack
 shot "$OUT/hero_3000x900.png" 3000x900 20 sunset clear 25 34 2.3 --title=line
+shot "$OUT/mini_landscape_1080x360.png" 1080x360 20 sunset clear 25 34 2.3 --title=line
 shot "$OUT/trailer_cover_2560x1440.png" 2560x1440 4 dawn clear 25 44 1.2 --title=line
 # Screenshots (no text).
 shot "$OUT/screenshots/01_great_house_sunset.png" 2560x1440 20 sunset clear 30 46 1.2

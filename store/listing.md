@@ -57,23 +57,28 @@ By Aboden Games — عبودين قيمز.
 | Mixed reality | Yes — passthrough; uses Space Setup tables if allowed |
 | Languages | Arabic and English (in-app and store text) |
 | Internet required | No |
-| Privacy policy URL | https://3wasfnjd.github.io/Mafateeh/privacy.html (alternative: https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md) |
+| Privacy policy URL | https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md (works while the repo is public; https://3wasfnjd.github.io/Mafateeh/privacy.html only if GitHub Pages is published) |
 | Age group (upload) | Your decision: TEENS_AND_ADULTS (default) or MIXED_AGES |
 
 ## Art (all in this folder)
 
-| Asset | File | Size |
+| Dashboard field | File | Size |
 |---|---|---|
-| Cover landscape | `cover_landscape_2560x1440.png` | 2560×1440, 24-bit |
-| Cover square | `cover_square_1440x1440.png` | 1440×1440, 24-bit |
-| Cover portrait | `cover_portrait_1008x1440.png` | 1008×1440, 24-bit |
-| Hero cover | `hero_3000x900.png` | 3000×900, 24-bit |
-| Icon | `icon_512x512.png` | 512×512, 24-bit |
-| Spatialized icon | `spatial_icon_180x180.png` | 180×180, with transparency |
-| Logo | `logo_transparent.png` | transparent |
-| Trailer cover | `trailer_cover_2560x1440.png` | 2560×1440 |
-| Screenshots | `screenshots/*.png` | 2560×1440 each (7) |
+| Hero Cover | `hero_3000x900.png` | 3000×900, 24-bit |
+| Cover Landscape | `cover_landscape_2560x1440.png` | 2560×1440, 24-bit |
+| Cover Square | `cover_square_1440x1440.png` | 1440×1440, 24-bit |
+| Cover Portrait | `cover_portrait_1008x1440.png` | 1008×1440, 24-bit |
+| Mini Landscape | `mini_landscape_1080x360.png` | 1080×360, 24-bit |
+| Icon | `icon_512x512.png` | 512×512, 24-bit, square corners |
+| Spatialized icon — foreground | `spatial_icon_foreground_180x180.png` | 180×180, transparent, 18 px safe padding |
+| Spatialized icon — background | `spatial_icon_background_180x180.png` | 180×180, 24-bit |
+| Logo (optional) | `logo_transparent.png` | 1600×710, transparent |
+| Trailer cover (only with a trailer) | `trailer_cover_2560x1440.png` | 2560×1440, 24-bit |
+| Screenshots | `screenshots/01…07_*.png` | 2560×1440 each (7; Meta needs at least 5) |
 
-Screenshots and covers are rendered from the real game scenes with the desktop renderer
+`aboden_logo.png` is the studio logo for the in-game intro; it is not a store asset.
+
+Covers and screenshots are rendered from the real game scenes with the desktop renderer
 (`quest-native/tools/store/make_store_art.sh`); a headset capture can replace any of them.
-A trailer video is optional and not included.
+The icon portraits come from `quest-native/tools/store/render_portrait.gd` (or `render_icon.py`
+with Blender) and `compose_icons.py`. A trailer video is optional and not included.

@@ -30,13 +30,23 @@ icon.alpha_composite(shadow, (72, 150))
 icon.alpha_composite(f, (62, 124))
 icon.convert("RGB").resize((512, 512), Image.LANCZOS).save(os.path.join(out, "icon_512x512.png"))
 
-# Spatialized icon: the character alone on transparency.
-bbox = face.getbbox()
-crop = face.crop(bbox)
+# Spatialized icon, two layers (Meta): background = the Najdi backdrop (opaque);
+# foreground = the character alone on transparency, kept inside the safe area
+# (18 px padding on every side of 180) with no baked shadow.
+bg.resize((180, 180), Image.LANCZOS).save(os.path.join(out, "spatial_icon_background_180x180.png"))
+# SPATIAL_PORTRAIT=<full-body.png> uses an uncropped full-body render (no cut edge).
+body = Image.open(os.environ["SPATIAL_PORTRAIT"]).convert("RGBA") if os.environ.get("SPATIAL_PORTRAIT") else face
+bbox = body.getbbox()
+crop = body.crop(bbox)
 side = max(crop.size)
 sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-sq.alpha_composite(crop, ((side - crop.width) // 2, side - crop.height))
-sq.resize((180, 180), Image.LANCZOS).save(os.path.join(out, "spatial_icon_180x180.png"))
+sq.alpha_composite(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
+fg = Image.new("RGBA", (180, 180), (0, 0, 0, 0))
+fg.alpha_composite(sq.resize((144, 144), Image.LANCZOS), (18, 18))
+fg.save(os.path.join(out, "spatial_icon_foreground_180x180.png"))
+if not (os.path.exists(AR) and os.path.exists(LA)):
+    print("icons written to", out, "(logo skipped: Cairo TTF fonts not found)")
+    sys.exit(0)
 
 # Logo: the exact app name on transparency (Arabic shaped with raqm).
 W, H = 2600, 1100
