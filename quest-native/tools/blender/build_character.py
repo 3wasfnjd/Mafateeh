@@ -1,5 +1,6 @@
 """Builds the Mafateeh hero: a miniature elderly Saudi man in a thobe, red-and-white
-shemagh and black agal (see the character reference sheet). Run with Blender 5.2:
+shemagh wrapped as a turban, with a full white beard: the comedic "shaib" of the
+character reference sheet (big head, round belly, short legs). Run with Blender 5.2:
 
     blender -b -P build_character.py -- <out_dir>      (or: python -m bpy via the bpy module)
 
@@ -111,6 +112,22 @@ class Builder:
             rows.append(row)
         self.grid(rows, mat)
 
+    def blob(self, c, r, mat, w, segs=16, rings=10, bump=None, uv_scale=(1, 1)):
+        """Ellipsoid whose radius is scaled by bump(theta, phi): tufts, lobes."""
+        c = Vector(c)
+        rows = []
+        for i in range(rings + 1):
+            phi = math.pi * i / rings
+            row = []
+            for j in range(segs):
+                th = 2 * math.pi * j / segs
+                k = 1.0 + (bump(th, phi) if bump and 0 < i < rings else 0.0)
+                p = c + Vector((r[0] * k * math.sin(phi) * math.sin(th), -r[1] * k * math.sin(phi) * math.cos(th),
+                                r[2] * k * math.cos(phi)))
+                row.append((self.vert(p, w(p) if callable(w) else w), (j / segs * uv_scale[0], i / rings * uv_scale[1])))
+            rows.append(row)
+        self.grid(rows, mat)
+
     def lathe(self, profile, mat, w, segs=24, squash=1.0, disp=None, uv_scale=(1, 1), cap_bottom=True):
         rows = []
         for i, (rad, z) in enumerate(profile):
@@ -214,13 +231,13 @@ def srgb(h):
 def make_materials():
     return [
     material("Thobe", srgb("f1e9d8"), 0.95, "thobe_albedo.png", sheen=0.3),   # 0
-    material("Skin", srgb("c99670"), 0.7),                                     # 1
-    material("Shemagh", srgb("c4343c"), 0.92, "shemagh_albedo.png", 0.3),      # 2
+    material("Skin", srgb("c28862"), 0.7),                                     # 1
+    material("Shemagh", srgb("d65a62"), 0.92, "turban_albedo.png", 0.3),       # 2 wrapped shemagh
     material("Agal", srgb("161414"), 0.6),                                     # 3
-    material("Hair", srgb("d4d2cc"), 0.85),                                    # 4 beard, brows
-    material("Shoe", srgb("3b2a20"), 0.65),                                    # 5
+    material("Hair", srgb("ecebe6"), 0.9, sheen=0.4),                         # 4 beard, brows
+    material("Shoe", srgb("4a2c1c"), 0.6),                                    # 5
     material("EyeWhite", srgb("f6f3ee"), 0.35),                                # 6
-    material("Iris", srgb("5a3820"), 0.3),                                     # 7
+    material("Iris", srgb("6b4223"), 0.3),                                     # 7
     material("Dark", srgb("1d1410"), 0.4),                                     # 8 pupils, mouth
     ]
 THOBE, SKIN, SHEM, AGAL, HAIR, SHOE, WHITE, IRIS, DARK = range(9)
@@ -289,191 +306,208 @@ def w_shemagh(p):
 # --------------------------------------------------------------------------------------
 # Geometry
 # --------------------------------------------------------------------------------------
-HEAD_C = Vector((0.0, 0.0, 0.95))
-HEAD_R = (0.17, 0.165, 0.19)
+HEAD_C = Vector((0.0, 0.0, 0.96))
+HEAD_R = (0.19, 0.18, 0.2)
 
 
 def build_body(b):
-    # Thobe: lathe with soft vertical folds toward the hem.
-    profile = [(0.05, 0.068), (0.234, 0.068), (0.228, 0.15), (0.212, 0.28), (0.196, 0.42), (0.198, 0.55),
-               (0.193, 0.64), (0.176, 0.7), (0.14, 0.745), (0.09, 0.775), (0.066, 0.795)]
+    # Thobe: a pear-shaped lathe (narrow sloping shoulders, round belly) with soft
+    # vertical folds toward the hem.
+    profile = [(0.05, 0.072), (0.2, 0.072), (0.206, 0.15), (0.226, 0.27), (0.248, 0.38), (0.25, 0.46),
+               (0.236, 0.55), (0.205, 0.63), (0.165, 0.695), (0.12, 0.745), (0.078, 0.78), (0.066, 0.795)]
 
     def folds(th, z):
-        k = smooth(0.5, 0.12, z)
-        return k * (0.011 * math.sin(th * 7 + 0.6) + 0.006 * math.sin(th * 13))
+        k = smooth(0.42, 0.12, z)
+        front = max(0.0, math.cos(th)) ** 2
+        belly = 0.075 * math.exp(-((z - 0.43) / 0.14) ** 2) * front
+        return belly + k * (0.01 * math.sin(th * 7 + 0.6) + 0.005 * math.sin(th * 13))
 
-    b.lathe(profile, THOBE, w_body, segs=32, squash=0.86, disp=folds, uv_scale=(2.0, 2.0))
-    # Collar band and front placket with buttons.
-    b.lathe([(0.066, 0.79), (0.07, 0.8), (0.069, 0.84), (0.06, 0.848)], THOBE, w_body, segs=20, squash=0.92,
+    b.lathe(profile, THOBE, w_body, segs=36, squash=0.88, disp=folds, uv_scale=(2.0, 2.0))
+    # Collar band and the front placket with a button, as on the sheet.
+    b.lathe([(0.066, 0.79), (0.072, 0.8), (0.071, 0.835), (0.062, 0.842)], THOBE, w_body, segs=20, squash=0.92,
             cap_bottom=False, uv_scale=(1, 1))
-    for i, z in enumerate((0.585, 0.64, 0.695, 0.745)):
-        y = -0.86 * {0.585: 0.197, 0.64: 0.194, 0.695: 0.178, 0.745: 0.14}[z] - 0.004
-        b.ellipsoid((0.0, y, z), (0.008, 0.004, 0.008), THOBE, w_body, segs=8, rings=4)
-    b.lathe([(0.0, 0.55), (0.012, 0.55), (0.012, 0.8)], THOBE, lambda p: w_body(p), segs=6, squash=0.4,
-            cap_bottom=False)
-    # Sleeves (thobe) and hands (skin).
+    for z in (0.585, 0.63):
+        r = 0.225 + folds(0.0, z) if z < 0.6 else 0.205 + folds(0.0, z)
+        b.ellipsoid((0.0, -0.88 * r - 0.004, z), (0.008, 0.004, 0.008), THOBE, w_body, segs=8, rings=4)
+    # Sleeves (thobe), chubby to the wrist, and hands (skin).
     for side in (1, -1):
         s = "L" if side > 0 else "R"
-        path = [(side * 0.13, 0.0, 0.725), (side * 0.2, -0.003, 0.66), (side * 0.245, -0.005, 0.6),
+        path = [(side * 0.12, 0.0, 0.715), (side * 0.2, -0.003, 0.66), (side * 0.245, -0.005, 0.6),
                 (side * 0.29, -0.01, 0.535), (side * 0.322, -0.015, 0.49)]
-        b.tube(path, [0.075, 0.07, 0.062, 0.06, 0.066], THOBE, w_arm(side), segs=14, uv_scale=(1, 1))
-        # Cuff closes the sleeve end.
-        b.ellipsoid((side * 0.322, -0.015, 0.49), (0.06, 0.06, 0.02), THOBE, {"LowerArm." + s: 1.0}, segs=12, rings=6)
+        b.tube(path, [0.085, 0.078, 0.07, 0.066, 0.068], THOBE, w_arm(side), segs=16, uv_scale=(1, 1))
+        b.ellipsoid((side * 0.322, -0.015, 0.49), (0.062, 0.062, 0.02), THOBE, {"LowerArm." + s: 1.0}, segs=12, rings=6)
         hw = {"Hand." + s: 1.0}
-        b.ellipsoid((side * 0.338, -0.02, 0.445), (0.038, 0.032, 0.048), SKIN, hw, segs=12, rings=8)
-        b.ellipsoid((side * 0.322, -0.048, 0.462), (0.014, 0.016, 0.022), SKIN, hw, segs=8, rings=6)
-        # Shoes peek out under the hem.
+        # Palm, four short fingers and a thumb: a friendly cartoon hand.
+        b.ellipsoid((side * 0.338, -0.02, 0.448), (0.036, 0.03, 0.04), SKIN, hw, segs=12, rings=8)
+        for k in range(4):
+            fy = -0.04 + k * 0.022
+            b.ellipsoid((side * 0.348, fy + 0.015, 0.41), (0.011, 0.011, 0.024), SKIN, hw, segs=8, rings=6)
+        b.ellipsoid((side * 0.322, -0.05, 0.458), (0.013, 0.015, 0.022), SKIN, hw, segs=8, rings=6)
+        # Rounded brown shoes, with a pale trouser cuff above them.
         fw = {"Foot." + s: 1.0}
-        b.ellipsoid((side * 0.078, -0.07, 0.036), (0.054, 0.1, 0.038), SHOE, fw, segs=14, rings=8)
-    # Neck.
-    b.lathe([(0.055, 0.78), (0.055, 0.88)], SKIN, lambda p: {"Neck": 1.0}, segs=12, cap_bottom=False)
+        b.ellipsoid((side * 0.08, -0.07, 0.04), (0.062, 0.11, 0.044), SHOE, fw, segs=16, rings=8)
+        b.lathe([(0.042, 0.06), (0.044, 0.1)], THOBE, lambda p, s=s: {"Shin." + s: 1.0}, segs=10, cap_bottom=False)
+    # Neck (hidden by the beard from the front).
+    b.lathe([(0.06, 0.78), (0.06, 0.88)], SKIN, lambda p: {"Neck": 1.0}, segs=12, cap_bottom=False)
+
+
+def head_radius(th, z):
+    """Horizontal radius of the head ellipsoid at azimuth th (0 = front) and height z."""
+    k = math.sqrt(max(0.0, 1 - ((z - HEAD_C.z) / HEAD_R[2]) ** 2))
+    rx, ry = HEAD_R[0] * k, HEAD_R[1] * k
+    if rx < 1e-5:
+        return 0.0
+    return rx * ry / math.sqrt((ry * math.sin(th)) ** 2 + (rx * math.cos(th)) ** 2)
 
 
 def build_head(b):
-    b.ellipsoid(HEAD_C, HEAD_R, SKIN, w_head, segs=28, rings=18)
-    # Large, kind eyes.
+    b.ellipsoid(HEAD_C, HEAD_R, SKIN, w_head, segs=30, rings=20)
+    # Big, round, kind eyes with a highlight.
     for side in (1, -1):
-        x = side * 0.062
-        b.ellipsoid((x, -0.151, 0.962), (0.034, 0.016, 0.04), WHITE, w_head, segs=12, rings=8)
-        b.ellipsoid((x, -0.163, 0.959), (0.022, 0.008, 0.026), IRIS, w_head, segs=12, rings=8)
-        b.ellipsoid((x, -0.169, 0.958), (0.011, 0.004, 0.013), DARK, w_head, segs=8, rings=6)
-        b.ellipsoid((x - side * 0.008, -0.172, 0.972), (0.006, 0.003, 0.006), WHITE, w_head, segs=6, rings=4)
-        # Grey eyebrows, gently sloping down outward.
-        for k in range(3):
-            bx = x + side * (k - 1) * 0.022
-            bz = 1.022 - (0.004 * k if side > 0 else 0.004 * (2 - k)) * 1.0
-            b.ellipsoid((bx, -0.148 + abs(k - 1) * 0.004, bz), (0.016, 0.01, 0.009), HAIR, w_head, segs=8, rings=4)
-        # Ears (mostly under the shemagh).
-        b.ellipsoid((side * 0.168, 0.0, 0.945), (0.018, 0.028, 0.038), SKIN, w_head, segs=8, rings=6)
-    b.ellipsoid((0.0, -0.17, 0.923), (0.022, 0.028, 0.03), SKIN, w_head, segs=12, rings=8)  # nose
-    b.ellipsoid((0.0, -0.163, 0.874), (0.02, 0.008, 0.006), DARK, w_head, segs=8, rings=4)  # mouth
-    # Moustache.
+        x = side * 0.068
+        b.ellipsoid((x, -0.157, 0.985), (0.037, 0.02, 0.043), WHITE, w_head, segs=14, rings=10)
+        b.ellipsoid((x - side * 0.004, -0.174, 0.982), (0.025, 0.008, 0.028), IRIS, w_head, segs=14, rings=8)
+        b.ellipsoid((x - side * 0.004, -0.18, 0.981), (0.013, 0.004, 0.015), DARK, w_head, segs=10, rings=6)
+        b.ellipsoid((x - side * 0.012, -0.184, 0.993), (0.007, 0.003, 0.007), WHITE, w_head, segs=6, rings=4)
+        # Upper lid: a skin fold over the top of the eye (a warm, smiling look).
+        b.ellipsoid((x, -0.155, 1.022), (0.04, 0.02, 0.01), SKIN, w_head, segs=12, rings=6)
+        # Bushy white eyebrows, sloping down outward.
+        for k in range(4):
+            bx = x + side * (k - 1.4) * 0.018
+            bz = 1.035 - 0.006 * max(0, k - 1) * (1 if side > 0 else 1)
+            b.blob((bx, -0.158 + abs(k - 1.5) * 0.006, bz), (0.017, 0.012, 0.012), HAIR, w_head, segs=8, rings=5,
+                   bump=lambda th, ph: 0.12 * math.sin(th * 3 + ph * 2))
+        # Ears, visible below the turban.
+        b.ellipsoid((side * 0.188, 0.005, 0.95), (0.02, 0.032, 0.045), SKIN, w_head, segs=10, rings=8)
+        # Round cheeks.
+        b.ellipsoid((side * 0.098, -0.14, 0.925), (0.048, 0.036, 0.036), SKIN, w_head, segs=12, rings=8)
+        # White hair at the temples and behind the ears, under the turban.
+        b.blob((side * 0.172, 0.075, 0.915), (0.026, 0.045, 0.05), HAIR, w_head, segs=12, rings=8,
+               bump=lambda th, ph: 0.15 * math.sin(th * 5) * math.sin(ph * 3))
+        b.blob((side * 0.07, 0.15, 0.84), (0.09, 0.05, 0.045), HAIR, w_head, segs=12, rings=8,
+               bump=lambda th, ph: 0.12 * math.sin(th * 6) * math.sin(ph * 2))
+    # A big round nose.
+    b.ellipsoid((0.0, -0.19, 0.94), (0.03, 0.032, 0.032), SKIN, w_head, segs=14, rings=10)
+    # Smiling mouth with a row of teeth under the moustache.
+    b.ellipsoid((0.0, -0.162, 0.874), (0.04, 0.012, 0.014), DARK, w_head, segs=12, rings=6)
+    b.ellipsoid((0.0, -0.17, 0.881), (0.03, 0.006, 0.006), WHITE, w_head, segs=10, rings=4)
+    # Full moustache: two bushy wings turning down at the ends.
     for side in (1, -1):
-        b.ellipsoid((side * 0.024, -0.162, 0.893), (0.032, 0.016, 0.013), HAIR, w_head, segs=10, rings=6)
-    # Short grey beard: a shell that follows the jaw from ear to ear.
-    rows = []
-    n_th, n_z = 22, 8
-    for i in range(n_z + 1):
-        z = 0.905 - 0.15 * i / n_z
-        row = []
-        for j in range(n_th + 1):
-            th = -1.85 + 3.7 * j / n_th
-            zz = (z - HEAD_C.z) / HEAD_R[2]
-            ring = math.sqrt(max(0.0, 1 - zz * zz))
-            grow = 0.016 + 0.018 * smooth(0.9, 0.78, z) * math.cos(th) ** 2
-            rx = HEAD_R[0] * ring + grow
-            ry = HEAD_R[1] * ring + grow
-            p = HEAD_C.copy()
-            p.x = rx * math.sin(th)
-            p.y = -ry * math.cos(th)
-            p.z = z - 0.012 * smooth(0.8, 0.76, z) * math.cos(th) ** 2
-            if i == n_z:
-                p = HEAD_C + (p - HEAD_C) * 0.6
-                p.z = z - 0.01
-            row.append((b.vert(p, w_head(p)), (j / n_th, i / n_z)))
-        rows.append(row)
-    b.grid(rows, HAIR, closed_u=False)
+        b.blob((side * 0.036, -0.18, 0.902), (0.046, 0.022, 0.019), HAIR, w_head, segs=12, rings=6,
+               bump=lambda th, ph: 0.1 * math.sin(th * 4 + 1))
+        b.blob((side * 0.08, -0.167, 0.884), (0.03, 0.02, 0.024), HAIR, w_head, segs=10, rings=6,
+               bump=lambda th, ph: 0.1 * math.sin(th * 4))
+    # Full white beard: cheeks to chest, made of lumpy tufts so it reads as hair.
+    tuft = lambda th, ph: 0.045 * math.sin(th * 7 + ph * 3) + 0.03 * math.sin(th * 11 - ph * 5)
+    b.blob((0.0, -0.085, 0.77), (0.18, 0.125, 0.125), HAIR, w_head, segs=28, rings=16, bump=tuft)
+    b.blob((0.0, -0.12, 0.68), (0.1, 0.075, 0.06), HAIR, w_head, segs=16, rings=10, bump=tuft)
+    for side in (1, -1):
+        b.blob((side * 0.14, -0.075, 0.862), (0.06, 0.07, 0.085), HAIR, w_head, segs=14, rings=10, bump=tuft)
+        b.blob((side * 0.09, -0.135, 0.82), (0.065, 0.05, 0.06), HAIR, w_head, segs=14, rings=10, bump=tuft)
 
 
-def shemagh_point(th, z, offset=0.0):
-    """Outer surface of the head-dress at azimuth th (0 = front) and height z."""
-    zc, R, Rz = 0.955, 0.188, 0.225
-    if z >= zc:
-        r = R * math.sqrt(max(0.0, 1 - ((z - zc) / Rz) ** 2))
-    else:
-        a = abs(th)
-        flare = 0.28 + 0.2 * smooth(1.4, math.pi, a)
-        r = R + (zc - z) * flare
-    # Draped folds grow toward the hem; a soft crease runs over the crown.
-    below = smooth(zc, 0.65, z)
-    r += below * (0.012 * math.sin(th * 9 + 0.4) + 0.006 * math.sin(th * 17))
-    r += offset
-    p = Vector((r * math.sin(th), -r * math.cos(th) + 0.006, z))
-    # No forward peak: a smooth, round crown reads cleanly at miniature scale and
-    # leaves no bump on top of the head.
-    return p
+# Turban: the shemagh wrapped round the head, edge over the brow, with a tail
+# hanging at the back.
+TURBAN_TOP = 1.31
+HEAD_SCALE = 1.14
 
 
-def shemagh_hem(th):
+def turban_hem(th):
     a = abs(th)
-    if a < 0.78:
-        return 1.012  # forehead line leaves the face open
-    if a < 1.4:
-        return 1.012 + (0.735 - 1.012) * smooth(0.78, 1.4, a)
-    return 0.735 + (0.6 - 0.735) * smooth(1.3, math.pi, a)
+    if a < 0.8:
+        return 1.05
+    if a < 1.6:
+        return 1.05 + (1.0 - 1.05) * smooth(0.8, 1.6, a)
+    return 1.0 + (0.84 - 1.0) * smooth(1.6, math.pi, a)
+
+
+def turban_point(th, z, hem, offset=0.0):
+    zc, rb = 1.1, 0.255
+    if z >= zc:
+        bulk = rb * math.sqrt(max(0.0, 1 - ((z - zc) / (TURBAN_TOP - zc)) ** 2))
+    else:
+        bulk = rb - (zc - z) * 0.32
+    # The edge hugs the head, then the wraps puff out above it.
+    hug = head_radius(th, z) + 0.016
+    r = hug + (max(bulk, hug) - hug) * smooth(hem, hem + 0.07, z)
+    # Wrapped bands: rolled ridges that slope up toward the back on both sides, so
+    # they cross over the forehead as on the sheet; faded on the crown.
+    ridge = (0.5 + 0.5 * math.cos(2 * math.pi * (z - 0.05 * abs(th)) / 0.07)) ** 2
+    r += 0.02 * ridge * smooth(hem, hem + 0.04, z) * (1 - smooth(1.2, 1.27, z))
+    r += offset
+    return Vector((r * math.sin(th), -r * math.cos(th) + 0.012 * smooth(0.0, 1.0, abs(th) / math.pi), z))
 
 
 def build_shemagh(b):
-    n_th, n_v = 56, 18
-    top = 1.178
+    n_th, n_v = 64, 26
     outer, inner = [], []
     for i in range(n_v + 1):
         s = i / n_v
         ro, ri = [], []
         for j in range(n_th):
             th = -math.pi + 2 * math.pi * j / n_th
-            hem = shemagh_hem(th)
-            # Dense rows near the crown keep the pole round.
-            z = top + (hem - top) * (s ** 1.45)
-            po = shemagh_point(th, z, 0.022)
-            pi_ = shemagh_point(th, z, 0.008)
+            hem = turban_hem(th)
+            z = TURBAN_TOP + (hem - TURBAN_TOP) * (s ** 1.25)
+            po = turban_point(th, z, hem, 0.0)
+            pi_ = turban_point(th, z, hem, -0.012)
             if i == 0:
-                po = Vector((0, 0.006, top + 0.012))
-                pi_ = Vector((0, 0.006, top - 0.002))
-            u = (th + math.pi) / (2 * math.pi) * 1.0
-            v = (top - z) * 0.85
-            if z > 1.075:
-                # Crown: top-down projection, so the pattern does not pinch into a
-                # starburst at the pole. The seam sits under the agal.
-                u = 0.5 + po.x * 0.8
-                v = 0.5 + po.y * 0.8
-            ro.append((b.vert(po, w_shemagh(po)), (u, v)))
-            ri.append((b.vert(pi_, w_shemagh(pi_)), (u, v)))
+                po = Vector((0, 0.012, TURBAN_TOP))
+                pi_ = Vector((0, 0.012, TURBAN_TOP - 0.012))
+            # Rows of the check run along the wraps; the crown uses a top-down projection.
+            u = (th + math.pi) / (2 * math.pi) * 2.0
+            v = (TURBAN_TOP - z) * 2.2 + 0.25 * abs(th) / math.pi
+            if z > 1.25:
+                u = 0.5 + po.x * 1.7
+                v = 0.5 + po.y * 1.7
+            ro.append((b.vert(po, w_head(po)), (u, v)))
+            ri.append((b.vert(pi_, w_head(pi_)), (u, v)))
         outer.append(ro)
         inner.append(ri)
     b.grid(outer, SHEM)
     b.grid(inner, SHEM, flip=True)
-    # Stitch the hem so the cloth has visible thickness.
     last_o, last_i = outer[-1], inner[-1]
     for j in range(n_th):
         k = (j + 1) % n_th
         b.face([last_o[j][0], last_o[k][0], last_i[k][0], last_i[j][0]], SHEM,
                [last_o[j][1], last_o[k][1], last_i[k][1], last_i[j][1]])
+    # A rolled band along the front edge, over the brow.
+    rows = []
+    n, m = 40, 8
+    for i in range(n + 1):
+        th = -1.7 + 3.4 * i / n
+        hem = turban_hem(th)
+        c = turban_point(th, hem + 0.02, hem, 0.0)
+        out = Vector((math.sin(th), -math.cos(th), 0.0))
+        ring = []
+        for j in range(m):
+            a = 2 * math.pi * j / m
+            p = c + out * (0.016 * math.cos(a)) + Vector((0, 0, 0.022 * math.sin(a)))
+            ring.append((b.vert(p, w_head(p)), (i / n * 4.0, j / m * 0.3)))
+        rows.append(ring)
+    b.grid(rows, SHEM)
+    # The tail: the loose end of the cloth hanging down the back, a little to one side.
+    n_l, n_w = 10, 6
+    top_c, bot_c = Vector((-0.03, 0.225, 1.0)), Vector((-0.06, 0.215, 0.76))
+    for face_off in (0.0, 0.014):
+        rows = []
+        for i in range(n_l + 1):
+            t = i / n_l
+            c = top_c.lerp(bot_c, t)
+            c.y += 0.03 * math.sin(t * math.pi) + face_off
+            width = 0.2 - 0.06 * t
+            row = []
+            for j in range(n_w + 1):
+                u = j / n_w - 0.5
+                p = c + Vector((u * width, 0.012 * math.cos(u * 6.0) * t, -0.02 * u))
+                tw = smooth(0.0, 0.35, t)
+                row.append((b.vert(p, {"Head": 1 - tw + 1e-4, "Shemagh.B": tw}), (j / n_w * 1.2, t * 1.6)))
+            rows.append(row)
+        b.grid(rows, SHEM, closed_u=False, flip=face_off > 0)
 
 
 def build_agal(b):
-    # Two round black cord rings, tilted slightly so they sit lower at the back.
-    # Each circle is sized to clear the shemagh all the way round (checked against
-    # the real cloth surface at every azimuth), so the cloth never pokes through.
-    tilt_deg = 5.0
-    tilt = Matrix.Rotation(math.radians(-tilt_deg), 4, "X")
-    cord = 0.013
-    for z0 in (1.045, 1.077):
-        clear = 0.0
-        for k in range(180):
-            a = 2 * math.pi * k / 180
-            th = a if a <= math.pi else a - 2 * math.pi
-            z = z0 + 0.2 * math.sin(math.radians(tilt_deg)) * math.cos(a)
-            surf = shemagh_point(th, z, 0.022)
-            clear = max(clear, math.hypot(surf.x, surf.y - 0.006))
-        r_major = clear + cord + 0.002
-        rows = []
-        n, m = 48, 8
-        for i in range(n + 1):
-            a = 2 * math.pi * i / n
-            ring = []
-            for j in range(m):
-                c = 2 * math.pi * j / m
-                rr = r_major + cord * math.cos(c)
-                p = Vector((rr * math.sin(a), -rr * math.cos(a), cord * math.sin(c)))
-                p = tilt @ p + Vector((0, 0.006, z0))
-                ring.append((b.vert(p, w_head(p)), (i / n, j / m)))
-            rows.append(ring)
-        for r in range(n):
-            for j in range(m):
-                k = (j + 1) % m
-                b.face([rows[r][j][0], rows[r][k][0], rows[r + 1][k][0], rows[r + 1][j][0]], AGAL,
-                       [rows[r][j][1], rows[r][k][1], rows[r + 1][k][1], rows[r + 1][j][1]])
+    # The wrapped turban of the reference sheet has no agal.
+    return
 
 
 # --------------------------------------------------------------------------------------
@@ -796,9 +830,15 @@ def main():
     arm = build_armature()
     b = Builder()
     build_body(b)
+    first = len(b.verts)
     build_head(b)
     build_shemagh(b)
     build_agal(b)
+    # Comedic proportions: the whole head (face, beard, turban) is scaled up about
+    # the neck, as on the reference sheet.
+    pivot = Vector((0.0, -0.02, 0.8))
+    for i in range(first, len(b.verts)):
+        b.verts[i] = pivot + (b.verts[i] - pivot) * HEAD_SCALE
     body = b.to_object("Hero", make_materials(), arm)
     print("hero: %d verts, %d faces" % (len(body.data.vertices), len(body.data.polygons)))
     build_actions(arm)
