@@ -13,7 +13,7 @@ Copy these into the Developer Dashboard (Store → Details). The title must stay
 **الوصف الكامل:**
 ضع عالمًا صغيرًا على طاولتك وابدأ رحلة هادئة بين أفنية من الطين وأبواب خشبية ملوّنة وبيوت من طابقين مستوحاة من الدرعية والعمارة النجدية.
 
-قُد الشيخ بثوبه وشماغه وعقاله، وحرّك الصناديق، واحمل الطوب والأوزان، ووجّه الضوء بالمرايا، وأدِر الأقراص المترابطة، وأشعل القناديل، واتبع النقوش بالترتيب الصحيح لتفتح الأبواب والجسور والسلالم.
+قُد الشايب بثوبه وشماغه الملفوف ولحيته البيضاء، وحرّك الصناديق، واحمل الطوب والأوزان، ووجّه الضوء بالمرايا، وأدِر الأقراص المترابطة، وأشعل القناديل، واتبع النقوش بالترتيب الصحيح لتفتح الأبواب والجسور والسلالم.
 
 - 21 مرحلة تتدرّج من الفناء الأول إلى «بيت البركة».
 - واقع مختلط: ضع اللوحة على طاولتك الحقيقية، أو العب في الواقع الافتراضي وسط الكثبان والنخيل.
@@ -34,7 +34,7 @@ Calm puzzles in a miniature world inspired by Diriyah: guide a small Saudi elder
 **Full description:**
 Place a tiny world on your table and set off through mud-brick courtyards, painted wooden doors and two-storey houses inspired by Diriyah and traditional Najdi architecture.
 
-Guide the elder in his thobe, shemagh and agal as you push crates, carry bricks and weights, bend light with mirrors, turn linked dials, light lamps and follow carved symbols in order to open doors, bridges and stairways.
+Guide the white-bearded elder in his thobe and wrapped shemagh as you push crates, carry bricks and weights, bend light with mirrors, turn linked dials, light lamps and follow carved symbols in order to open doors, bridges and stairways.
 
 - 21 handcrafted levels, from the First Courtyard to the House of the Pool.
 - Mixed reality: set the board on your real table, or play in VR among dunes and date palms.

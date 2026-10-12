@@ -1,6 +1,6 @@
 """Procedural, tileable textures for Mafateeh (no external images).
 Usage: python3 make_textures.py <out_dir>
-Writes: shemagh_albedo, thobe_albedo, plaster_albedo/normal, stone_albedo/normal, wood_albedo."""
+Writes: shemagh_albedo, turban_albedo, thobe_albedo, plaster_albedo/normal, stone_albedo/normal, wood_albedo."""
 import sys, os
 import numpy as np
 from PIL import Image
@@ -58,6 +58,21 @@ mask = (diamond & check) | (dot & ~check)
 img = np.where(mask[..., None], white, red).astype(float)
 weave = (tile_noise(N, 3, 3)[..., None] - 0.5) * 18 + ((x + y) % 3 == 0)[..., None] * -6
 save("shemagh_albedo.png", img + weave)
+
+# Wrapped shemagh (turban): a fine red-and-white houndstooth check that reads soft
+# rose at a distance, crossed by the cloth's woven border stripes. Rows run along
+# the wraps (u around the head, v up the turban).
+hc = 8
+qx, qy = x % hc, y % hc
+base = ((x // hc) + (y // hc)) % 2 == 0
+tooth = base | (((qx + qy) < hc * 0.5) & (((x // hc) + (y // hc)) % 2 == 1) & (qy < hc * 0.5))
+img2 = np.where(tooth[..., None], np.array([200, 52, 60]), np.array([246, 238, 232])).astype(float)
+band = y % 128
+stripe_red = ((band >= 6) & (band < 12)) | ((band >= 20) & (band < 23))
+stripe_white = (band >= 12) & (band < 20)
+img2 = np.where(stripe_red[..., None], np.array([186, 34, 44]), img2)
+img2 = np.where(stripe_white[..., None], np.array([248, 242, 236]), img2)
+save("turban_albedo.png", img2 + weave)
 
 # Thobe: warm ivory with a faint twill.
 tw = ((x + y) % 6 < 3) * 5.0
