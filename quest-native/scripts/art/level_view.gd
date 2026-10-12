@@ -600,7 +600,9 @@ func _build_object(o: Dictionary) -> Dictionary:
 
 ## Puzzle signs on the gatehouse front, where the player looks while solving:
 ## the sequence clues sit on the lintel above the gate; lamps share the lintel, or
-## get their own board above it when a level has both (level 10).
+## get their own board above it when a level has both (level 10). A lintel board
+## stays between the two gate lanterns (at x = ±0.82), so long clues shrink to fit.
+const LINTEL_MAX_WIDTH := 1.44
 func _facade_board(row: int, width: float) -> Node3D:
 	var ey := LevelData.exit_y(def)
 	var board := Node3D.new()
@@ -625,7 +627,7 @@ func _facade_emblem(board: Node3D, index: int, material: Material, x: float, siz
 func _build_lamp_panel() -> void:
 	var cfg: Dictionary = def.circuit
 	var row := 1 if def.has("sequence") else 0
-	var spacing := 0.34
+	var spacing := minf(0.34, (LINTEL_MAX_WIDTH - 0.2) / cfg.count) if row == 0 else 0.34
 	var board := _facade_board(row, cfg.count * spacing + 0.2)
 	for i in cfg.count:
 		var x: float = (i - (cfg.count - 1) / 2.0) * spacing
@@ -635,11 +637,12 @@ func _build_lamp_panel() -> void:
 func _build_clue_tablet() -> void:
 	var cfg: Dictionary = def.sequence
 	var n: int = cfg.order.size()
-	var spacing := minf(0.3, 1.7 / n)
-	var board := _facade_board(0, minf(n * spacing + 0.32, 1.98))
+	var spacing := minf(0.3, (LINTEL_MAX_WIDTH - 0.34) / n)
+	var size := minf(0.085, spacing * 0.36)
+	var board := _facade_board(0, n * spacing + 0.32)
 	for i in n:
 		var id: int = cfg.order[i]
-		var clue := _facade_emblem(board, id, Kit.mat("puzzle_%d" % id), (i - (n - 1) / 2.0) * spacing + 0.07, 0.085)
+		var clue := _facade_emblem(board, id, Kit.mat("puzzle_%d" % id), (i - (n - 1) / 2.0) * spacing + 0.07, size)
 		clue_nodes.append({"node": clue, "id": id})
 	# Reading direction arrow (left to right, like the clue order).
 	var arrow := Kit.add(board, Kit.prism(Vector3(0.1, 0.1, 0.03)), Kit.mat("brass"), Vector3(-(n - 1) / 2.0 * spacing - 0.15, 0, 0.03))
