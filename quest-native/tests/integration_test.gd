@@ -220,6 +220,14 @@ func _run() -> void:
 	check(main.menu.page() == "privacy", "privacy page shown")
 	main.menu.close()
 	check(not main.menu.is_open(), "settings closes")
+	# Studio name first: plain white text that stays readable, then the callback.
+	var splash_done := [false]
+	main.menu.play_splash(Transform3D(Basis(), Vector3(0, 1.4, 1.0)), func(): splash_done[0] = true)
+	check(main.menu.splash != null and main.menu.splash.get_child_count() == 2, "studio name shows")
+	await get_tree().create_timer(2.0).timeout
+	check(not splash_done[0] and main.menu.splash != null, "studio name stays long enough to read")
+	await get_tree().create_timer(3.0).timeout
+	check(splash_done[0] and main.menu.splash == null, "start screen follows the studio name")
 	# Start screen: the studio name and the mixed reality / VR choice.
 	main.menu.open_start(Transform3D(Basis(), Vector3(0, 1.4, 1.0)))
 	check(main.menu.page() == "start" and main.menu.is_open(), "start screen shows")
