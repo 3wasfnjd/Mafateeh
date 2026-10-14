@@ -6,7 +6,7 @@ extends Node3D
 ## on a wall, and a villager in a white ghutra strolls round outside the walls.
 ## Purely decorative: never touches the puzzle and never stands where the hero walks.
 
-const VILLAGER := "res://assets/character/shaib.glb"
+const VILLAGER := "res://assets/character/villager.glb"  # light build (tools/blender/build_villager.py)
 const FLEE_DIST := 1.1
 const VILLAGER_SPEED := 0.45
 

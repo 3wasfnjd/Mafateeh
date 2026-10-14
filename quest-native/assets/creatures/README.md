@@ -24,3 +24,12 @@ What the model should have:
   If it faces another way, change `"yaw"` for that slot in `SLOTS` in `creature_slot.gd`.
 - **Budget (Quest):** about 3–8k triangles, one 1024² texture (2048² at most). Loops should be
   seamless.
+
+Before dropping a model in, check it:
+
+```
+python3 tools/art/check_asset.py new_falcon.glb --slot falcon
+```
+
+It prints triangles, textures, bones, clips, size and facing, and flags anything over the
+Quest budget or a missing clip.

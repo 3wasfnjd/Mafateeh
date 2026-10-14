@@ -111,10 +111,11 @@ quest-native/
   audio/sfx, audio/ambience (generated WAV, imported as QOA)
   art_source/      editable Blender files (ignored by Godot, not packaged)
   tools/blender/   build_shaib.py (+ shaib_textures.py, shaib_anim.py), build_creatures.py,
-                   build_kit.py, render_shaib.py, render_glb.py, render_kit.py
+                   build_villager.py (light background villagers), build_kit.py, render_shaib.py, render_glb.py, render_kit.py
   tools/audio/     generate_audio.py, check_audio.py
   tools/art/       make_textures.py, make_icon.py, make_icons.py (menu icons), make_identity.py
-                   (Sadu band, Najdi star, crenels, petals), make_thumbnails.sh (level cards)
+                   (Sadu band, Najdi star, crenels, petals), make_thumbnails.sh (level cards), check_asset.py
+                   (Quest budget report for an incoming GLB)
   tests/           solver, unit, integration and budget tests (not packaged)
 ```
 
@@ -126,6 +127,7 @@ weather, save data and audio are separate modules; weather and time never read o
 ```
 python -m venv /opt/bpyenv && /opt/bpyenv/bin/pip install bpy==5.2.2
 /opt/bpyenv/bin/python tools/blender/build_shaib.py -- assets/character       # shaib.glb + art_source/character/shaib.blend
+/opt/bpyenv/bin/python tools/blender/build_villager.py                        # villager.glb (from shaib.blend, ~13k tris)
 /opt/bpyenv/bin/python tools/blender/build_creatures.py                       # falcon/cat/sparrow.glb + art_source/creatures
 /opt/bpyenv/bin/python tools/blender/render_shaib.py                          # review renders (turnaround, faces, clips)
 /opt/bpyenv/bin/python tools/blender/build_kit.py -- assets/kit               # najdi_kit.glb + art_source/kit/najdi_kit.blend
