@@ -251,8 +251,10 @@ func _place_board() -> void:
 	board.visible = true
 	_placed = true
 	menu.notify_placement(board.placement_source)
-	if not Save.hint_shown:
-		show_controller_hints()
+	var first: Array = [] if Save.story_seen.has("prologue") else ["studio", "prologue"]
+	menu.play_story(first, head, func():
+		if not Save.hint_shown:
+			show_controller_hints())
 
 
 var _hints: Array = []
@@ -430,8 +432,14 @@ func _update_pointers() -> void:
 
 func _on_level_completed(n: int) -> void:
 	Save.mark_completed(n, game.last_stars, game.state.has_secret())
+	var head: Transform3D = rig.head_transform() if xr else Transform3D()
+	var scene := "epilogue" if n == LevelData.MAIN_COUNT else ("bonus_end" if n == LevelData.COUNT else "")
 	if n < LevelData.COUNT and Save.can_play(n + 1):
 		game.go_to_level(n + 1)
+		if scene != "":
+			menu.play_story([scene], head)
+	elif scene != "":
+		menu.play_story([scene], head, menu.show_credits)
 	else:
 		menu.show_credits()
 
@@ -589,6 +597,11 @@ func _screenshot() -> void:
 		else:
 			menu.toggle(head.translated(Vector3(0, 0.12, 0)))
 			menu.open_page(_args.menu)
+		await get_tree().process_frame
+	if _args.has("story"):  # documentation shot of a story page, e.g. --story=prologue
+		desktop_cam.fov = 52.0
+		menu.play_story([str(_args.story)], desktop_cam.global_transform.translated(Vector3(0, 0.1, 0)))
+		Save.story_seen.erase(str(_args.story))
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()

@@ -256,6 +256,7 @@ func _page_width() -> float:
 	match _page:
 		"levels": return 0.52
 		"wardrobe": return 0.56
+		"story": return 0.58
 		"start": return 0.58
 		"audio", "controls", "display", "atmosphere": return 0.54
 	return 0.44
@@ -273,6 +274,7 @@ func _rebuild() -> void:
 		"levels": rows = _level_rows()
 		"hint": rows = _hint_rows()
 		"wardrobe": rows = _wardrobe_rows()
+		"story": rows = _story_rows()
 		"audio", "controls", "display", "atmosphere": rows = _settings_rows()
 		"reset": rows = _reset_rows()
 		"credits": rows = _credit_rows()
@@ -672,9 +674,82 @@ func _reset_progress() -> void:
 	toast(T("تم مسح التقدم", "Progress reset"))
 
 
+## Story scenes (Story): one page at a time on the panel, Next / Skip.
+var _story_queue: Array = []  # scene names still to tell
+var _story_page := 0
+var _story_done := Callable()
+
+
+func play_story(scenes: Array, head: Transform3D, done := Callable()) -> void:
+	_story_queue = scenes.filter(func(sc): return Story.has(sc))
+	_story_done = done
+	_story_page = 0
+	if _story_queue.is_empty():
+		if done.is_valid():
+			done.call()
+		return
+	_card_t = 0.0  # the level card would sit under the story panel
+	_card.visible = false
+	_story.visible = false
+	for sc in _story_queue:
+		Save.story_seen[sc] = true
+	Save.save()
+	_open = true
+	_page = "story"
+	_place(head, 0.75, 0.05)
+	_rebuild()
+	panel.visible = true
+	if main.game.motor:
+		main.game.motor.cancel()
+
+
+func _story_next(skip: bool) -> void:
+	_story_page += 1
+	if skip or _story_page >= Story.pages(_story_queue[0]).size():
+		_story_queue.pop_front()
+		_story_page = 0
+	if _story_queue.is_empty():
+		close()
+		if _story_done.is_valid():
+			var d := _story_done
+			_story_done = Callable()
+			d.call()
+		return
+	main.audio.ui("open")
+	_rebuild()
+
+
+func _story_rows() -> Array:
+	var sc: String = _story_queue[0]
+	var pg: Array = Story.pages(sc)
+	var p: Dictionary = pg[_story_page]
+	var rows: Array = [{"text": Story.title(sc, Save.arabic()), "icon": "about"}]
+	if p.has("image") and ResourceLoader.exists(p.image):
+		rows.append({"kind": "image", "path": p.image, "h": 0.2})
+	rows.append({"kind": "body", "text": p.ar if Save.arabic() else p.en, "h": 0.16})
+	var marks: Array = []
+	for i in pg.size():
+		marks.append("◆" if i == _story_page else "◇")
+	if Save.arabic():
+		marks.reverse()  # page one on the right when reading right to left
+	var dots := " ".join(PackedStringArray(marks))
+	rows.append({"text": dots, "small": true})
+	var last := _story_page == pg.size() - 1 and _story_queue.size() == 1
+	rows.append(_dir([{"text": T("تخطي", "Skip"), "small": true, "action": func(): _story_next(true)},
+		{"text": T("يلّا نبدأ", "Let's go") if last else T("التالي", "Next"), "icon": "play", "style": "primary", "w": 1.6,
+			"action": func(): _story_next(false)}]))
+	return rows
+
+
 func _credit_rows() -> Array:
+	var head: Transform3D = main.rig.head_transform() if main.xr else Transform3D()
+	var story_row: Array = []
+	if Story.has("studio"):
+		story_row.append({"text": T("قصتنا", "Our story"), "icon": "about", "small": true, "action": func(): play_story(["studio"], head)})
+	story_row.append({"text": T("قصة اللعبة", "The story"), "icon": "play", "small": true, "action": func(): play_story(["prologue"], head)})
 	return [
 		{"text": "مفاتيح — Mafateeh", "icon": "about", "action": _title_tap},
+		_dir(story_row),
 		{"text": T("عبودين قيمز — Aboden Games", "Aboden Games — عبودين قيمز"), "small": true},
 		{"text": T("ترخيص MIT · © Aboden Games", "MIT license · © Aboden Games"), "small": true},
 		{"text": "Godot Engine (MIT) · OpenXR Vendors (MIT)", "small": true},

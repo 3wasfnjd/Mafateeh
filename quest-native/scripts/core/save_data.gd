@@ -13,6 +13,7 @@ var completed := {}  # level -> true
 var stars := {}  # level -> best stars (1..3)
 var secrets := {}  # level -> true when its secret gem was found
 var wearing := {}  # wardrobe slot -> item id (see Wardrobe.ITEMS)
+var story_seen := {}  # Story scene -> true once shown
 var master_volume := 0.8
 var muted := false
 var mode := "mr"  # "mr" (passthrough) | "vr"
@@ -64,6 +65,12 @@ func load_data() -> void:
 			if int(k) >= 1 and int(k) <= LevelData.COUNT and se[k]:
 				secrets[int(k)] = true
 	unlocked_level = _unlocked_from(completed, secrets)
+	story_seen = {}
+	var ss: Variant = cfg.get_value("progress", "story_seen", {})
+	if ss is Dictionary:
+		for k in ss:
+			if ss[k]:
+				story_seen[str(k)] = true
 	wearing = {}
 	var wr: Variant = cfg.get_value("progress", "wearing", {})
 	if wr is Dictionary:
@@ -103,6 +110,7 @@ func save() -> void:
 	cfg.set_value("progress", "stars", stars)
 	cfg.set_value("progress", "secrets", secrets)
 	cfg.set_value("progress", "wearing", wearing)
+	cfg.set_value("progress", "story_seen", story_seen)
 	cfg.set_value("settings", "volume", master_volume)
 	cfg.set_value("settings", "muted", muted)
 	cfg.set_value("settings", "mode", mode)
@@ -224,4 +232,5 @@ func reset_progress() -> void:
 	stars = {}
 	secrets = {}
 	wearing = {}
+	story_seen = {}
 	save()
