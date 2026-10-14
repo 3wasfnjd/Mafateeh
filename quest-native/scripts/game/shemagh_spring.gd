@@ -1,14 +1,23 @@
 class_name ShemaghSpring
 extends SkeletonModifier3D
-## Cheap secondary motion for the shemagh drape: three bones (left, right,
-## back) follow a damped spring driven by the hero's planar acceleration and
-## turning. No cloth simulation; a few multiplies per frame.
+## Cheap secondary motion for the cloth: the shemagh tails (two segments each side and
+## at the back) and the thobe hem (front/back/left/right) follow a damped spring driven
+## by the hero's planar acceleration and turning, on top of the motion baked into the
+## clips. No cloth simulation; a few multiplies per frame.
 
 const STIFFNESS := 70.0
 const DAMPING := 9.0
 const MAX_ANGLE := 0.45
+# bone -> [swing weight (back/forward), sway weight (sideways)]
+const BONES := {
+	"Shemagh.L": [0.7, 0.7], "Shemagh.L2": [0.5, 0.5],
+	"Shemagh.R": [0.7, 0.7], "Shemagh.R2": [0.5, 0.5],
+	"Shemagh.B": [1.0, 0.8], "Shemagh.B2": [0.6, 0.5],
+	"Skirt.F": [0.35, 0.0], "Skirt.B": [0.45, 0.0],
+	"Skirt.L": [0.0, 0.3], "Skirt.R": [0.0, 0.3],
+}
 
-var bones := {}  # name -> {idx, axis_fwd: Vector3, axis_side: Vector3}
+var bones := {}  # name -> {idx, pitch: Vector3, roll: Vector3}
 var _prev_pos := Vector3.ZERO
 var _prev_vel := Vector3.ZERO
 var _prev_yaw := 0.0
@@ -21,7 +30,7 @@ func _setup() -> void:
 	var sk := get_skeleton()
 	if sk == null:
 		return
-	for name in ["Shemagh.L", "Shemagh.R", "Shemagh.B"]:
+	for name in BONES:
 		var i := sk.find_bone(name)
 		if i < 0:
 			continue
@@ -66,6 +75,6 @@ func _process_modification() -> void:
 	_offset = _offset.clamp(Vector2(-MAX_ANGLE, -MAX_ANGLE), Vector2(MAX_ANGLE, MAX_ANGLE))
 	for name in bones:
 		var b: Dictionary = bones[name]
-		var weight := 1.0 if name == "Shemagh.B" else 0.7
-		var q := Quaternion(b.pitch, _offset.x * weight) * Quaternion(b.roll, _offset.y * weight)
+		var w: Array = BONES[name]
+		var q := Quaternion(b.pitch, _offset.x * w[0]) * Quaternion(b.roll, _offset.y * w[1])
 		sk.set_bone_pose_rotation(b.idx, sk.get_bone_pose_rotation(b.idx) * q)

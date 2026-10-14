@@ -2,25 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b37ruuqvjbw2q"
-path.s3tc="res://.godot/imported/hero_thobe_albedo.png-355f2d0b7d875ad010f1ff598142d7f4.s3tc.ctex"
-path.etc2="res://.godot/imported/hero_thobe_albedo.png-355f2d0b7d875ad010f1ff598142d7f4.etc2.ctex"
+uid="uid://fugtiejmbtgl"
+path="res://.godot/imported/shaib_shaib_agal.png-f48dc3f17e8c4818ce503a7276a64a25.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "a295a532cfb42a9b20b614f17b74d942"
+"md5": "bb8fc5108e541030ccfbfef24b9d6188"
 }
 
 [deps]
 
-source_file="res://assets/character/hero_thobe_albedo.png"
-dest_files=["res://.godot/imported/hero_thobe_albedo.png-355f2d0b7d875ad010f1ff598142d7f4.s3tc.ctex", "res://.godot/imported/hero_thobe_albedo.png-355f2d0b7d875ad010f1ff598142d7f4.etc2.ctex"]
+source_file="res://assets/character/shaib_shaib_agal.png"
+dest_files=["res://.godot/imported/shaib_shaib_agal.png-f48dc3f17e8c4818ce503a7276a64a25.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -42,4 +40,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

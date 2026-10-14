@@ -24,6 +24,10 @@ OUT = os.path.abspath(ARGS[0] if ARGS else os.path.join(HERE, "../../assets/char
 SRC = os.path.abspath(ARGS[1] if len(ARGS) > 1 else os.path.join(HERE, "../../art_source/character"))
 FPS = 30
 V = Vector
+# "game" (default): the runtime GLB for Quest, one subdivision level less and lighter
+# cloth grids. "hero": the review/turntable resolution.
+LOD = os.environ.get("SHAIB_LOD", "game")
+GAME = LOD == "game"
 
 sys.path.insert(0, HERE)
 import shaib_textures  # noqa: E402  (procedural texture painter, NumPy)
@@ -263,6 +267,8 @@ class Part:
 
 
 def part_object(part, materials, subdiv=1, solidify=0.0, solid_offset=-1.0):
+    if GAME:
+        subdiv = max(0, subdiv - 1)
     me = bpy.data.meshes.new(part.name)
     bm = bmesh.new()
     bv = [bm.verts.new(p) for p in part.v]
@@ -365,7 +371,7 @@ def build_thobe():
     pt = Part("Thobe")
     zs = [0.055, 0.065, 0.08, 0.10, 0.13, 0.17, 0.21, 0.26, 0.31, 0.36, 0.41, 0.46, 0.50, 0.54, 0.58,
           0.62, 0.66, 0.70, 0.735, 0.765, 0.79, 0.81, 0.826, 0.84, 0.852, 0.864, 0.874, 0.884]
-    nu = 48
+    nu = 40 if GAME else 48
     rows = []
     for z in reversed(zs):
         rows.append([thobe_point(2 * math.pi * j / nu, z) for j in range(nu)])
@@ -579,24 +585,34 @@ def brow_path(s):
 
 
 def build_brows():
+    """Bushy white brows: overlapping soft clumps along the brow line (reads as fluffy
+    hair rather than a tube), the outer clumps drooping and flicking out with age."""
     pt = Part("Brows")
     for s_ in (1, -1):
         pts = brow_path(s_)
-        path = [catmull(pts, i / 14) for i in range(15)]
-        # Base mass, flattened, heavy in the middle.
-        pt.tube(path, lambda t, a: 0.0058 * (0.5 + 0.7 * math.sin(math.pi * clamp(t * 0.85 + 0.1))), "hair", segs=10,
-                squash=lambda t: (1.0, 0.6))
-        # Tufts sweeping outwards and a little up; the outer ones droop (old age).
-        for k in range(7):
-            t0 = 0.04 + k * 0.14
-            p0 = catmull(pts, t0)
-            p1 = catmull(pts, min(t0 + 0.22, 1.0))
-            lift = 0.0045 * (1 - k / 6) - 0.004 * smooth(0.6, 1.0, t0)
-            tip = p1 + V((0, -0.0025, lift)) + V((s_ * 0.004, 0, 0))
-            mid = p0.lerp(tip, 0.5) + V((0, -0.002, 0.0028))
-            tp = [catmull([p0, mid, tip], i / 6) for i in range(7)]
-            pt.tube(tp, lambda t, a, k=k: 0.0042 * (1.05 - 0.05 * k) * math.sin(math.pi * lerp(0.18, 1.0, t)) ** 0.7, "hair", segs=8,
-                    squash=lambda t: (1.0, 0.8))
+        n = 9
+        for k in range(n):
+            t = k / (n - 1)
+            c = catmull(pts, t)
+            tan = (catmull(pts, min(t + 0.05, 1)) - catmull(pts, max(t - 0.05, 0))).normalized()
+            size = 0.0068 * (0.62 + 0.55 * math.sin(math.pi * clamp(t * 0.9 + 0.06)))
+            lift = 0.0016 * math.sin(k * 2.3)
+            c = c + V((0, -0.0015, lift))
+
+            def clump(d, c=c, tan=tan, size=size, k=k):
+                # elongated along the brow, flattened against the forehead
+                side = tan.cross(V((0, 1, 0))).normalized()
+                up = side.cross(tan).normalized() if side.length else V((0, 0, 1))
+                q = tan * (d.x * size * 1.55) + V((0, d.y * size * 0.55, 0)) + V((0, 0, d.z * size * 0.75))
+                q += tan * (0.0025 * max(d.x, 0) ** 3)  # pointed tips
+                return c + q
+            pt.sphere(clump, "hair", nu=10, nv=7)
+        # Outer flick: a couple of longer wisps.
+        for k in range(2):
+            p0 = catmull(pts, 0.82 + 0.1 * k)
+            tip = p0 + V((s_ * 0.010, 0.002, -0.004 - 0.003 * k))
+            pt.tube([p0, p0.lerp(tip, 0.5) + V((0, -0.001, 0.0015)), tip],
+                    lambda t, a: 0.0030 * (1 - t) ** 0.8 + 0.0004, "hair", segs=6, squash=lambda t: (1, 0.7))
     return pt
 
 
@@ -773,8 +789,9 @@ BAND = 0.032  # width of the patterned border at the hanging edges
 
 def build_shemagh():
     pt = Part("Shemagh")
-    degs = [lerp(-180, 180, k / 80) for k in range(81)]
-    nv, nb = 28, 3
+    nd_ = 64 if GAME else 80
+    degs = [lerp(-180, 180, k / nd_) for k in range(nd_ + 1)]
+    nv, nb = (22, 2) if GAME else (28, 3)
     cols, lens = [], []
     for d in degs:
         poly = shemagh_polyline(d)
@@ -840,7 +857,7 @@ def build_agal():
     for k, dz in enumerate((-0.0112, 0.0112)):
         ring = []
         for j in range(48):
-            a = 2 * math.pi * j / 48
+            a = math.pi + 2 * math.pi * j / 48
             zz = cz + dz + 0.010 * math.cos(a)   # slightly higher at the front
             th = math.copysign(math.pi - abs(math.atan2(math.sin(a), math.cos(a))), math.sin(a))
             r = env_radius(th, zz) + SHEMAGH_OFF + 0.0145
@@ -1321,8 +1338,9 @@ def set_pose(arm, pose):
 def pose_stand():
     """Relaxed standing pose with the cane: slight stoop, right fist on the crook."""
     return {
-        "Spine": (4, 0, 0), "Chest": (3, 0, 0), "Neck": (-4, 0, 0), "Head": (-3, 0, 0),
-        "UpperArm.L": (-6, 0, 4), "LowerArm.L": (-14, 0, 0), "Hand.L": (-4, 0, 0),
+        "Hips": ((0, 2, 0), (-0.004, 0, -0.004)), "Spine": (4, -1.5, 0), "Chest": (3, -1.5, 2), "Neck": (-4, 0, 0), "Head": (-3, 2, -3),
+        "Thigh.L": (-3, -2, 0), "Shin.L": (6, 0, 0), "Foot.L": (-3, 0, 6), "Thigh.R": (1, 2, 0), "Foot.R": (0, 0, -4),
+        "UpperArm.L": (-4, 0, 6), "LowerArm.L": (-20, 0, 0), "Hand.L": (-6, 0, 4),
         "Fingers1.L": (0, 22, 0), "Fingers2.L": (0, 25, 0), "Thumb.L": (0, 10, 0),
         "UpperArm.R": (-10, 0, -2), "LowerArm.R": (-12, 0, 0), "Hand.R": (0, 0, 0),
         "Fingers1.R": (0, -62, 0), "Fingers2.R": (0, -80, 0), "Thumb.R": (0, -35, 10),
@@ -1379,7 +1397,7 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.fps = FPS
-    tex = shaib_textures.paint_all(OUT)
+    tex = shaib_textures.paint_all(os.path.join(SRC, "textures"))
     make_materials(tex)
     arm = build_armature()
 
@@ -1431,8 +1449,36 @@ def main():
     for o in (body_obj, thobe, shemagh, cane, cane_arm):
         print("%s: %d verts, %d tris" % (o.name, len(o.data.vertices), sum(len(p.vertices) - 2 for p in o.data.polygons)))
     os.makedirs(SRC, exist_ok=True)
+    import shaib_anim
+    shaib_anim.build_actions(arm, set_pose, only=os.environ.get("SHAIB_CLIPS", "").split(",") if os.environ.get("SHAIB_CLIPS") else None)
+    for pb in arm.pose.bones:
+        pb.rotation_quaternion = Quaternion()
+        pb.location = V()
+        pb.scale = V((1, 1, 1))
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(SRC, "shaib.blend"))
     print("saved", os.path.join(SRC, "shaib.blend"))
+    if GAME:
+        export_glb(arm, [body_obj, thobe, shemagh, cane, cane_arm])
+
+
+def export_glb(arm, meshes):
+    path = os.path.join(OUT, "shaib.glb")
+    bpy.ops.object.select_all(action="DESELECT")
+    arm.select_set(True)
+    for o in meshes:
+        # the part tag is a build-time helper only
+        if "part" in o.data.attributes:
+            o.data.attributes.remove(o.data.attributes["part"])
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.export_scene.gltf(
+        filepath=path, export_format="GLB", use_selection=True, export_yup=True, export_apply=False,
+        export_animations=True, export_animation_mode="ACTIONS", export_skins=True,
+        export_def_bones=False, export_optimize_animation_size=True, export_image_format="AUTO",
+        export_materials="EXPORT", export_texcoords=True, export_normals=True, export_frame_range=False,
+        export_morph=True, export_morph_normal=False, export_force_sampling=True,
+    )
+    print("exported", path, os.path.getsize(path) // 1024, "KB")
 
 
 if __name__ == "__main__":

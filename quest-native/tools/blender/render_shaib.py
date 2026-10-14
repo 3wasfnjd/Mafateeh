@@ -138,6 +138,18 @@ for job in jobs:
                 "pose_walk": {"smile": 0.35}}.get(fn, {}))
         for name, yaw in (("front", 0), ("three_quarter", 35), ("side", 90)):
             shot(fn + "_" + name, yaw)
+    elif job.startswith("strip="):
+        clip, n, yaw = job[6:].split(":")
+        act = bpy.data.actions[clip]
+        arm.animation_data_create()
+        arm.animation_data.action = act
+        f0, f1 = act.frame_range
+        keys(**{"ardah": {"smile": 1, "eyes_happy": 0.8, "mouth_open": 0.6}, "celebrate": {"smile": 1, "mouth_open": 0.8, "eyes_happy": 0.7},
+                "think": {"brow_raise_L": 1, "frown": 0.3}, "reject": {"brows_sad": 0.8, "frown": 0.6}}.get(clip, {}))
+        for i in range(int(n)):
+            f = f0 + (f1 - f0) * i / int(n)
+            sc.frame_set(int(f), subframe=f - int(f))
+            shot("strip_%s_%02d" % (clip, i), float(yaw), 6, res=(300, 420), lens=85)
     elif ":" in job:
         clip, frame = job.split(":")
         arm.animation_data_create()

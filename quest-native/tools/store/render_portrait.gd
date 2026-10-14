@@ -21,7 +21,7 @@ func _init() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	root3d.add_child(we)
-	var hero: Node3D = (load("res://assets/character/hero.glb") as PackedScene).instantiate()
+	var hero: Node3D = (load("res://assets/character/shaib.glb") as PackedScene).instantiate()
 	root3d.add_child(hero)
 	var ap := _find_player(hero)
 	if ap:

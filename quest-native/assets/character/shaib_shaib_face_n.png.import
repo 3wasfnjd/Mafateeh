@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bd0ldphg5qviq"
-path="res://.godot/imported/hero_turban_albedo.png-f3df85be93bc12cb75ea8c7356d1f1aa.ctex"
+uid="uid://3wb1dhf2dmfq"
+path="res://.godot/imported/shaib_shaib_face_n.png-328c02ae26bd43867e4ee5e10f776d1a.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "74c49f85d0848b8a291543730d54ada2"
+"md5": "6ef011cb3c114d5ce72a6c5a49c7cfce"
 }
 
 [deps]
 
-source_file="res://assets/character/hero_turban_albedo.png"
-dest_files=["res://.godot/imported/hero_turban_albedo.png-f3df85be93bc12cb75ea8c7356d1f1aa.ctex"]
+source_file="res://assets/character/shaib_shaib_face_n.png"
+dest_files=["res://.godot/imported/shaib_shaib_face_n.png-328c02ae26bd43867e4ee5e10f776d1a.ctex"]
 
 [params]
 

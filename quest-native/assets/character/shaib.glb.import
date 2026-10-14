@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://df2oacwabnner"
-path="res://.godot/imported/hero.glb-1d87dd95e53a4be62b01fe6d16040219.scn"
+uid="uid://dlc4buu2800sh"
+path="res://.godot/imported/shaib.glb-4626d0d1362ba6f0b2b9318e3254c197.scn"
 
 [deps]
 
-source_file="res://assets/character/hero.glb"
-dest_files=["res://.godot/imported/hero.glb-1d87dd95e53a4be62b01fe6d16040219.scn"]
+source_file="res://assets/character/shaib.glb"
+dest_files=["res://.godot/imported/shaib.glb-4626d0d1362ba6f0b2b9318e3254c197.scn"]
 
 [params]
 

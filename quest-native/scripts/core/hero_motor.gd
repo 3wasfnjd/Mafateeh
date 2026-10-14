@@ -14,7 +14,7 @@ signal walk_rejected(obj: Dictionary)
 signal brick_dropped(at: Vector2)
 signal weight_dropped(at: Vector2)
 
-const SPEED := 2.1  # board units per second
+const SPEED := 1.6  # board units per second (an unhurried, brisk old man)
 const MAX_DT := 0.04
 const DEAD_ZONE := 0.18
 const PUSH_TIME := 1.5

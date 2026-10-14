@@ -142,11 +142,11 @@ func _test_movement() -> void:
 
 	m = _motor(14)
 	m.pos = Vector2(-2.9, 1.5)
-	_sim(m, 1.4, Vector2(0, -1))
+	_sim(m, 2.94 / HeroMotor.SPEED, Vector2(0, -1))  # the same 2.94 units at any walking speed
 	var y := LevelData.surface_y(m.state.def, m.pos.x, m.pos.y)
 	check(m.pos.y < -0.95 and y >= 2.09, "stick must walk upstairs (z=%.2f y=%.2f)" % [m.pos.y, y])
 	_sim(m, 1.0 / 60.0)
-	_sim(m, 1.4, Vector2(0, 1))
+	_sim(m, 2.94 / HeroMotor.SPEED, Vector2(0, 1))
 	y = LevelData.surface_y(m.state.def, m.pos.x, m.pos.y)
 	check(m.pos.y > 0.95 and y < 0.01, "stick must walk downstairs")
 
