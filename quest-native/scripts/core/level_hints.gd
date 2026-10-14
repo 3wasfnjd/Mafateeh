@@ -4,6 +4,9 @@ extends RefCounted
 ## names the idea of the puzzle and the order of steps without solving every move.
 ## Kept in line with the solver's solutions (tests/run_tests.gd prints them).
 
+# level -> [[idea ar, en], [first step ar, en], [full ar, en]]
+const TIERED := {}
+
 const HINTS := {
 	1: ["ادفع الصندوق إلى البلاطة المرسوم عليها مثلث ليفتح لك الطريق، ثم خذ المفتاح واتجه للبوابة.",
 		"Push the crate onto the plate with the triangle to clear the way, then take the key and head for the gate."],
@@ -50,6 +53,16 @@ const HINTS := {
 }
 
 
-static func text(level: int) -> String:
-	var h: Array = HINTS.get(level, ["", ""])
+const TIERS := 3
+
+
+## Hint step `tier` (1 idea, 2 first step, 3 full solution) for a level. Levels may
+## give all three in TIERED; older entries in HINTS are the full solution only.
+static func text(level: int, tier := TIERS) -> String:
+	var t: Array = TIERED.get(level, [])
+	var h: Array
+	if t.size() >= tier:
+		h = t[tier - 1]
+	else:
+		h = HINTS.get(level, ["", ""])
 	return h[0] if Save.arabic() else h[1]

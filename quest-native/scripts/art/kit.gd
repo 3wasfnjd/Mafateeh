@@ -117,6 +117,31 @@ static func mat(name: String) -> Material:
 			m.emission_enabled = true
 			m.emission = Color("ffb950")
 			m.emission_energy_multiplier = 0.9
+		"key_0", "key_1", "key_2":
+			# Coloured keys (gold, silver, copper); their doors carry the same metal band.
+			m.albedo_color = [Color("d9ad3c"), Color("cfd3d8"), Color("c4733f")][int(name.substr(4))]
+			m.roughness = [0.38, 0.3, 0.42][int(name.substr(4))]
+			m.metallic = 0.75
+		"secret":
+			m.albedo_color = Color("6fd3a0")
+			m.emission_enabled = true
+			m.emission = Color("3fae78")
+			m.emission_energy_multiplier = 0.8
+		"hot_tile":
+			m.albedo_color = Color("f0c58a")
+			m.emission_enabled = true
+			m.emission = Color("ff9a3c")
+			m.emission_energy_multiplier = 0.0
+			m.roughness = 0.95
+		"palm_shade":
+			var ps := StandardMaterial3D.new()
+			ps.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			ps.albedo_color = Color(0.1, 0.07, 0.04, 0.42)
+			ps.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			ps.albedo_texture = _radial_texture()
+			ps.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+			_materials[name] = ps
+			return ps
 		"lamp_off":
 			m.albedo_color = Color("5b6a66")
 			m.roughness = 0.6

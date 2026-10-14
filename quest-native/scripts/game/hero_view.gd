@@ -122,7 +122,7 @@ func react(event: String) -> void:
 			_react = "think"
 		"solved":
 			_react = "celebrate"
-		"gem", "sequence_done", "unlock":
+		"gem", "secret", "sequence_done", "unlock", "falcon":
 			_react = "excited"
 		_:
 			return
@@ -197,7 +197,8 @@ func sync(dt: float) -> void:
 		expr = "pickup" if clip.begins_with("pickup") else "rest"
 		_still_t = 0.0
 	elif motor.mode == "pushing":
-		_play("push", speed * _len("push") / CYCLE.push)
+		# Pulling plays the push cycle backwards: the feet step back, hands stay on the crate.
+		_play("push", speed * _len("push") / CYCLE.push * (-1.0 if motor.pulling else 1.0))
 		locomotion = true
 		expr = "push"
 		_still_t = 0.0

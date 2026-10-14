@@ -397,6 +397,17 @@ func _card_item(it: Dictionary, center: Vector2, size: Vector2) -> void:
 	if locked:
 		l.modulate = Color(1, 0.95, 0.85, 0.5)
 	panel.add_child(l)
+	# Best stars for the level, and a green star when its secret gem was found.
+	if Save.stars.has(n) and not locked:
+		var sz := 0.014
+		for k in 3:
+			var lit: bool = k < int(Save.stars[n])
+			_quad(Vector2(sz, sz), _tex_mat(ICON_DIR + "star.png", Color("f2c14e") if lit else Color(1, 0.95, 0.85, 0.25)),
+				Vector3(center.x + (k - 1) * sz * 1.15 + (size.x * 0.28 if Save.arabic() else -size.x * 0.28), center.y - size.y / 2.0 + 0.013, 0.003))
+	if Save.secrets.has(n) and not locked:
+		var gz := 0.013
+		_quad(Vector2(gz, gz), _tex_mat(ICON_DIR + "star.png", Color("7fe0ad")),
+			Vector3(center.x - size.x / 2.0 + gz, center.y + size.y / 2.0 - gz, 0.003))
 	var badge := "lock" if locked else ("check" if it.get("done", false) else "")
 	if badge != "":
 		var bz := 0.018
@@ -429,10 +440,17 @@ func _main_rows() -> Array:
 	var d := LevelData.get_level(lvl)
 	var prev := _neighbour(lvl, -1)
 	var next := _neighbour(lvl, 1)
+	var g: Game = main.game
+	var moves_line := T("الحركات %d", "Moves %d") % g.moves
+	if g.par() > 0:
+		moves_line += T("  ·  المثالي %d", "  ·  best %d") % g.par()
 	var rows: Array = [
 		{"text": T("المرحلة %d — %s", "Level %d — %s") % [lvl, _title(d)]},
+		{"text": moves_line, "small": true},
 		{"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close},
-		_dir([{"text": T("إعادة المرحلة", "Restart level"), "icon": "restart", "action": func(): close(); main.game.restart()},
+		_dir([{"text": T("تراجع خطوة", "Undo step"), "icon": "back", "style": "" if g.can_undo() else "locked",
+				"action": func(): if g.undo(): _rebuild()},
+			{"text": T("إعادة المرحلة", "Restart level"), "icon": "restart", "action": func(): close(); main.game.restart()},
 			{"text": T("تلميح", "Hint"), "icon": "hint", "action": func(): open_page("hint")}]),
 		# Reading order: previous first (on the right in Arabic, on the left in English).
 		_dir([_nav_item(T("السابقة", "Previous"), prev, "next" if Save.arabic() else "prev"),
@@ -469,14 +487,23 @@ func play_level(n: int) -> void:
 		main.game.go_to_level(n)
 
 
+## Hints come in three steps: the idea, the first move, then the whole way. Each
+## step is revealed only when asked for, so the player keeps as much as they want.
 func _hint_rows() -> Array:
 	var lvl: int = main.game.target_level()
-	return [
-		{"text": T("تلميح — المرحلة %d", "Hint — level %d") % lvl},
-		{"kind": "body", "text": LevelHints.text(lvl), "h": 0.13},
-		_dir([{"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")},
-			{"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close}]),
-	]
+	var g: Game = main.game
+	var tier := clampi(g.hint_tier, 1, LevelHints.TIERS)
+	var names := [T("الفكرة", "The idea"), T("الخطوة الأولى", "First step"), T("الحل كاملًا", "Full solution")]
+	var rows: Array = [{"text": T("تلميح — المرحلة %d", "Hint — level %d") % lvl}]
+	for i in range(1, tier + 1):
+		rows.append({"text": "%d · %s" % [i, names[i - 1]], "small": true})
+		rows.append({"kind": "body", "text": LevelHints.text(lvl, i), "h": 0.1})
+	var foot: Array = [{"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")}]
+	if tier < LevelHints.TIERS:
+		foot.append({"text": names[tier], "icon": "hint", "action": func(): g.hint_tier = tier + 1; _rebuild()})
+	foot.append({"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close})
+	rows.append(_dir(foot))
+	return rows
 
 
 func _level_rows() -> Array:
@@ -517,6 +544,8 @@ func _level_cell(n: int, cur: int) -> Dictionary:
 static func _level_info(n: int) -> String:
 	var d := LevelData.get_level(n)
 	var state := T("مكتملة", "complete") if Save.is_completed(n) else (T("مقفلة", "locked") if not Save.can_play(n) else T("لم تكتمل بعد", "not complete yet"))
+	if Save.stars.has(n):
+		state += T("  ·  %d من 3 نجوم", "  ·  %d of 3 stars") % int(Save.stars[n])
 	return "%d — %s  ·  %s" % [n, _title(d), state]
 
 

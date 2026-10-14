@@ -7,6 +7,8 @@ signal level_loaded(n: int)
 signal level_completed(n: int)
 signal feedback(event: String, at: Vector3)  # consumed by audio
 signal mechanism(kind: String, opened: bool, at: Vector3)
+signal moves_changed(moves: int, par: int)
+signal falcon_aim_changed(on: bool)
 
 var level := 1
 var state: PuzzleState
@@ -19,6 +21,14 @@ var _fade_dir := 0.0
 var marker: MeshInstance3D
 var _marker_t := 10.0
 var weather_rect_cache := {}
+# Undo: every committed action pushes the state it replaced (hero position included).
+var history: Array = []
+var moves := 0
+var falcon_aim := false
+var hint_tier := 1  # hint steps revealed on this level (1..3)
+var last_stars := 0
+var _last_snap := {}
+var _undoing := false
 
 
 func _ready() -> void:
@@ -39,7 +49,7 @@ func load_level(n: int) -> void:
 	motor.acted.connect(_on_acted)
 	motor.push_started.connect(func(i): feedback.emit("push_start", _w(state.crates[i].pos)))
 	motor.push_finished.connect(_on_push_finished)
-	motor.exit_started.connect(func(): feedback.emit("exit", _w(Vector2(LevelData.EXIT_X, -3.6))))
+	motor.exit_started.connect(func(): feedback.emit("exit", _w(Vector2(LevelData.exit_x(state.def), -3.6))))
 	motor.level_finished.connect(_on_level_finished)
 	motor.brick_dropped.connect(func(at): feedback.emit("drop_brick", _w(at)))
 	motor.weight_dropped.connect(func(at): feedback.emit("place_weight", _w(at)))
@@ -52,7 +62,13 @@ func load_level(n: int) -> void:
 	move_child(view, 0)
 	hero.reset(motor)
 	_was_solved = state.solved
+	history.clear()
+	moves = 0
+	hint_tier = 1
+	_last_snap = state.snapshot()
+	_set_falcon_aim(false)
 	level_loaded.emit(level)
+	moves_changed.emit(moves, par())
 
 
 func _w(p: Vector2) -> Vector3:
@@ -62,9 +78,20 @@ func _w(p: Vector2) -> Vector3:
 var _was_solved := false
 
 
+func par() -> int:
+	return int(state.def.get("par", 0)) if state else 0
+
+
 func _on_state_changed() -> void:
+	if not _undoing:
+		history.append(_last_snap)
+		if history.size() > 200:
+			history.pop_front()
+		_last_snap = state.snapshot()
+		moves += 1
+		moves_changed.emit(moves, par())
 	if state.solved and not _was_solved:
-		feedback.emit("solved", _w(Vector2(LevelData.EXIT_X, -3.2)))
+		feedback.emit("solved", _w(Vector2(LevelData.exit_x(state.def), -3.2)))
 		hero.react("solved")
 	_was_solved = state.solved
 
@@ -85,7 +112,40 @@ func _on_push_finished(_i: int) -> void:
 
 
 func _on_level_finished() -> void:
+	last_stars = LevelData.stars(state.def, moves)
 	level_completed.emit(level)
+
+
+## Step back one action: the puzzle, the hero's spot and anything carried return to
+## how they were before it. Returns false when there is nothing to undo.
+func undo() -> bool:
+	if state == null or history.is_empty() or motor.busy() or busy_transition():
+		return false
+	var snap: Dictionary = history.pop_back()
+	_undoing = true
+	state.restore(snap)
+	_undoing = false
+	_last_snap = snap
+	motor.cancel()
+	motor.mode = "idle"
+	motor.nav.invalidate()
+	hero.reset(motor)
+	_was_solved = state.solved
+	moves = maxi(moves - 1, 0)
+	moves_changed.emit(moves, par())
+	feedback.emit("undo", _w(motor.pos))
+	_set_falcon_aim(false)
+	return true
+
+
+func can_undo() -> bool:
+	return state != null and not history.is_empty() and not motor.busy()
+
+
+func _set_falcon_aim(on: bool) -> void:
+	if falcon_aim != on:
+		falcon_aim = on
+		falcon_aim_changed.emit(on)
 
 
 ## Fade out, swap level, fade in.
@@ -194,7 +254,7 @@ func pick(o: Vector3, d: Vector3) -> Dictionary:
 	for obj in state.objects:
 		if not state.is_visible(obj) or (obj.type == "lock" and state.condition("lock", obj.id)):
 			continue
-		var flat: bool = obj.type in ["sequence", "portal", "circuit", "dial", "brickSocket"]
+		var flat: bool = obj.type in ["sequence", "portal", "circuit", "dial", "brickSocket", "plate", "sluice", "sundial"]
 		var y := LevelData.surface_y(state.def, obj.x, obj.z)
 		var half := Vector3(0.45, 0.17, 0.45) if flat else Vector3(0.38, 0.5, 0.38)
 		var c := Vector3(obj.x, y + (0.18 if flat else 0.5), obj.z)
@@ -217,7 +277,7 @@ func pick(o: Vector3, d: Vector3) -> Dictionary:
 		best_t = ht
 		best = {"kind": "hero"}
 	var ey := LevelData.exit_y(state.def)
-	var et := ray_box(o, d, Vector3(LevelData.EXIT_X, ey + 0.8, -3.75), Vector3(0.9, 0.8, 0.5))
+	var et := ray_box(o, d, Vector3(LevelData.exit_x(state.def), ey + 0.8, -3.75), Vector3(0.9, 0.8, 0.5))
 	if et < best_t:
 		best_t = et
 		best = {"kind": "exit"}
@@ -236,11 +296,24 @@ func pick(o: Vector3, d: Vector3) -> Dictionary:
 func activate(hit: Dictionary) -> void:
 	if hit.is_empty() or motor.busy() or busy_transition():
 		return
+	if falcon_aim:
+		# The falcon waits on the hero's arm: the next target chosen is where it flies.
+		_set_falcon_aim(false)
+		if hit.kind == "object" and state.falcon_can(hit.obj):
+			motor.send_falcon(hit.obj)
+			return
+		feedback.emit("falcon_cancel", hit.point)
+		return
 	match hit.kind:
 		"object":
+			if hit.obj.type == "falcon":
+				if state.is_visible(hit.obj):
+					_set_falcon_aim(true)
+					feedback.emit("falcon_ready", hit.point)
+				return
 			motor.use_object(hit.obj)
 		"crate":
-			if not motor.start_push(hit.index):
+			if not motor.use_crate(hit.index):
 				feedback.emit("reject", hit.point)
 		"hero":
 			if motor.carrying() == "brick":
@@ -257,10 +330,10 @@ func activate(hit: Dictionary) -> void:
 			# Point at a crate's plate: walk round and push it.
 			for i in state.crates.size():
 				var c: Dictionary = state.crates[i]
-				if not c.done and absf(p.x - c.to.x) < 0.62 and absf(p.z - c.to.y) < 0.62:
+				if not c.free and not c.done and absf(p.x - c.to.x) < 0.62 and absf(p.z - c.to.y) < 0.62:
 					motor.start_push(i)
 					return
-			if absf(p.x - LevelData.EXIT_X) < 0.82 and p.z < -2.8:
+			if absf(p.x - LevelData.exit_x(state.def)) < 0.82 and p.z < -2.8:
 				motor.start_exit()
 				return
 			# Carrying a weight: put it down where the player points.

@@ -34,6 +34,7 @@ func _initialize() -> void:
 	if not args.has("skip-movement"):
 		_test_movement()
 	_test_weights()
+	_test_mechanics()
 	_test_save()
 	var summary := "%d failure(s) in %.1fs" % [failures.size(), (Time.get_ticks_msec() - t0) / 1000.0]
 	_log("")
@@ -283,3 +284,116 @@ func _test_save() -> void:
 	save.free()
 	again.free()
 	_log("  progressive unlock (only after solving), persistence, old saves")
+
+
+# --- v2 mechanics (small built-in boards, independent of the level list) -------------
+
+func _def(extra: Dictionary) -> Dictionary:
+	var d := {"title_en": "test", "title_ar": "test", "time": "day", "weather": "clear",
+		"start": [0.0, 2.5], "walls": []}
+	d.merge(extra, true)
+	return d
+
+
+func _test_mechanics() -> void:
+	_log("== Mechanics (v2)")
+	# Coloured keys: the silver key does not open the gold door.
+	var s := PuzzleState.new(900, _def({"keys": [[-2.0, 1.0, 1]], "doors": [[1.75, -1.0, 1.6, 0.3, "lock", 0], [-1.75, -1.0, 1.6, 0.3, "lock", 1]]}))
+	var locks := s.objects.filter(func(o): return o.type == "lock")
+	var silver: Dictionary = s.objects.filter(func(o): return o.type == "key")[0]
+	s.hero = Vector2(-2.0, 1.4)
+	check(s.activate(silver).ok, "keys: take the silver key")
+	s.hero = Vector2(1.75, -0.4)
+	check(not s.activate(locks[0]).ok, "keys: silver key must not open the gold lock")
+	s.hero = Vector2(-1.75, -0.4)
+	check(s.activate(locks[1]).ok and s.condition("lock", 1), "keys: silver key opens the silver lock")
+
+	# Dakka: a weight on the plate holds the door open; taking it back closes it.
+	s = PuzzleState.new(901, _def({"plates": [[-2.0, 1.0, 0]], "doors": [[1.75, -1.0, 1.6, 0.3, "plate", 0]],
+		"balance": {"at": [0.0, -2.2], "weights": [[2.0, 1.5, 1]], "free": true}}))
+	var w: Dictionary = s.objects.filter(func(o): return o.type == "weight")[0]
+	s.hero = Vector2(2.0, 2.1)
+	check(s.activate(w).ok, "plate: pick up the weight")
+	check(not s.condition("plate", 0), "plate: empty plate keeps the door shut")
+	s.hero = Vector2(-2.0, 1.75)
+	check(s.drop_weight(Vector2(-2.0, 1.0), PI) != null and s.condition("plate", 0), "plate: weight on the plate opens the door")
+	s.hero = Vector2(-2.0, 1.75)
+	check(s.activate(w).ok and not s.condition("plate", 0), "plate: lifting the weight closes the door")
+
+	# Free crates: push one tile, blocked by a wall, pull back; a crate presses a plate.
+	s = PuzzleState.new(902, _def({"crates": [{"at": [0.5, 0.0]}], "plates": [[1.5, 0.0, 0]], "walls": [[3.3, 0.0, 0.3, 2.0]],
+		"doors": [[-1.75, -2.2, 1.6, 0.3, "plate", 0]]}))
+	var before := s.snapshot()
+	s.hero = s.free_push_position(0, Vector2(1, 0))
+	check(s.push_crate(0, Vector2(1, 0)).ok and s.crates[0].pos.is_equal_approx(Vector2(1.5, 0.0)), "crate: pushed one tile")
+	check(s.condition("plate", 0), "crate: crate on the plate presses it")
+	s.hero = s.free_push_position(0, Vector2(1, 0))
+	check(s.push_crate(0, Vector2(1, 0)).ok, "crate: second push")
+	s.hero = s.free_push_position(0, Vector2(1, 0))
+	check(not s.push_crate(0, Vector2(1, 0)).ok and s.crates[0].pos.is_equal_approx(Vector2(2.5, 0.0)), "crate: stops before the wall")
+	s.hero = s.free_push_position(0, Vector2(1, 0))
+	check(s.pull_crate(0, Vector2(1, 0)).ok, "crate: pull off the wall")
+	s.hero = s.free_push_position(0, Vector2(1, 0))
+	var pulled := s.pull_crate(0, Vector2(1, 0))
+	check(pulled.ok and s.crates[0].pos.distance_to(Vector2(0.5, 0.0)) < 0.01 and s.hero.distance_to(Vector2(-0.45, 0.0)) < 0.01,
+		"crate: pulled back one tile, the hero steps back (%s)" % str(pulled))
+	check(not s.condition("plate", 0), "crate: plate released when the crate leaves")
+	s.restore(before)
+	check(s.crates[0].pos.is_equal_approx(Vector2(0.5, 0.0)) and s.hero.is_equal_approx(Vector2(0.0, 2.5)), "undo: snapshot restores crates and the hero")
+
+	# Falaj: opening the sluice fills the pool, which raises the stepping stones.
+	s = PuzzleState.new(903, _def({"falaj": {"nodes": [[-3.0, 2.0], [-1.0, 2.0], [1.0, 2.0]], "source": 0,
+		"channels": [[0, 1, -1], [1, 2, 0]], "pools": [[2, 0]]}, "sluices": [[-0.5, 1.6, 0]],
+		"waters": [[0.0, -0.5, 7.3, 1.0, 0]]}))
+	check(not s.pool_full(0) and s.blocked(0.0, -0.5), "falaj: dry pool, water blocks")
+	var sl: Dictionary = s.objects.filter(func(o): return o.type == "sluice")[0]
+	s.hero = Vector2(-0.5, 2.2)
+	check(s.activate(sl).ok and s.pool_full(0) and not s.blocked(0.0, -0.5), "falaj: open sluice fills the pool, stones rise")
+	check(s.channel_wet(1), "falaj: water flows through the open channel")
+
+	# Falcon: fetches one key from anywhere, only once.
+	s = PuzzleState.new(904, _def({"falcon": {"at": [0.5, 2.5]}, "keys": [[-3.0, -2.5, 0], [3.0, -2.5, 1]],
+		"walls": [[-2.0, -1.5, 3.5, 0.3]]}))
+	var ks := s.objects.filter(func(o): return o.type == "key")
+	check(s.send_falcon(ks[0]).ok and (s.keys & 1) != 0, "falcon: brings a walled-in key")
+	check(not s.send_falcon(ks[1]).ok, "falcon: only once per level")
+
+	# Shade: the palm shadow moves with every action and the sundial.
+	s = PuzzleState.new(905, _def({"shade": {"palms": [[-1.0, 0.0]], "path": [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
+		"hot": [[0.0, 0.0, 1.0, 1.0]], "sundial": [2.5, 2.0]}}))
+	check(not s.shaded(0) and s.blocked(0.0, 0.0), "shade: hot tile blocks in full sun")
+	var dial: Dictionary = s.objects.filter(func(o): return o.type == "sundial")[0]
+	s.hero = Vector2(2.5, 2.6)
+	check(s.activate(dial).ok and s.shaded(0) and not s.blocked(0.0, 0.0), "shade: sundial moves the shadow over the tile")
+	check(s.activate(dial).ok and not s.shaded(0), "shade: and on past it")
+	s.hero = Vector2(0.0, 0.0)
+	s.sun = 1
+	check(not s.activate(dial).ok, "shade: waiting on a tile that would burn is refused")
+
+	# Light: lamps along the beam light up; the beam passes through a portal pair.
+	s = PuzzleState.new(906, _def({"optics": {"source": [-3.4, 1.0, 1, 0], "mirrors": [], "lamps": [[-1.0, 1.0, 0], [2.0, -1.5, 1]],
+		"through_portals": true}, "portals": [[0.5, 1.0, 0.5, -1.5]]}))
+	check((s.lamps_lit & 1) != 0, "light: lamp before the portal is lit")
+	check((s.lamps_lit & 2) != 0, "light: beam continues from the far portal and lights the second lamp")
+
+	# Secret gem: optional, recorded, never part of the goal.
+	s = PuzzleState.new(907, _def({"secret": [2.0, 2.0]}))
+	check(s.solved, "secret: level solved without the secret gem")
+	var sg: Dictionary = s.objects.filter(func(o): return o.type == "gem")[0]
+	s.hero = Vector2(2.0, 2.5)
+	check(s.activate(sg).event == "secret" and s.has_secret(), "secret: taking it is recorded")
+
+	# Stars by par.
+	var d := {"par": 6}
+	check(LevelData.stars(d, 6) == 3 and LevelData.stars(d, 8) == 2 and LevelData.stars(d, 12) == 1, "stars: 3 at par, 2 close, 1 otherwise")
+
+	# Solver on a free-crate board: two pushes put the crate on the plate, which holds
+	# the door to the key open; pulls keep every crate move reversible.
+	var solver := LevelSolver.new(908, [], _def({"crates": [{"at": [-0.5, 1.0]}], "plates": [[1.5, 1.0, 0]],
+		"walls": [[-1.4, -1.0, 4.5, 0.3], [3.1, -1.0, 1.1, 0.3]], "doors": [[1.75, -1.0, 1.6, 0.3, "plate", 0]],
+		"keys": [[-2.5, -2.4, 0]], "need_keys": 1, "start": [-2.5, 1.0]}))
+	var sr := solver.run()
+	var sol := solver.solution()
+	check(sr.ok and sol.size() - 1 == 3, "solver: free-crate board solved in 3 actions (%s)" % " → ".join(sol))
+	check(solver.dead_ends().is_empty(), "solver: no dead ends with push and pull")
+	_log("  coloured keys, dakka, free crates (push/pull), undo snapshot, falaj, falcon, shade, lamps, portals, secret gem, stars")

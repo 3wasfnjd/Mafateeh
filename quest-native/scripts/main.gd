@@ -100,6 +100,7 @@ func _ready() -> void:
 		rig.grip_drag_started.connect(_on_drag_start)
 		rig.grip_drag_ended.connect(_on_drag_end)
 		rig.menu_pressed.connect(_on_menu_button)
+		rig.undo_pressed.connect(_on_undo)
 		rig.focus_changed.connect(_on_focus)
 		rig.session_started.connect(_on_session)
 		surfaces = SceneSurfaces.new()
@@ -308,6 +309,13 @@ func _on_trigger(hand: String, origin: Vector3, direction: Vector3) -> void:
 	game.activate(game.pick(r[0], r[1]))
 
 
+func _on_undo() -> void:
+	if menu and menu.is_open():
+		return
+	if not game.undo() and game.state:
+		game.feedback.emit("reject", game._w(game.motor.pos))
+
+
 func _on_grip_tap(_hand: String) -> void:
 	# Before a mode is chosen, a grip or a system recenter brings the start screen
 	# in front of the player instead of putting the board down.
@@ -421,7 +429,7 @@ func _update_pointers() -> void:
 
 
 func _on_level_completed(n: int) -> void:
-	Save.mark_completed(n)
+	Save.mark_completed(n, game.last_stars, game.state.has_secret())
 	if n < LevelData.COUNT:
 		game.go_to_level(n + 1)
 	else:
@@ -510,6 +518,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_R: game.restart()
+			KEY_Z, KEY_BACKSPACE: _on_undo()
 			KEY_N: game.go_to_level(game.level % LevelData.COUNT + 1)
 			KEY_P: game.go_to_level((game.level + LevelData.COUNT - 2) % LevelData.COUNT + 1)
 			KEY_T: sky.cycle_time()

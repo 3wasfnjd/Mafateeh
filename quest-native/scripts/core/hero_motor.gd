@@ -18,6 +18,7 @@ const SPEED := 1.6  # board units per second (an unhurried, brisk old man)
 const MAX_DT := 0.04
 const DEAD_ZONE := 0.18
 const PUSH_TIME := 1.5
+const FREE_PUSH_TIME := 0.9  # one tile, free crates
 const FINISH_TIME := 2.0
 
 var state: PuzzleState
@@ -32,6 +33,8 @@ var act_duration := 0.0
 var act_applied := false
 var push_index := -1
 var push_from := Vector2.ZERO
+var push_dir := Vector2.ZERO  # free crates: direction of this push (or pull)
+var pulling := false
 var mode_time := 0.0
 var needs_release := false  # stick must return to centre after an interruption
 var speed_now := 0.0  # actual planar speed, units/s (drives the walk cycle)
@@ -111,6 +114,52 @@ func use_object(o: Dictionary) -> bool:
 	return true
 
 
+## Tapping a free crate: when the hero stands at one of its sides he pulls it one
+## tile toward himself; otherwise he walks to the nearest side, ready to push.
+func use_crate(index: int) -> bool:
+	if busy() or index < 0:
+		return false
+	var c: Dictionary = state.crates[index]
+	if not c.free:
+		return start_push(index)
+	var best := Vector2.ZERO
+	var best_d := INF
+	for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		var at: Vector2 = c.pos - d * 0.95
+		if pos.distance_to(at) < 0.3:
+			return _begin_free(index, d, true)
+		if nav.blocked(at.x, at.y):
+			continue
+		var dist := pos.distance_to(at)
+		if dist < best_d:
+			best_d = dist
+			best = d
+	if best == Vector2.ZERO:
+		return false
+	var target: Vector2 = c.pos - best * 0.95
+	var path := nav.find_path(pos, target)
+	if path.is_empty():
+		return false
+	route = path
+	pending_obj = {"type": "_face_crate", "index": index, "dx": best.x, "dz": best.y}
+	mode = "walking"
+	needs_release = true
+	return true
+
+
+## The falcon flies to `o` (a key or a plate) while the hero whistles.
+func send_falcon(o: Dictionary) -> bool:
+	if busy() or not state.falcon_can(o):
+		return false
+	route.clear()
+	pending_obj = null
+	var turn := Vector2(o.x, o.z) - pos
+	if turn.length() > 0.01:
+		yaw = atan2(turn.x, turn.y)
+	_begin_act({"type": "_falcon", "target": o, "x": o.x, "z": o.z}, 0.9)
+	return true
+
+
 func start_push(index: int) -> bool:
 	if busy() or index < 0 or state.crates[index].done:
 		return false
@@ -130,9 +179,9 @@ func start_exit() -> bool:
 		return false
 	needs_release = true
 	if not state.solved:
-		walk_to(Vector2(LevelData.EXIT_X, -2.65))
+		walk_to(Vector2(LevelData.exit_x(state.def), -2.65))
 		return false
-	var path := nav.find_path(pos, Vector2(LevelData.EXIT_X, -4.38))
+	var path := nav.find_path(pos, Vector2(LevelData.exit_x(state.def), -4.38))
 	if path.is_empty():
 		return false
 	route = path
@@ -227,7 +276,14 @@ func _steer(dt: float, move: Vector2) -> void:
 		if not c.done and dir.dot(c.dir) > 0.6 and pos.distance_to(state.push_position(i)) < 0.25:
 			_begin_push(i)
 			return
-	if state.solved and absf(pos.x - LevelData.EXIT_X) < 0.55 and pos.y < -2.75 and dir.y < -0.2:
+		if c.free:
+			# Free crates: walking into a side face pushes it one tile along that axis.
+			var axis := Vector2(signf(dir.x), 0) if absf(dir.x) > absf(dir.y) else Vector2(0, signf(dir.y))
+			var rel: Vector2 = c.pos - pos
+			if dir.dot(axis) > 0.8 and absf(rel.dot(axis) - 0.95) < 0.2 and absf(rel.dot(Vector2(axis.y, axis.x))) < 0.3:
+				if _begin_free(i, axis, false):
+					return
+	if state.solved and absf(pos.x - LevelData.exit_x(state.def)) < 0.55 and pos.y < -2.75 and dir.y < -0.2:
 		mode = "idle"
 		start_exit()
 		return
@@ -293,6 +349,9 @@ func _follow_route(dt: float) -> void:
 			return
 		match o.type:
 			"_push": _begin_push(o.index)
+			"_face_crate":
+				var fd := Vector2(o.dx, o.dz)
+				yaw = atan2(fd.x, fd.y)
 			"_drop_weight":
 				drop_weight()  # arrived: set it down just in front
 			"_exit":
@@ -338,7 +397,11 @@ func _begin_act(o: Dictionary, duration: float) -> void:
 func _update_act(_dt: float) -> void:
 	if not act_applied and mode_time >= act_duration * 0.5:
 		act_applied = true
-		if not act_obj.type.begins_with("_"):
+		if act_obj.type == "_falcon":
+			last_result = state.send_falcon(act_obj.target)
+			nav.invalidate()
+			acted.emit(act_obj.target, last_result)
+		elif not act_obj.type.begins_with("_"):
 			last_result = state.activate(act_obj)
 			nav.invalidate()
 			acted.emit(act_obj, last_result)
@@ -347,7 +410,34 @@ func _update_act(_dt: float) -> void:
 		_set_mode("idle")
 
 
+func _begin_free(index: int, dir: Vector2, pull: bool) -> bool:
+	var c: Dictionary = state.crates[index]
+	var ok := false
+	if pull:
+		var to: Vector2 = c.pos - dir
+		var back: Vector2 = to - dir * 0.95
+		ok = state.crate_spot_free(index, to) and not nav.blocked(back.x, back.y)
+	else:
+		ok = state.crate_spot_free(index, c.pos + dir)
+	if not ok:
+		last_result = {"ok": false, "event": "reject", "reason": "crate_blocked"}
+		acted.emit({"type": "crate", "x": c.pos.x, "z": c.pos.y}, last_result)
+		needs_release = true
+		return false
+	push_index = index
+	push_from = c.pos
+	push_dir = dir
+	pulling = pull
+	yaw = atan2(dir.x, dir.y)
+	_set_mode("pushing")
+	needs_release = true
+	push_started.emit(index)
+	return true
+
+
 func _begin_push(index: int) -> void:
+	push_dir = Vector2.ZERO
+	pulling = false
 	push_index = index
 	push_from = state.crates[index].pos
 	var dir: Vector2 = state.crates[index].dir
@@ -359,6 +449,23 @@ func _begin_push(index: int) -> void:
 
 func _update_push() -> void:
 	var c: Dictionary = state.crates[push_index]
+	if c.free:
+		var tf := minf(1.0, mode_time / FREE_PUSH_TIME)
+		var e := tf * tf * (3.0 - 2.0 * tf)
+		var step := -push_dir if pulling else push_dir
+		c.pos = push_from + step * e
+		pos = c.pos - push_dir * 0.95
+		speed_now = 1.0 / FREE_PUSH_TIME
+		if tf >= 1.0:
+			c.pos = push_from
+			pos = push_from - push_dir * 0.95
+			last_result = state.pull_crate(push_index, push_dir) if pulling else state.push_crate(push_index, push_dir)
+			nav.invalidate()
+			var i := push_index
+			push_index = -1
+			_set_mode("idle")
+			push_finished.emit(i)
+		return
 	var t := minf(1.0, mode_time / PUSH_TIME)
 	var ease := t * t * (3.0 - 2.0 * t)
 	c.pos = push_from.lerp(c.to, ease)

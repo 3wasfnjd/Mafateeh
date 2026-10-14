@@ -106,6 +106,7 @@ func apply_level(n: int, force_time := "", force_weather := "") -> void:
 	rain.rebuild(game.state)
 	for i in lanterns.size():
 		lanterns[i].position.y = LevelData.exit_y(d) + 1.35
+		lanterns[i].position.x = LevelData.exit_x(d) + (-0.82 if i == 0 else 0.82)
 
 
 func set_time(t: String, smooth := true, seconds := 2.5) -> void:

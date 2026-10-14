@@ -10,6 +10,8 @@ const VERSION := 2  # 2: unlocks derived from completed levels; dev tools reset
 var current_level := 1
 var unlocked_level := 1
 var completed := {}  # level -> true
+var stars := {}  # level -> best stars (1..3)
+var secrets := {}  # level -> true when its secret gem was found
 var master_volume := 0.8
 var muted := false
 var mode := "mr"  # "mr" (passthrough) | "vr"
@@ -49,6 +51,18 @@ func load_data() -> void:
 			if n >= 1 and n <= LevelData.COUNT and stored[k]:
 				completed[n] = true
 	unlocked_level = _unlocked_from(completed)
+	stars = {}
+	secrets = {}
+	var st: Variant = cfg.get_value("progress", "stars", {})
+	if st is Dictionary:
+		for k in st:
+			if int(k) >= 1 and int(k) <= LevelData.COUNT:
+				stars[int(k)] = clampi(int(st[k]), 1, 3)
+	var se: Variant = cfg.get_value("progress", "secrets", {})
+	if se is Dictionary:
+		for k in se:
+			if int(k) >= 1 and int(k) <= LevelData.COUNT and se[k]:
+				secrets[int(k)] = true
 	master_volume = clampf(float(cfg.get_value("settings", "volume", 0.8)), 0.0, 1.0)
 	muted = bool(cfg.get_value("settings", "muted", false))
 	mode = str(cfg.get_value("settings", "mode", "mr"))
@@ -78,6 +92,8 @@ func save() -> void:
 	cfg.set_value("progress", "current", current_level)
 	cfg.set_value("progress", "unlocked", unlocked_level)
 	cfg.set_value("progress", "completed", completed)
+	cfg.set_value("progress", "stars", stars)
+	cfg.set_value("progress", "secrets", secrets)
 	cfg.set_value("settings", "volume", master_volume)
 	cfg.set_value("settings", "muted", muted)
 	cfg.set_value("settings", "mode", mode)
@@ -132,8 +148,12 @@ static func _unlocked_from(done: Dictionary) -> int:
 	return n
 
 
-func mark_completed(level: int) -> void:
+func mark_completed(level: int, earned := 0, secret := false) -> void:
 	completed[level] = true
+	if earned > 0:
+		stars[level] = maxi(stars.get(level, 0), earned)
+	if secret:
+		secrets[level] = true
 	unlocked_level = _unlocked_from(completed)
 	if level < LevelData.COUNT:
 		current_level = level + 1
@@ -146,6 +166,17 @@ func set_current(level: int) -> void:
 		save()
 
 
+func total_stars() -> int:
+	var n := 0
+	for k in stars:
+		n += stars[k]
+	return n
+
+
+func total_secrets() -> int:
+	return secrets.size()
+
+
 func is_completed(level: int) -> bool:
 	return completed.has(level)
 
@@ -154,4 +185,6 @@ func reset_progress() -> void:
 	current_level = 1
 	unlocked_level = 1
 	completed = {}
+	stars = {}
+	secrets = {}
 	save()

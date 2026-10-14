@@ -15,6 +15,7 @@ signal grip_tapped(hand: String)
 signal grip_drag_started(hand: String)
 signal grip_drag_ended(hand: String)
 signal menu_pressed
+signal undo_pressed  # B / Y: step back one action
 signal focus_changed(focused: bool)
 signal session_started
 signal mode_changed(mode: String)
@@ -232,6 +233,7 @@ func _process(delta: float) -> void:
 			"trigger": c.is_button_pressed("trigger_click") or c.get_float("trigger") > 0.75,
 			"grip": c.is_button_pressed("grip_click") or c.get_float("grip") > 0.75,
 			"menu": c.is_button_pressed("menu_button"),
+			"undo": c.is_button_pressed("by_button"),
 		}
 		var was: Dictionary = _prev[hand]
 		var ok := tracked(hand)
@@ -240,6 +242,8 @@ func _process(delta: float) -> void:
 			trigger_pressed.emit(hand, r[0], r[1])
 		if now.menu and not was.get("menu", false) and focused:
 			menu_pressed.emit()
+		if ok and now.undo and not was.get("undo", false) and focused:
+			undo_pressed.emit()
 		if ok and now.grip and not was.get("grip", false):
 			_grip_time[hand] = 0.0
 		elif now.grip and _grip_time[hand] >= 0.0:

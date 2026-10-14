@@ -7,6 +7,7 @@ extends RefCounted
 ## cannot be bypassed.
 
 var level: int
+var level_def: Dictionary = {}
 var forbid_types: Array = []
 var sample_drops := true
 var max_states := 60000
@@ -19,9 +20,10 @@ var _index: Dictionary = {}
 var _flood_cache: Dictionary = {}
 
 
-func _init(n: int, forbid := []) -> void:
+func _init(n: int, forbid := [], def := {}) -> void:
 	level = n
 	forbid_types = forbid
+	level_def = def
 
 
 func _geometry_key(s: PuzzleState) -> String:
@@ -101,7 +103,7 @@ func _add(s: PuzzleState, from: int, label: String) -> int:
 
 
 func run() -> Dictionary:
-	var start := PuzzleState.new(level)
+	var start := PuzzleState.new(level, level_def)
 	_add(start, -1, "start")
 	var head := 0
 	while head < nodes.size():
@@ -113,7 +115,7 @@ func run() -> Dictionary:
 		var cur := head
 		head += 1
 		# Exit when solved and the tunnel end is reachable.
-		if s.solved and _reachable_point(entry, Vector2(LevelData.EXIT_X, -4.38)):
+		if s.solved and _reachable_point(entry, Vector2(LevelData.exit_x(s.def), -4.38)):
 			goal_nodes.append(cur)
 		# Crate pushes (levels 1–2).
 		for i in s.crates.size():
@@ -122,6 +124,27 @@ func run() -> Dictionary:
 				t.complete_push(i)
 				t.hero = t.push_position(i)
 				_add(t, cur, "push crate %d" % i)
+		# Free crates: push away from, or pull toward, any reachable side.
+		for i in s.crates.size():
+			if not s.crates[i].free:
+				continue
+			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+				if not _reachable_point(entry, s.free_push_position(i, d)):
+					continue
+				for pull in [false, true]:
+					var t := s.clone()
+					t.hero = t.free_push_position(i, d)
+					var r := t.pull_crate(i, d) if pull else t.push_crate(i, d)
+					if r.ok:
+						_add(t, cur, "%s crate %d %s" % ["pull" if pull else "push", i, str(d)])
+		# The falcon, once: to any key or plate, reachable or not.
+		if s.def.has("falcon") and not s.falcon_used and not "falcon" in forbid_types:
+			for o in s.objects:
+				if s.falcon_can(o):
+					var t := s.clone()
+					var r := t.send_falcon(t.objects[o.index])
+					if r.ok:
+						_add(t, cur, "falcon %s %d" % [o.type, o.id])
 		# Use every visible object from any reachable side.
 		for o in s.objects:
 			if not s.is_visible(o) or o.type in forbid_types:
@@ -136,6 +159,39 @@ func run() -> Dictionary:
 					break
 				if r.get("reason", "") != "would_trap":
 					break
+		# Put a carried weight down: onto each plate, and at one spot away from them.
+		if s.carried >= 0 and (s.def.get("balance", {}).get("free", false) or not s.def.get("plates", []).is_empty()):
+			var spots: Array = []
+			for o in s.objects:
+				if o.type == "plate":
+					spots.append(Vector2(o.x, o.z))
+			var f2: Dictionary = entry.f
+			for i in range(0, f2.prev.size(), 11):
+				if f2.prev[i] != -2:
+					var q := Navigator.point(i)
+					var far := true
+					for sp in spots:
+						if sp.distance_to(q) < 1.2:
+							far = false
+					if far:
+						spots.append(q)
+						break
+			for sp in spots:
+				var stand: Vector2 = sp
+				var near_ok := false
+				for k in 8:
+					var a := k * PI / 4.0
+					var hp: Vector2 = sp + Vector2(sin(a), cos(a)) * 0.75
+					if _reachable_point(entry, hp):
+						stand = hp
+						near_ok = true
+						break
+				if not near_ok:
+					continue
+				var t := s.clone()
+				t.hero = stand
+				if t.drop_weight(sp, 0.0) != null:
+					_add(t, cur, "drop weight at %s" % str(sp.snapped(Vector2(0.1, 0.1))))
 		# Put the brick down at a sample of reachable places.
 		if sample_drops and s.brick_mode == "carried":
 			var f: Dictionary = entry.f

@@ -273,6 +273,23 @@ static func get_level(n: int) -> Dictionary:
 	return LEVELS.get(n, {})
 
 
+## Stars for finishing in `moves` actions: 3 at or under par (the solver's shortest
+## solution), 2 within a small margin, otherwise 1.
+static func stars(def: Dictionary, moves: int) -> int:
+	var p: int = def.get("par", 0)
+	if p <= 0:
+		return 3
+	if moves <= p:
+		return 3
+	if moves <= p + maxi(2, ceili(p * 0.3)):
+		return 2
+	return 1
+
+
+static func exit_x(def: Dictionary) -> float:
+	return def.get("exit_x", EXIT_X)
+
+
 static func surface_y(def: Dictionary, _x: float, z: float) -> float:
 	if def.get("storeys", false):
 		return UPPER_HEIGHT * clampf((0.95 - z) / 1.9, 0.0, 1.0)

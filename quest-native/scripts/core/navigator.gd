@@ -83,11 +83,12 @@ static func segment_hits(a: Vector2, b: Vector2, r: Array) -> bool:
 
 func clear_segment(a: Vector2, b: Vector2, ignore_crates := false) -> bool:
 	_ensure()
-	var ex := LevelData.EXIT_X
+	var ex := LevelData.exit_x(state.def)
 	var obstacles: Array = _rects + [[-100.0, ex - 0.29, -100.0, -3.03], [ex + 0.29, 100.0, -100.0, -3.03]]
 	if not ignore_crates:
 		for c in state.crates:
-			obstacles.append([c.pos.x - 0.87, c.pos.x + 0.87, c.pos.y - 0.87, c.pos.y + 0.87])
+			var h := PuzzleState.FREE_CRATE_HALF + 0.01 if c.free else 0.87
+			obstacles.append([c.pos.x - h, c.pos.x + h, c.pos.y - h, c.pos.y + h])
 	for r in obstacles:
 		if segment_hits(a, b, r):
 			return false

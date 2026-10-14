@@ -29,6 +29,17 @@ var wind := 0.3
 var _was_solved := false
 var _was_light := false
 var _was_balanced := false
+var channel_nodes: Array = []  # falaj channel water strips, parallel to def.falaj.channels
+var pool_nodes: Array = []  # {water, id}
+var shade_nodes: Array = []  # palm shadow decals on the floor
+var hot_nodes: Array = []  # sun-baked tile tops, parallel to def.shade.hot
+var lamp_post_nodes: Array = []  # optics lamps {glass, light, id}
+var falcon: Node3D
+var _falcon_t := 0.0
+var _falcon_from := Vector3.ZERO
+var _falcon_to := Vector3.ZERO
+var _falcon_state := "perch"  # perch | flying | done
+var _sun_shown := -1
 
 
 func surface(x: float, z: float) -> float:
@@ -53,6 +64,10 @@ func build(s: PuzzleState) -> void:
 		mech_nodes.append(_build_mechanism(state.mechanisms[i]))
 	for i in state.crates.size():
 		_build_crate(i)
+	if def.has("falaj"):
+		_build_falaj()
+	if def.has("shade"):
+		_build_shade()
 	for o in state.objects:
 		obj_nodes[o.index] = _build_object(o)
 	if def.has("circuit"):
@@ -82,17 +97,29 @@ func _build_floor() -> void:
 	Kit.add(self, Kit.box(Vector3(9.9, 0.03, 9.2)), Kit.mat("sand"), Vector3(0, -0.05, -0.3), false)
 	# Paving: one multimesh, subtle per-tile tone variation.
 	var tiles: Array = []
+	var bd: Array = state.bounds
 	for x in 8:
 		for z in 7:
 			var px := x - 3.5
 			var pz := z - 3.0
+			if px < bd[0] - 0.2 or px > bd[1] + 0.2 or pz > bd[3] + 0.2:
+				continue  # outside a narrower board: garden sand
 			if def.get("storeys", false) and pz < 0.5:
 				continue
 			if def.get("moat", false) and absf(pz) < 0.6:
 				continue  # water channel
 			if def.get("pool_room", false) and px > -3.6 and px < -0.5 and pz > -2.6 and pz < -0.3:
 				continue  # pool basin
-			tiles.append(Vector3(px, -0.015, pz))
+			var under_water := false
+			for w in def.get("waters", []):
+				if absf(px - w[0]) < w[2] / 2.0 and absf(pz - w[1]) < w[3] / 2.0:
+					under_water = true
+			for pl in def.get("falaj", {}).get("pools", []):
+				var pn: Array = def.falaj.nodes[pl[0]]
+				if Vector2(px, pz).distance_to(Vector2(pn[0], pn[1])) < 0.5:
+					under_water = true
+			if not under_water:
+				tiles.append(Vector3(px, -0.015, pz))
 	if def.get("storeys", false):
 		for x in 8:
 			for z in 3:
@@ -160,25 +187,34 @@ func _build_perimeter() -> void:
 	var back_h := 1.05
 	var side_h := 0.95
 	var front_h := 0.42
+	# The board may be narrower (an alley) or shorter than the full courtyard; the back
+	# wall with the gatehouse always stands at z = -3.59.
+	var bd: Array = state.bounds
+	var xl: float = bd[0] - 0.44
+	var xr: float = bd[1] + 0.44
+	var zf: float = bd[3] + 0.54
+	var zc := (zf - 3.59) / 2.0
 	# Side walls.
-	for sx in [-1, 1]:
-		_wall(Vector3(sx * 4.09, 0, 0), 0.27, 7.18, side_h)
+	for sx in [xl, xr]:
+		_wall(Vector3(sx, 0, zc), 0.27, zf + 3.59, side_h)
 	# Front (toward the player) kept low for a clear view.
-	_wall(Vector3(0, 0, 3.59), 8.18, 0.27, front_h, false)
+	_wall(Vector3((xl + xr) / 2.0, 0, zf), xr - xl + 0.27, 0.27, front_h, false)
 	# Back wall with a gap for the exit gatehouse.
 	var ey := LevelData.exit_y(def)
 	var gap_lo := LevelData.EXIT_X - 0.95
 	var gap_hi := LevelData.EXIT_X + 0.95
-	var left_len := gap_lo + 4.09 + 0.135
-	_wall(Vector3((-4.09 - 0.135 + gap_lo) / 2.0, ey, -3.59), left_len, 0.27, back_h)
-	var right_len := 4.09 + 0.135 - gap_hi
-	_wall(Vector3((gap_hi + 4.09 + 0.135) / 2.0, ey, -3.59), right_len, 0.27, back_h)
+	var left_len := gap_lo - xl + 0.135
+	if left_len > 0.3:
+		_wall(Vector3((xl - 0.135 + gap_lo) / 2.0, ey, -3.59), left_len, 0.27, back_h)
+	var right_len := xr + 0.135 - gap_hi
+	if right_len > 0.3:
+		_wall(Vector3((gap_hi + xr + 0.135) / 2.0, ey, -3.59), right_len, 0.27, back_h)
 	# Corner towers: rounded, slightly taller, with stepped crenellations.
-	for sx in [-1, 1]:
+	for sx in [xl, xr]:
 		for sz in [-1, 1]:
 			var hh := front_h + 0.12 if sz > 0 else back_h + 0.25
 			var y0 := ey if (sz < 0 and def.get("storeys", false)) else 0.0
-			var p := Vector3(sx * 4.09, y0 + hh / 2.0, sz * 3.59)
+			var p := Vector3(sx, y0 + hh / 2.0, zf if sz > 0 else -3.59)
 			var tower := Kit.add_piece(self, "corner_tower", Kit.cylinder(0.24, 0.27, hh, 18), Kit.mat("plaster"), p)
 			if Kit.has_piece("corner_tower"):
 				tower.scale = Vector3(0.54, hh, 0.54)
@@ -186,7 +222,7 @@ func _build_perimeter() -> void:
 	# Crenellations (shurfat) along the back wall.
 	for i in 14:
 		var x := -3.85 + i * 0.58
-		if x > gap_lo - 0.1 and x < gap_hi + 0.1:
+		if x < xl + 0.2 or x > xr - 0.2 or (x > gap_lo - 0.1 and x < gap_hi + 0.1):
 			continue
 		var c := Kit.add_piece(self, "crenel", Kit.prism(Vector3(0.22, 0.22, 0.2)), Kit.mat("plaster_top"),
 			Vector3(x, ey + back_h + 0.14, -3.59))
@@ -194,7 +230,7 @@ func _build_perimeter() -> void:
 	# Wooden beam ends (mirzam) poking out of the back wall.
 	for i in 6:
 		var x := -3.5 + i * 1.0
-		if x > gap_lo - 0.2 and x < gap_hi + 0.2:
+		if x < xl + 0.2 or x > xr - 0.2 or (x > gap_lo - 0.2 and x < gap_hi + 0.2):
 			continue
 		var b := Kit.add(self, Kit.box(Vector3(0.07, 0.07, 0.36)), Kit.mat("wood"), Vector3(x, ey + back_h - 0.18, -3.44))
 		b.name = "BeamEnd"
@@ -398,13 +434,14 @@ func _build_mechanism(m: Dictionary) -> Dictionary:
 			# Plaque shows what opens this door, so it never depends on colour alone.
 			# Lock doors show their keyhole instead of a plaque.
 			if m.condition != "lock":
-				var icon: int = {"circuit": 0, "dials": 2, "balance": 1}.get(m.condition, 0)
+				var icon: int = {"circuit": 0, "dials": 2, "balance": 1, "plate": m.id, "pool": m.id, "lamp": m.id}.get(m.condition, 0)
 				var plaque := Kit.add(root, Kit.box(Vector3(0.3, 0.3, 0.05)), Kit.mat("brass_dark"), Vector3(0, 1.2, 0.0))
 				plaque.name = "Plaque"
 				var e := Kit.emblem(root, icon, Kit.mat("brass"), Vector3(0, 1.2, 0.04), 0.09)
 				e.rotation.x = PI / 2
 			if m.condition == "lock":
-				Kit.add(root, Kit.box(Vector3(0.18, 0.22, 0.08)), Kit.mat("brass_dark"), Vector3(0, 0.5, 0.08))
+				Kit.add(root, Kit.box(Vector3(w + 0.3, 0.07, 0.38)), Kit.mat("key_%d" % clampi(m.id, 0, 2)), Vector3(0, 0.9, 0))
+				Kit.add(root, Kit.box(Vector3(0.18, 0.22, 0.08)), Kit.mat("key_%d" % clampi(m.id, 0, 2)), Vector3(0, 0.5, 0.08))
 				Kit.add(root, Kit.cylinder(0.025, 0.025, 0.02, 10), Kit.mat("iron"), Vector3(0, 0.53, 0.13)).rotation.x = PI / 2
 		"bridge":
 			var planks := Node3D.new()
@@ -428,6 +465,31 @@ func _build_mechanism(m: Dictionary) -> Dictionary:
 				var e := Kit.emblem(gate, icon, Kit.mat("brass"), Vector3(0, 0.95, 0.04), 0.09)
 				e.rotation.x = PI / 2
 			out["gate"] = gate
+		"stones":
+			# Water basin; stepping stones rise out of it when the falaj fills it.
+			var w: float = m.w
+			var d: float = m.d
+			Kit.add(root, Kit.box(Vector3(w, 0.02, d)), Kit.mat("pool_tile"), Vector3(0, -0.022, 0), false)
+			var water := Kit.add(root, Kit.box(Vector3(w - 0.04, 0.02, d - 0.04)), Kit.mat("water"), Vector3(0, 0.012, 0), false)
+			water_nodes.append(water)
+			for side in [-1, 1]:
+				Kit.add(root, Kit.box(Vector3(w + 0.1, 0.16, 0.1)), Kit.mat("stone_dark"), Vector3(0, 0.02, side * (d / 2.0 + 0.03)))
+			var stones := Node3D.new()
+			root.add_child(stones)
+			var along_x := w >= d
+			var n := maxi(2, int(maxf(w, d) / 0.45))
+			for i in n:
+				var f := (i + 0.5) / n - 0.5
+				var st := Kit.add_piece(stones, "stepping_stone", Kit.cylinder(0.3, 0.34, 0.12, 12), Kit.mat("stone"),
+					Vector3(f * w if along_x else 0.0, 0.06, 0.0 if along_x else f * d))
+				st.scale = Vector3(1.1, 1, 0.9)
+			out["stones"] = stones
+			out["water"] = water
+		"hot":
+			# Sun-baked tiles: they glow faintly in full sun and cool in shade.
+			var top := Kit.add(root, Kit.box(Vector3(m.w - 0.04, 0.03, m.d - 0.04)), Kit.mat("hot_tile").duplicate(), Vector3(0, 0.005, 0), false)
+			out["top"] = top
+			hot_nodes.append(top)
 		"pool_bridge":
 			var stones := Node3D.new()
 			root.add_child(stones)
@@ -452,6 +514,9 @@ func _build_crate(i: int) -> void:
 	var shadow := Kit.add(root, Kit.box(Vector3(1.7, 0.002, 1.7)), Kit.mat("shadow_blob"), Vector3(0, 0.065, 0), false)
 	shadow.name = "Shadow"
 	crate_nodes.append(root)
+	if c.free:
+		plate_nodes.append({})
+		return
 	# Pressure plate at the crate's destination, with a guide line from the push side.
 	var plate := Node3D.new()
 	plate.position = Vector3(c.to.x, 0, c.to.y)
@@ -479,7 +544,7 @@ func _build_object(o: Dictionary) -> Dictionary:
 			var item := Node3D.new()
 			item.position.y = 0.56
 			root.add_child(item)
-			var c := Kit.mat("brass")
+			var c := Kit.mat("key_%d" % clampi(o.id, 0, 2))
 			if Kit.has_piece("key"):
 				Kit.add_piece(item, "key", null, c)
 			else:
@@ -494,7 +559,8 @@ func _build_object(o: Dictionary) -> Dictionary:
 			var item := Node3D.new()
 			item.position.y = 0.58
 			root.add_child(item)
-			Kit.add(item, Kit.octahedron(0.2), Kit.mat("glow"))
+			var secret: bool = o.get("secret", false)
+			Kit.add(item, Kit.octahedron(0.15 if secret else 0.2), Kit.mat("secret" if secret else "glow"))
 			var ring := Kit.add(root, Kit.torus(0.28, 0.33), Kit.mat("brass"), Vector3(0, 0.1, 0))
 			ring.name = "Ring"
 			Kit.add(root, Kit.box(Vector3(0.7, 0.002, 0.7)), Kit.mat("shadow_blob"), Vector3(0, 0.07, 0), false)
@@ -595,6 +661,38 @@ func _build_object(o: Dictionary) -> Dictionary:
 			Kit.emblem(root, 2, Kit.mat("brass_dark"), Vector3(0, 0.14, 0), 0.12)
 		"lock":
 			pass  # drawn by its door
+		"plate":
+			# Dakka: a carved stone slab that sinks under a weight, a crate, the brick
+			# or the falcon. Its emblem matches the door it opens.
+			Kit.add(root, Kit.box(Vector3(0.92, 0.05, 0.92)), Kit.mat("stone_dark"), Vector3(0, 0.03, 0))
+			var top := Kit.add(root, Kit.box(Vector3(0.8, 0.06, 0.8)), Kit.mat("stone"), Vector3(0, 0.08, 0))
+			Kit.emblem(top, o.id, Kit.mat("brass_dark"), Vector3(0, 0.035, 0), 0.14)
+			n["top"] = top
+		"sluice":
+			# Wooden sluice gate standing over its falaj channel.
+			for side in [-1, 1]:
+				Kit.add(root, Kit.box(Vector3(0.09, 0.6, 0.12)), Kit.mat("wood"), Vector3(side * 0.28, 0.3, 0))
+			Kit.add(root, Kit.box(Vector3(0.68, 0.08, 0.14)), Kit.mat("wood"), Vector3(0, 0.62, 0))
+			var board := Kit.add(root, Kit.box(Vector3(0.5, 0.36, 0.05)), Kit.mat("wood_light"), Vector3(0, 0.2, 0))
+			var wheel := Kit.add(root, Kit.torus(0.07, 0.11), Kit.mat("iron"), Vector3(0, 0.74, 0))
+			wheel.rotation.x = PI / 2
+			Kit.emblem(root, o.id, Kit.mat("brass"), Vector3(0, 0.45, 0.04), 0.06).rotation.x = PI / 2
+			n["board"] = board
+			n["wheel"] = wheel
+		"sundial":
+			# Stone sundial: touch it to wait for the sun (and the palm shadows) to move.
+			Kit.add(root, Kit.cylinder(0.2, 0.26, 0.5, 14), Kit.mat("stone"), Vector3(0, 0.25, 0))
+			Kit.add(root, Kit.cylinder(0.32, 0.32, 0.05, 20), Kit.mat("brass_dark"), Vector3(0, 0.52, 0))
+			var gnomon := Kit.add(root, Kit.prism(Vector3(0.04, 0.2, 0.26)), Kit.mat("brass"), Vector3(0, 0.62, 0))
+			n["gnomon"] = gnomon
+		"falcon":
+			# The falcon's perch (wakr): a carved post with a padded top.
+			Kit.add(root, Kit.cylinder(0.2, 0.24, 0.06, 14), Kit.mat("stone_dark"), Vector3(0, 0.03, 0))
+			Kit.add(root, Kit.cylinder(0.035, 0.045, 0.62, 8), Kit.mat("wood"), Vector3(0, 0.34, 0))
+			Kit.add(root, Kit.cylinder(0.11, 0.11, 0.06, 12), Kit.mat("cloth_red"), Vector3(0, 0.67, 0))
+			falcon = FalconView.make(self)
+			falcon.position = root.position + Vector3(0, 0.7, 0)
+			falcon.rotation.y = PI
 	return n
 
 
@@ -656,13 +754,26 @@ func _build_optics() -> void:
 	add_child(src)
 	Kit.add(src, Kit.box(Vector3(0.3, 0.4, 0.34)), Kit.mat("wood"), Vector3(0, 0.25, 0))
 	Kit.add(src, Kit.sphere(0.1, 10), Kit.mat("glow"), Vector3(0.16 * cfg.source[2], 0.45, 0.16 * cfg.source[3]))
-	var rec := Node3D.new()
-	rec.position = Vector3(cfg.receiver[0], surface(cfg.receiver[0], cfg.receiver[1]), cfg.receiver[1])
-	add_child(rec)
-	Kit.add(rec, Kit.box(Vector3(0.6, 0.2, 0.6)), Kit.mat("stone_dark"), Vector3(0, 0.12, 0))
-	var crystal := Kit.add(rec, Kit.octahedron(0.2), Kit.mat("lamp_off"), Vector3(0, 0.48, 0))
-	obj_nodes["receiver"] = {"root": rec, "crystal": crystal}
-	for i in 12:
+	if cfg.has("receiver"):
+		var rec := Node3D.new()
+		rec.position = Vector3(cfg.receiver[0], surface(cfg.receiver[0], cfg.receiver[1]), cfg.receiver[1])
+		add_child(rec)
+		Kit.add(rec, Kit.box(Vector3(0.6, 0.2, 0.6)), Kit.mat("stone_dark"), Vector3(0, 0.12, 0))
+		var crystal := Kit.add(rec, Kit.octahedron(0.2), Kit.mat("lamp_off"), Vector3(0, 0.48, 0))
+		obj_nodes["receiver"] = {"root": rec, "crystal": crystal}
+	for l in cfg.get("lamps", []):
+		# Lantern on a post: the beam passes through its glass and lights it.
+		var post := Node3D.new()
+		post.position = Vector3(l[0], surface(l[0], l[1]), l[1])
+		add_child(post)
+		Kit.add(post, Kit.cylinder(0.04, 0.05, 0.36, 8), Kit.mat("wood"), Vector3(0, 0.18, 0))
+		var glass := Kit.add(post, Kit.box(Vector3(0.16, 0.2, 0.16)), Kit.mat("lamp_off"), Vector3(0, 0.45, 0))
+		Kit.add(post, Kit.prism(Vector3(0.2, 0.1, 0.2)), Kit.mat("brass"), Vector3(0, 0.6, 0))
+		Kit.emblem(post, int(l[2]), Kit.mat("brass"), Vector3(0, 0.06, 0.12), 0.05).rotation.x = PI / 2
+		lamp_post_nodes.append({"glass": glass, "id": int(l[2])})
+	if not cfg.has("receiver"):
+		obj_nodes["receiver"] = {"root": src, "crystal": Kit.add(src, Kit.sphere(0.001, 4), Kit.mat("invisible"))}
+	for i in 16:
 		var b := Kit.add(self, Kit.box(Vector3(1, 0.04, 0.04)), Kit.mat("beam"), Vector3.ZERO, false)
 		b.visible = false
 		beam_nodes.append(b)
@@ -710,11 +821,19 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 				n.gate.visible = n.open < 0.98
 			"pool_bridge":
 				n.stones.position.y = -0.2 * (1.0 - n.open)
+			"stones":
+				n.stones.position.y = -0.2 * (1.0 - n.open)
+				n.stones.visible = n.open > 0.02
+			"hot":
+				var mat: StandardMaterial3D = n.top.material_override
+				if mat:
+					mat.emission_energy_multiplier = 0.35 * (1.0 - n.open) * (0.85 + 0.15 * sin(t * 3.0))
 	for i in crate_nodes.size():
 		var c: Dictionary = state.crates[i]
 		crate_nodes[i].position = Vector3(c.pos.x, 0, c.pos.y)
 		var p: Dictionary = plate_nodes[i]
-		p.root.position.y = -0.035 if c.done else 0.0
+		if not p.is_empty():
+			p.root.position.y = -0.035 if c.done else 0.0
 	if dt > 0.0 and _was_solved != state.solved:
 		mechanism_changed.emit("exit", state.solved, exit_gate.get_parent().position + Vector3(0, 0.6, 0.2))
 	_was_solved = state.solved
@@ -757,6 +876,15 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 				n.root.position = Vector3(state.brick_at.x, 0, state.brick_at.y)
 			"portal":
 				n.glow.position.y = 0.2 + sin(t * 2.0) * 0.03
+			"plate":
+				var down := state.plate_pressed(o.id)
+				n.top.position.y = _damp(n.top.position.y, 0.045 if down else 0.08, 10.0, dt) if dt > 0 else (0.045 if down else 0.08)
+			"sluice":
+				var open: bool = (state.sluices & (1 << o.id)) != 0
+				n.board.position.y = _damp(n.board.position.y, 0.5 if open else 0.2, 6.0, dt) if dt > 0 else (0.5 if open else 0.2)
+				n.wheel.rotation.y = n.board.position.y * 9.0
+			"sundial":
+				n.gnomon.rotation.y = _damp(n.gnomon.rotation.y, state.sun * 0.6, 4.0, dt) if dt > 0 else state.sun * 0.6
 	for i in lamp_nodes.size():
 		var lit: bool = (state.bits & (1 << i)) != 0
 		for mi in lamp_nodes[i].get_children():
@@ -795,6 +923,10 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 				n.pile[j].visible = j < s[side]
 			n.sum.text = str(s[side])
 			n.sum.modulate = Color("b8f0a0") if s[0] == s[1] and s[0] > 0 else Color("ffe9b8")
+	_sync_falaj(dt)
+	_sync_shade(dt)
+	_sync_lamps(dt)
+	_sync_falcon(dt)
 	for f in foliage:
 		# Gentle sway; stronger, still restrained, in rain.
 		var ph: float = f.get_meta("sway")
@@ -815,3 +947,119 @@ func is_roofed(p: Vector2) -> bool:
 		if absf(p.x - r[0]) < r[2] / 2.0 and absf(p.y - r[1]) < r[3] / 2.0:
 			return true
 	return false
+
+
+# --- falaj, shade, lamps, falcon -----------------------------------------------------
+
+func _build_falaj() -> void:
+	## Stone-lined irrigation channels between nodes; water shows where it flows.
+	var f: Dictionary = def.falaj
+	for ch in f.channels:
+		var a: Array = f.nodes[ch[0]]
+		var b: Array = f.nodes[ch[1]]
+		var pa := Vector3(a[0], 0, a[1])
+		var pb := Vector3(b[0], 0, b[1])
+		var mid := (pa + pb) / 2.0
+		var length := pa.distance_to(pb)
+		var yaw := atan2(pb.x - pa.x, pb.z - pa.z)
+		var root := Node3D.new()
+		root.position = mid
+		root.rotation.y = yaw
+		add_child(root)
+		Kit.add(root, Kit.box(Vector3(0.26, 0.04, length)), Kit.mat("stone_dark"), Vector3(0, 0.02, 0), false)
+		for side in [-1, 1]:
+			Kit.add(root, Kit.box(Vector3(0.06, 0.08, length)), Kit.mat("stone"), Vector3(side * 0.13, 0.05, 0))
+		var water := Kit.add(root, Kit.box(Vector3(0.18, 0.02, length)), Kit.mat("water"), Vector3(0, 0.055, 0), false)
+		channel_nodes.append(water)
+	# Source: a well head with a small stone spout.
+	var src: Array = f.nodes[f.source]
+	var well := Node3D.new()
+	well.position = Vector3(src[0], 0, src[1])
+	add_child(well)
+	Kit.add(well, Kit.cylinder(0.3, 0.34, 0.3, 16), Kit.mat("stone"), Vector3(0, 0.15, 0))
+	Kit.add(well, Kit.cylinder(0.24, 0.24, 0.02, 16), Kit.mat("water"), Vector3(0, 0.29, 0), false)
+	for p in f.pools:
+		var at: Array = f.nodes[p[0]]
+		var root := Node3D.new()
+		root.position = Vector3(at[0], 0, at[1])
+		add_child(root)
+		Kit.add(root, Kit.cylinder(0.46, 0.46, 0.03, 20), Kit.mat("pool_tile"), Vector3(0, -0.02, 0), false)
+		Kit.add(root, Kit.torus(0.42, 0.5), Kit.mat("stone"), Vector3(0, 0.05, 0))
+		var w := Kit.add(root, Kit.cylinder(0.42, 0.42, 0.02, 20), Kit.mat("water"), Vector3(0, -0.04, 0), false)
+		Kit.emblem(root, int(p[1]), Kit.mat("brass"), Vector3(0.0, 0.09, 0.47), 0.06)
+		pool_nodes.append({"water": w, "id": int(p[1])})
+
+
+func _sync_falaj(dt: float) -> void:
+	if not def.has("falaj"):
+		return
+	for i in channel_nodes.size():
+		var wet := state.channel_wet(i)
+		var w: MeshInstance3D = channel_nodes[i]
+		w.scale.y = _damp(w.scale.y, 1.0 if wet else 0.05, 5.0, dt) if dt > 0 else (1.0 if wet else 0.05)
+		w.visible = w.scale.y > 0.08
+	for p in pool_nodes:
+		var full := state.pool_full(p.id)
+		var w: MeshInstance3D = p.water
+		w.position.y = _damp(w.position.y, 0.03 if full else -0.04, 2.5, dt) if dt > 0 else (0.03 if full else -0.04)
+
+
+func _build_shade() -> void:
+	## Palms inside the court whose shadows walk across the hot tiles as the sun moves.
+	for p in def.shade.palms:
+		var mi := Kit.add_piece(self, "palm", Kit.cylinder(0.08, 0.1, 1.5, 6), Kit.mat("palm_trunk"), Vector3(p[0], -0.05, p[1]))
+		mi.set_meta("sway", p[0] * 3.1)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		foliage.append(mi)
+		var sh := Kit.add(self, Kit.box(Vector3(1.25, 0.002, 1.0)), Kit.mat("palm_shade"), Vector3(p[0], 0.07, p[1]), false)
+		shade_nodes.append(sh)
+
+
+func _sync_shade(dt: float) -> void:
+	if not def.has("shade"):
+		return
+	var pts := state.shadow_points()
+	for i in shade_nodes.size():
+		var target := Vector3(pts[i].x, 0.07, pts[i].y)
+		var n: MeshInstance3D = shade_nodes[i]
+		n.position = n.position.lerp(target, 1.0 - exp(-4.0 * dt)) if dt > 0 else target
+
+
+func _sync_lamps(_dt: float) -> void:
+	for l in lamp_post_nodes:
+		var lit: bool = (state.lamps_lit & (1 << l.id)) != 0
+		l.glass.material_override = Kit.mat("glow") if lit else Kit.mat("lamp_off")
+
+
+func _sync_falcon(dt: float) -> void:
+	if falcon == null:
+		return
+	if state.falcon_used and _falcon_state == "perch":
+		# Fly to the target: the plate it sits on, or the key it brings back.
+		_falcon_state = "flying"
+		_falcon_t = 0.0
+		_falcon_from = falcon.position
+		var target := Vector3.ZERO
+		for o in state.objects:
+			if (o.type == "plate" and o.id == state.falcon_plate) or (state.falcon_plate < 0 and o.type == "key" and not state.is_visible(o)):
+				target = Vector3(o.x, surface(o.x, o.z) + (0.12 if o.type == "plate" else 0.6), o.z)
+		_falcon_to = target
+	elif not state.falcon_used and _falcon_state != "perch":
+		_falcon_state = "perch"  # undone: back on its perch
+		for o in state.objects:
+			if o.type == "falcon":
+				falcon.position = Vector3(o.x, surface(o.x, o.z) + 0.7, o.z)
+	if _falcon_state == "flying":
+		_falcon_t += dt
+		var k := clampf(_falcon_t / 1.2, 0.0, 1.0)
+		var p := _falcon_from.lerp(_falcon_to, k)
+		p.y += sin(k * PI) * 0.8
+		var fwd := _falcon_to - _falcon_from
+		if fwd.length() > 0.01:
+			falcon.rotation.y = atan2(fwd.x, fwd.z)
+		falcon.position = p
+		FalconView.flap(falcon, t, 1.0)
+		if k >= 1.0:
+			_falcon_state = "done"
+	else:
+		FalconView.flap(falcon, t, 0.0)

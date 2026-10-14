@@ -205,6 +205,26 @@ func _on_feedback(event: String, at: Vector3) -> void:
 			play("soft_reject", at, -6.0)
 		"tap":
 			play("tap", at, -14.0)
+		"undo":
+			play("ui_close", at, -6.0)
+		"secret":
+			play("gem_pickup", at)
+			play_later(0.2, "seq_6", at, -4.0)
+		"sluice":
+			play("lever", at)
+			play_later(0.25, "bridge_move", at, -8.0)
+		"wait":
+			play("dial_click", at, -2.0)
+		"falcon_ready":
+			play("bird_2", at, -4.0)
+		"falcon":
+			play("bird_1", at, -2.0)
+		"falcon_cancel":
+			play("tap", at, -12.0)
+		"crate_push", "crate_pull":
+			pass  # the scrape and settle come from push_start / crate_settle
+		"drop_weight":
+			play("weight_place", at)
 
 
 ## Mechanism transitions reported by the level view (doors, bridges, gates).
@@ -212,8 +232,10 @@ func on_mechanism(kind: String, opened: bool, at: Vector3) -> void:
 	match kind:
 		"door", "exit":
 			play("door_creak" if opened else "door_close", at, -3.0)
-		"bridge", "pool_bridge":
+		"bridge", "pool_bridge", "stones":
 			play("bridge_move", at, -4.0)
+		"hot":
+			pass  # shade moving is silent
 		"stairs":
 			play("gate_lift", at, -4.0)
 		"light":
