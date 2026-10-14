@@ -15,6 +15,8 @@ var state: PuzzleState
 var motor: HeroMotor
 var view: LevelView
 var hero: HeroView
+var falcon: FalconCompanion
+var celebration: Celebration
 var transition := 0.0  # 0 = visible, 1 = faded out
 var _pending_level := -1
 var _fade_dir := 0.0
@@ -35,6 +37,13 @@ func _ready() -> void:
 	hero = HeroView.new()
 	hero.name = "Hero"
 	add_child(hero)
+	celebration = Celebration.new()
+	celebration.name = "Celebration"
+	add_child(celebration)
+	falcon = FalconCompanion.new()
+	falcon.name = "Shaheen"
+	add_child(falcon)
+	falcon.setup(self)
 	marker = Kit.add(self, Kit.torus(0.1, 0.13), Kit.mat("glow"), Vector3.ZERO, false)
 	marker.visible = false
 
@@ -49,7 +58,7 @@ func load_level(n: int) -> void:
 	motor.acted.connect(_on_acted)
 	motor.push_started.connect(func(i): feedback.emit("push_start", _w(state.crates[i].pos)))
 	motor.push_finished.connect(_on_push_finished)
-	motor.exit_started.connect(func(): feedback.emit("exit", _w(Vector2(LevelData.exit_x(state.def), -3.6))))
+	motor.exit_started.connect(_on_exit_started)
 	motor.level_finished.connect(_on_level_finished)
 	motor.brick_dropped.connect(func(at): feedback.emit("drop_brick", _w(at)))
 	motor.weight_dropped.connect(func(at): feedback.emit("place_weight", _w(at)))
@@ -61,6 +70,8 @@ func load_level(n: int) -> void:
 	view.mechanism_changed.connect(func(k, o, at): mechanism.emit(k, o, at))
 	move_child(view, 0)
 	hero.reset(motor)
+	falcon.reset()
+	celebration.hide_now()
 	_was_solved = state.solved
 	history.clear()
 	moves = 0
@@ -109,6 +120,12 @@ func _on_acted(o: Dictionary, r: Dictionary) -> void:
 func _on_push_finished(_i: int) -> void:
 	feedback.emit("crate_settle", _w(motor.pos))
 	_on_state_changed()
+
+
+func _on_exit_started() -> void:
+	feedback.emit("exit", _w(Vector2(LevelData.exit_x(state.def), -3.6)))
+	last_stars = LevelData.stars(state.def, moves)
+	celebration.play(state.def, level, moves, last_stars, state.has_secret())
 
 
 func _on_level_finished() -> void:
@@ -307,7 +324,9 @@ func activate(hit: Dictionary) -> void:
 	match hit.kind:
 		"object":
 			if hit.obj.type == "falcon":
-				if state.is_visible(hit.obj):
+				if state.falcon_plate >= 0:
+					motor.use_object(hit.obj)  # walk to the perch and whistle it back
+				elif state.is_visible(hit.obj):
 					_set_falcon_aim(true)
 					feedback.emit("falcon_ready", hit.point)
 				return

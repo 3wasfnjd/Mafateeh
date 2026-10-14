@@ -71,8 +71,8 @@ func _reachable_point(entry: Dictionary, p: Vector2) -> bool:
 
 func _points_for(entry: Dictionary, s: PuzzleState, o: Dictionary) -> Array:
 	var cache_key := "%d" % o.index
-	if o.type == "brick" or o.type == "brickSocket":
-		cache_key += str(s.brick_at)
+	if o.type == "brick" or o.type == "brickSocket" or o.type == "plate":
+		cache_key += str(s.brick_at) + s.brick_mode
 	if entry.reach.has(cache_key):
 		return entry.reach[cache_key]
 	var nav: Navigator = entry.nav

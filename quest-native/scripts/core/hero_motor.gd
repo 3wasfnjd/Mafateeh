@@ -19,7 +19,7 @@ const MAX_DT := 0.04
 const DEAD_ZONE := 0.18
 const PUSH_TIME := 1.5
 const FREE_PUSH_TIME := 0.9  # one tile, free crates
-const FINISH_TIME := 2.0
+const FINISH_TIME := 3.4  # the ardah and the celebration panel play out
 
 var state: PuzzleState
 var nav: Navigator

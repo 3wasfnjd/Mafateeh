@@ -206,8 +206,10 @@ func approach_points(o: Dictionary, from: Vector2) -> Array:
 	if o.type == "portal" or o.type == "sequence":
 		return [target]
 	var radii := [0.62, 0.83]
-	if o.type == "brickSocket":
+	if o.type == "brickSocket" or (o.type == "plate" and state.brick_mode == "carried"):
 		radii = [1.0, 1.15]
+	elif o.type == "plate":
+		radii = [0.8, 1.0]
 	elif o.type == "brick":
 		radii = [0.85, 1.05]
 	var pts: Array = []
@@ -224,7 +226,7 @@ func approach_points(o: Dictionary, from: Vector2) -> Array:
 		if o.type == "lock":
 			var own := false
 			for m in state.mechanisms:
-				if m.kind == "door" and m.condition == "lock" and m.id == o.id and m.rect == r:
+				if m.kind in ["door", "stairs"] and m.condition == "lock" and m.id == o.id and m.rect == r:
 					own = true
 			if own:
 				continue

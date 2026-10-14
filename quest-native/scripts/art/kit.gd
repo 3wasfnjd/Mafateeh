@@ -128,15 +128,15 @@ static func mat(name: String) -> Material:
 			m.emission = Color("3fae78")
 			m.emission_energy_multiplier = 0.8
 		"hot_tile":
-			m.albedo_color = Color("f0c58a")
+			m.albedo_color = Color("e9a560")
 			m.emission_enabled = true
-			m.emission = Color("ff9a3c")
+			m.emission = Color("ff6a1e")
 			m.emission_energy_multiplier = 0.0
 			m.roughness = 0.95
 		"palm_shade":
 			var ps := StandardMaterial3D.new()
 			ps.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			ps.albedo_color = Color(0.1, 0.07, 0.04, 0.42)
+			ps.albedo_color = Color(0.06, 0.05, 0.04, 0.62)
 			ps.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			ps.albedo_texture = _radial_texture()
 			ps.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED

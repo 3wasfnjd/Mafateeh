@@ -95,6 +95,8 @@ func _build() -> void:
 			if s[1] != "always":
 				mechanisms.append({"kind": "stairs", "condition": s[1], "id": s[2], "x": s[0], "z": 1.02,
 					"rect": [s[0] - 0.94, s[0] + 0.94, -1.24, 1.24]})
+			if s[1] == "lock":
+				_add("lock", s[0], 1.45, {"id": s[2]})
 	for w in def.walls:
 		static_rects.append(rect_for(w[0], w[1], w[2], w[3]))
 	if def.get("moat", false):
@@ -120,7 +122,7 @@ func _build() -> void:
 	# Water with stepping stones that rise when its pool fills (falaj levels): the
 	# whole area blocks until then. [x, z, w, d, pool id]
 	for w in def.get("waters", []):
-		mechanisms.append({"kind": "stones", "condition": "pool", "id": w[4], "x": w[0], "z": w[1],
+		mechanisms.append({"kind": "stones", "condition": w[5] if w.size() > 5 else "pool", "id": w[4], "x": w[0], "z": w[1],
 			"w": w[2], "d": w[3], "rect": rect_for(w[0], w[1], w[2], w[3], 0.22)})
 	# Hot tiles: walkable only while a palm's shadow covers them. [x, z, w, d]
 	if def.has("shade"):
@@ -143,6 +145,8 @@ func _build() -> void:
 		_add("plate", p[0], p[1], {"id": p[2]})
 	for s in def.get("sluices", []):
 		_add("sluice", s[0], s[1], {"id": s[2]})
+	for k in def.get("sluices_open", []):
+		sluices |= 1 << int(k)
 	if def.has("falcon"):
 		_add("falcon", def.falcon.at[0], def.falcon.at[1])
 	if def.has("circuit"):
@@ -166,6 +170,12 @@ func _build() -> void:
 		for i in cfg.positions.size():
 			_add("dial", cfg.positions[i][0], cfg.positions[i][1], {"id": i})
 			dial_values.append(0)
+	# Loose weights (for plates) on levels without a balance.
+	if not def.has("balance") and def.has("weights"):
+		for i in def.weights.size():
+			var w: Array = def.weights[i]
+			_add("weight", w[0], w[1], {"id": i, "value": w[2]})
+			weight_places.append(-1)
 	if def.has("balance"):
 		var cfg: Dictionary = def.balance
 		for side in 2:
@@ -257,71 +267,76 @@ func plate_pressed(id: int) -> bool:
 	return false
 
 
-## Water reaches pool `id` through the falaj: channels open unless their sluice is shut.
-func pool_full(id: int) -> bool:
-	if not def.has("falaj"):
-		return false
+## Is a falaj channel's gate open? Gate -1: always; k >= 0: sluice k open; k <= -2:
+## sluice (-k - 2) shut (the same sluice sends water the other way); "lever" /
+## "!lever": the courtyard lever is on / off.
+func gate_open(gate) -> bool:
+	if gate is String:
+		return choice == (0 if gate.begins_with("!") else 1)
+	var g := int(gate)
+	if g == -1:
+		return true
+	if g >= 0:
+		return (sluices & (1 << g)) != 0
+	return (sluices & (1 << (-g - 2))) == 0
+
+
+func _wet_nodes() -> Dictionary:
 	var f: Dictionary = def.falaj
 	var reached := {int(f.source): true}
 	var grew := true
 	while grew:
 		grew = false
 		for ch in f.channels:
-			var gate: int = ch[2]
-			if gate >= 0 and (sluices & (1 << gate)) == 0:
+			if not gate_open(ch[2]):
 				continue
 			for pair in [[ch[0], ch[1]], [ch[1], ch[0]]]:
 				if reached.has(int(pair[0])) and not reached.has(int(pair[1])):
 					reached[int(pair[1])] = true
 					grew = true
-	for p in f.pools:
+	return reached
+
+
+## Water reaches pool `id` through the falaj: channels open unless their sluice is shut.
+func pool_full(id: int) -> bool:
+	if not def.has("falaj"):
+		return false
+	var reached := _wet_nodes()
+	for p in def.falaj.pools:
 		if int(p[1]) == id and reached.has(int(p[0])):
 			return true
 	return false
 
 
-## Water currently flows along channel `i` (both ends wet, gate open).
+## Water currently flows along channel `i` (open gate, an end joined to the source).
 func channel_wet(i: int) -> bool:
 	if not def.has("falaj"):
 		return false
 	var ch: Array = def.falaj.channels[i]
-	if ch[2] >= 0 and (sluices & (1 << int(ch[2]))) == 0:
+	if not gate_open(ch[2]):
 		return false
-	return _node_wet(int(ch[0])) or _node_wet(int(ch[1]))
-
-
-func _node_wet(n: int) -> bool:
-	var f: Dictionary = def.falaj
-	if n == int(f.source):
-		return true
-	for p in f.pools:
-		if int(p[0]) == n:
-			return pool_full(int(p[1]))
-	# interior node: wet when an open channel joins it to the source
-	var reached := {int(f.source): true}
-	var grew := true
-	while grew:
-		grew = false
-		for ch in f.channels:
-			if ch[2] >= 0 and (sluices & (1 << int(ch[2]))) == 0:
-				continue
-			for pair in [[ch[0], ch[1]], [ch[1], ch[0]]]:
-				if reached.has(int(pair[0])) and not reached.has(int(pair[1])):
-					reached[int(pair[1])] = true
-					grew = true
-	return reached.has(n)
+	var reached := _wet_nodes()
+	return reached.has(int(ch[0])) or reached.has(int(ch[1]))
 
 
 ## Where a palm's shadow falls in the current sun phase.
+## Each palm follows "path" (shared offsets), or its own entry in "paths".
 func shadow_points() -> Array:
 	var out: Array = []
 	if not def.has("shade"):
 		return out
-	var path: Array = def.shade.path
-	var off: Array = path[sun % path.size()]
-	for p in def.shade.palms:
-		out.append(Vector2(p[0] + off[0], p[1] + off[1]))
+	var palms: Array = def.shade.palms
+	for i in palms.size():
+		var path: Array = def.shade.paths[i] if def.shade.has("paths") else def.shade.path
+		var off: Array = path[sun % path.size()]
+		out.append(Vector2(palms[i][0] + off[0], palms[i][1] + off[1]))
 	return out
+
+
+func shade_cycle() -> int:
+	if not def.has("shade"):
+		return 1
+	return (def.shade.paths[0] as Array).size() if def.shade.has("paths") else (def.shade.path as Array).size()
 
 
 func shaded(id: int) -> bool:
@@ -486,7 +501,7 @@ func is_visible(o: Dictionary) -> bool:
 		"gem": return (gems & (1 << o.id)) == 0
 		"weight": return weight_places[o.id] == -1
 		"brick": return brick_mode != "carried"
-		"falcon": return not falcon_used
+		"falcon": return not falcon_used or falcon_plate >= 0
 	return true
 
 
@@ -515,8 +530,30 @@ func activate(o: Dictionary) -> Dictionary:
 			event = "sluice"
 		"sundial":
 			event = "wait"  # the sun moves on (below)
-		"plate", "falcon":
-			return {"ok": true, "event": "none"}  # plates are pressed by weight; the falcon is sent
+		"plate":
+			# Carrying a weight or the brick: set it down squarely on the plate.
+			var at := Vector2(o.x, o.z)
+			if carried >= 0:
+				for w in objects:
+					if w.type == "weight" and w.id == carried:
+						w.x = at.x
+						w.z = at.y
+				weight_places[carried] = -1
+				carried = -1
+				event = "drop_weight"
+			elif brick_mode == "carried":
+				brick_mode = "floor"
+				brick_at = at
+				event = "drop_brick"
+			else:
+				return {"ok": true, "event": "none"}  # plates are pressed by weight
+		"falcon":
+			if falcon_plate < 0:
+				return {"ok": true, "event": "none"}  # the falcon is sent, not used
+			# Whistle it back from the plate it sits on (it may be sent again).
+			falcon_plate = -1
+			falcon_used = false
+			event = "falcon_recall"
 		"circuit":
 			bits ^= o.mask
 			event = "circuit"
@@ -626,7 +663,12 @@ func send_falcon(o: Dictionary) -> Dictionary:
 func crate_spot_free(index: int, to: Vector2) -> bool:
 	if to.x < bounds[0] + 0.3 or to.x > bounds[1] - 0.3 or to.y < bounds[2] + 0.3 or to.y > bounds[3] - 0.3:
 		return false
-	var rects := active_rects()
+	var rects := static_rects.duplicate()
+	if brick_mode == "floor" or brick_mode == "socket":
+		rects.append(rect_for(brick_at.x, brick_at.y, 0.92, 0.56))
+	for m in mechanisms:
+		if m.kind != "hot" and not is_open(m):  # heat does not stop a crate
+			rects.append(m.rect)
 	for q in rects:
 		if to.x + 0.42 > q[0] + PAD and to.x - 0.42 < q[1] - PAD and to.y + 0.42 > q[2] + PAD and to.y - 0.42 < q[3] - PAD:
 			return false
@@ -653,10 +695,7 @@ func push_crate(index: int, dir: Vector2) -> Dictionary:
 	var before := _snapshot()
 	c.pos = to
 	hero = to - dir * 0.95
-	if hero_blocked():
-		_restore(before)
-		return _reject("crate_blocked")
-	return _commit(before, "crate_push")
+	return _commit(before, "crate_push")  # rejects (and undoes) a push that ends on a burning tile
 
 
 ## Pull a free crate one tile toward the hero: the hero steps back one tile.
@@ -878,7 +917,7 @@ func state_key() -> String:
 		for o in objects:
 			if o.type == "weight" and weight_places[o.id] == -1:
 				wpos += str(Vector2(o.x, o.z).snapped(Vector2(0.5, 0.5)))
-	var phase: int = (sun % int(def.shade.path.size())) if def.has("shade") else 0
+	var phase: int = sun % shade_cycle()
 	return "%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s|%d|%s|%d|%d|%d|%d|%s" % [keys, gems, unlocked, choice, bits, sequence,
 		str(mirrors), str(dial_values), str(weight_places), carried, brick_mode,
 		str(brick_at.snapped(Vector2(0.01, 0.01))), crate_bits, crate_pos, sluices, phase,

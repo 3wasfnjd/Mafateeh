@@ -563,6 +563,11 @@ func _screenshot() -> void:
 	for i in 20:
 		game.tick(1.0 / 60.0, Vector2.ZERO)
 		await get_tree().process_frame
+	if _args.has("celebrate"):  # documentation shot of the level-complete panel
+		game.celebration.play(game.state.def, game.level, int(game.state.def.get("par", 0)), 3, true)
+		for i in 90:
+			game.tick(1.0 / 60.0, Vector2.ZERO)
+			await get_tree().process_frame
 	if _args.has("nocard"):
 		menu._card.visible = false
 	if _args.has("menu"):  # documentation shots of a menu page, e.g. --menu=levels

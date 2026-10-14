@@ -56,8 +56,8 @@ func _run() -> void:
 	check(steps[0] == before, "no footsteps after the stick is released")
 	check(anim.current_animation in ["idle", "turn"], "idle after stopping (%s)" % anim.current_animation)
 
-	# --- level 21 played through the game's own paths -----------------------------------------
-	game.load_level(21)
+	# --- level 12 (House of the Pool) played through the game's own paths -----------------------------------------
+	game.load_level(12)
 	await frames(2)
 	var played := {}
 	game.feedback.connect(func(e, _a): played[e] = true)
@@ -65,13 +65,13 @@ func _run() -> void:
 	game.mechanism.connect(func(k, o, _a): mech[k + (":open" if o else ":closed")] = true)
 	for type in ["brick", "brickSocket", "key", "lock", "gem"]:
 		var o: Dictionary = game.state.objects.filter(func(q): return q.type == type)[0]
-		check(game.motor.use_object(o), "level 21: can use %s" % type)
+		check(game.motor.use_object(o), "level 12: can use %s" % type)
 		for i in 72 * 14:
 			main.game.tick(1.0 / 72.0, Vector2.ZERO)
 			if game.motor.mode == "idle" and game.motor.route.is_empty():
 				break
 		await get_tree().process_frame
-	check(game.state.solved, "level 21 solved through the game controller")
+	check(game.state.solved, "level 12 solved through the game controller")
 	for e in ["pickup_brick", "place_brick", "key", "unlock", "gem", "solved"]:
 		check(played.has(e), "feedback event '%s' fired" % e)
 	check(mech.has("pool_bridge:open") and mech.has("door:open") and mech.has("exit:open"),
@@ -93,7 +93,7 @@ func _run() -> void:
 			check(game.state.state_key() == key_before, "weather %s/%s changed puzzle state" % [t, w])
 			check(main.env.ambient_light_energy >= 0.5, "ambient stays readable at %s rain=%s" % [t, w])
 	# Rain stops on solid roofs.
-	var roof: Array = LevelData.get_level(21).roofs[0]
+	var roof: Array = LevelData.get_level(12).roofs[0]
 	check(RainField.floor_height(game.state.def, roof[0], roof[1]) > 1.3, "rain lands on the roof, not through it")
 	check(RainField.floor_height(game.state.def, -3.0, 2.5) < 0.2, "rain reaches open paving")
 	# Indoors muffles rain.
@@ -119,8 +119,7 @@ func _run() -> void:
 	# --- exit, completion and save --------------------------------------------------------------
 	sky.set_rain(false, false)
 	Save.mark_completed(1)  # earlier levels already solved
-	Save.mark_completed(2)
-	game.load_level(3)
+	game.load_level(2)
 	await frames(2)
 	for type in ["key", "lock", "gem"]:
 		var o: Dictionary = game.state.objects.filter(func(q): return q.type == type)[0]
@@ -132,11 +131,11 @@ func _run() -> void:
 	check(game.motor.start_exit(), "exit reachable when solved")
 	for i in 72 * 12:
 		main.game.tick(1.0 / 72.0, Vector2.ZERO)
-		if game.level != 3:
+		if game.level != 2:
 			break
 	await frames(80)
-	check(Save.unlocked_level >= 4, "completing level 3 unlocks level 4 (unlocked=%d)" % Save.unlocked_level)
-	check(game.level == 4, "next level loads after the exit transition (level=%d)" % game.level)
+	check(Save.unlocked_level >= 3, "completing level 2 unlocks level 3 (unlocked=%d)" % Save.unlocked_level)
+	check(game.level == 3, "next level loads after the exit transition (level=%d)" % game.level)
 
 	# --- settings menu ----------------------------------------------------------------------------
 	main.menu.toggle(Transform3D(Basis(), Vector3(0, 1.4, 1.0)))
@@ -151,8 +150,8 @@ func _run() -> void:
 	# Level list: reached levels are playable again, later ones stay locked.
 	check(main.menu.press("المراحل"), "level list opens from the menu")
 	check(main.menu.page() == "levels", "level list page shown")
-	check(not main.menu.press("5") or false, "a locked level cannot be picked")
-	check(game.target_level() == 4, "locked level did not load (target=%d)" % game.target_level())
+	check(not main.menu.press("4") or false, "a locked level cannot be picked")
+	check(game.target_level() == 3, "locked level did not load (target=%d)" % game.target_level())
 	check(main.menu.press("2"), "a completed level can be picked")
 	await frames(70)
 	check(game.level == 2, "picked level loads (level=%d)" % game.level)
@@ -211,7 +210,7 @@ func _run() -> void:
 	main.menu.press("مسح التقدم")
 	check(main.menu.page() == "reset", "reset asks for confirmation")
 	main.menu.press("إلغاء")
-	check(Save.unlocked_level >= 4, "cancel keeps progress")
+	check(Save.unlocked_level >= 3, "cancel keeps progress")
 	main.menu.open_page("main")
 	check(main.menu.press("تلميح"), "hint from the menu")
 	check(main.menu.page() == "hint", "hint page shown")

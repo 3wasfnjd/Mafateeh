@@ -34,12 +34,9 @@ var pool_nodes: Array = []  # {water, id}
 var shade_nodes: Array = []  # palm shadow decals on the floor
 var hot_nodes: Array = []  # sun-baked tile tops, parallel to def.shade.hot
 var lamp_post_nodes: Array = []  # optics lamps {glass, light, id}
-var falcon: Node3D
-var _falcon_t := 0.0
-var _falcon_from := Vector3.ZERO
-var _falcon_to := Vector3.ZERO
-var _falcon_state := "perch"  # perch | flying | done
 var _sun_shown := -1
+var dial_board: Node3D  # memory board: its markings show only while the hero stands by it
+var dial_board_faces: Array = []
 
 
 func surface(x: float, z: float) -> float:
@@ -78,6 +75,8 @@ func build(s: PuzzleState) -> void:
 		_build_optics()
 	if def.has("balance"):
 		_build_balance_frame()
+	if def.has("dials") and def.dials.has("target_board"):
+		_build_dial_board()
 	for r in def.get("roofs", []):
 		_build_roof(r)
 	_build_vegetation()
@@ -487,7 +486,7 @@ func _build_mechanism(m: Dictionary) -> Dictionary:
 			out["water"] = water
 		"hot":
 			# Sun-baked tiles: they glow faintly in full sun and cool in shade.
-			var top := Kit.add(root, Kit.box(Vector3(m.w - 0.04, 0.03, m.d - 0.04)), Kit.mat("hot_tile").duplicate(), Vector3(0, 0.005, 0), false)
+			var top := Kit.add(root, Kit.box(Vector3(m.w - 0.06, 0.02, m.d - 0.06)), Kit.mat("hot_tile").duplicate(), Vector3(0, 0.072, 0), false)
 			out["top"] = top
 			hot_nodes.append(top)
 		"pool_bridge":
@@ -616,8 +615,9 @@ func _build_object(o: Dictionary) -> Dictionary:
 			var needle := Kit.add(rotor, Kit.prism(Vector3(0.18, 0.3, 0.04)), Kit.mat("puzzle_%d" % o.id), Vector3(0, 0, 0.12))
 			needle.rotation.x = PI / 2
 			Kit.add(rotor, Kit.cylinder(0.06, 0.06, 0.05, 12), Kit.mat("brass"))
-			var target: float = cfg.target[o.id] * PI / 2.0
-			Kit.emblem(root, o.id, Kit.mat("brass"), Vector3(sin(target) * 0.5, 0.06, cos(target) * 0.5), 0.06)
+			if not cfg.get("hide_targets", false):
+				var target: float = cfg.target[o.id] * PI / 2.0
+				Kit.emblem(root, o.id, Kit.mat("brass"), Vector3(sin(target) * 0.5, 0.06, cos(target) * 0.5), 0.06)
 			for j in cfg.target.size():
 				if cfg.links[o.id][j]:
 					Kit.emblem(root, j, Kit.mat("puzzle_%d" % j), Vector3((j - (cfg.target.size() - 1) / 2.0) * 0.15, 0.2, -0.24), 0.035)
@@ -664,9 +664,13 @@ func _build_object(o: Dictionary) -> Dictionary:
 		"plate":
 			# Dakka: a carved stone slab that sinks under a weight, a crate, the brick
 			# or the falcon. Its emblem matches the door it opens.
-			Kit.add(root, Kit.box(Vector3(0.92, 0.05, 0.92)), Kit.mat("stone_dark"), Vector3(0, 0.03, 0))
-			var top := Kit.add(root, Kit.box(Vector3(0.8, 0.06, 0.8)), Kit.mat("stone"), Vector3(0, 0.08, 0))
-			Kit.emblem(top, o.id, Kit.mat("brass_dark"), Vector3(0, 0.035, 0), 0.14)
+			Kit.add(root, Kit.box(Vector3(0.96, 0.05, 0.96)), Kit.mat("iron"), Vector3(0, 0.03, 0))
+			for k in 4:  # brass frame
+				var fr := Kit.add(root, Kit.box(Vector3(0.96, 0.045, 0.07)), Kit.mat("brass"), Vector3.ZERO)
+				fr.rotation.y = k * PI / 2.0
+				fr.position = Vector3(sin(k * PI / 2.0) * 0.445, 0.07, cos(k * PI / 2.0) * 0.445)
+			var top := Kit.add(root, Kit.box(Vector3(0.78, 0.06, 0.78)), Kit.mat("stone_dark"), Vector3(0, 0.08, 0))
+			Kit.emblem(top, o.id, Kit.mat("brass"), Vector3(0, 0.035, 0), 0.16)
 			n["top"] = top
 		"sluice":
 			# Wooden sluice gate standing over its falaj channel.
@@ -690,9 +694,7 @@ func _build_object(o: Dictionary) -> Dictionary:
 			Kit.add(root, Kit.cylinder(0.2, 0.24, 0.06, 14), Kit.mat("stone_dark"), Vector3(0, 0.03, 0))
 			Kit.add(root, Kit.cylinder(0.035, 0.045, 0.62, 8), Kit.mat("wood"), Vector3(0, 0.34, 0))
 			Kit.add(root, Kit.cylinder(0.11, 0.11, 0.06, 12), Kit.mat("cloth_red"), Vector3(0, 0.67, 0))
-			falcon = FalconView.make(self)
-			falcon.position = root.position + Vector3(0, 0.7, 0)
-			falcon.rotation.y = PI
+			# Shaheen himself rides on the hero's shoulder (FalconCompanion).
 	return n
 
 
@@ -827,7 +829,8 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 			"hot":
 				var mat: StandardMaterial3D = n.top.material_override
 				if mat:
-					mat.emission_energy_multiplier = 0.35 * (1.0 - n.open) * (0.85 + 0.15 * sin(t * 3.0))
+					mat.emission_energy_multiplier = 0.85 * (1.0 - n.open) * (0.85 + 0.15 * sin(t * 3.0))
+					mat.albedo_color = Color("e9a560").lerp(Color("c9b48f"), n.open)
 	for i in crate_nodes.size():
 		var c: Dictionary = state.crates[i]
 		crate_nodes[i].position = Vector3(c.pos.x, 0, c.pos.y)
@@ -925,8 +928,11 @@ func sync(dt: float, hero_pos := Vector2(INF, INF)) -> void:
 			n.sum.modulate = Color("b8f0a0") if s[0] == s[1] and s[0] > 0 else Color("ffe9b8")
 	_sync_falaj(dt)
 	_sync_shade(dt)
+	if dial_board:
+		var near := Vector2(dial_board.position.x, dial_board.position.z).distance_to(hero_pos) < 1.4
+		for f in dial_board_faces:
+			f.visible = near
 	_sync_lamps(dt)
-	_sync_falcon(dt)
 	for f in foliage:
 		# Gentle sway; stronger, still restrained, in rain.
 		var ph: float = f.get_meta("sway")
@@ -1011,7 +1017,7 @@ func _build_shade() -> void:
 		mi.set_meta("sway", p[0] * 3.1)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		foliage.append(mi)
-		var sh := Kit.add(self, Kit.box(Vector3(1.25, 0.002, 1.0)), Kit.mat("palm_shade"), Vector3(p[0], 0.07, p[1]), false)
+		var sh := Kit.add(self, Kit.box(Vector3(1.35, 0.002, 1.2)), Kit.mat("palm_shade"), Vector3(p[0], 0.09, p[1]), false)
 		shade_nodes.append(sh)
 
 
@@ -1020,7 +1026,7 @@ func _sync_shade(dt: float) -> void:
 		return
 	var pts := state.shadow_points()
 	for i in shade_nodes.size():
-		var target := Vector3(pts[i].x, 0.07, pts[i].y)
+		var target := Vector3(pts[i].x, 0.09, pts[i].y)
 		var n: MeshInstance3D = shade_nodes[i]
 		n.position = n.position.lerp(target, 1.0 - exp(-4.0 * dt)) if dt > 0 else target
 
@@ -1030,36 +1036,25 @@ func _sync_lamps(_dt: float) -> void:
 		var lit: bool = (state.lamps_lit & (1 << l.id)) != 0
 		l.glass.material_override = Kit.mat("glow") if lit else Kit.mat("lamp_off")
 
-
-func _sync_falcon(dt: float) -> void:
-	if falcon == null:
-		return
-	if state.falcon_used and _falcon_state == "perch":
-		# Fly to the target: the plate it sits on, or the key it brings back.
-		_falcon_state = "flying"
-		_falcon_t = 0.0
-		_falcon_from = falcon.position
-		var target := Vector3.ZERO
-		for o in state.objects:
-			if (o.type == "plate" and o.id == state.falcon_plate) or (state.falcon_plate < 0 and o.type == "key" and not state.is_visible(o)):
-				target = Vector3(o.x, surface(o.x, o.z) + (0.12 if o.type == "plate" else 0.6), o.z)
-		_falcon_to = target
-	elif not state.falcon_used and _falcon_state != "perch":
-		_falcon_state = "perch"  # undone: back on its perch
-		for o in state.objects:
-			if o.type == "falcon":
-				falcon.position = Vector3(o.x, surface(o.x, o.z) + 0.7, o.z)
-	if _falcon_state == "flying":
-		_falcon_t += dt
-		var k := clampf(_falcon_t / 1.2, 0.0, 1.0)
-		var p := _falcon_from.lerp(_falcon_to, k)
-		p.y += sin(k * PI) * 0.8
-		var fwd := _falcon_to - _falcon_from
-		if fwd.length() > 0.01:
-			falcon.rotation.y = atan2(fwd.x, fwd.z)
-		falcon.position = p
-		FalconView.flap(falcon, t, 1.0)
-		if k >= 1.0:
-			_falcon_state = "done"
-	else:
-		FalconView.flap(falcon, t, 0.0)
+func _build_dial_board() -> void:
+	var cfg: Dictionary = def.dials
+	var at: Array = cfg.target_board
+	var board := Node3D.new()
+	board.position = Vector3(at[0], surface(at[0], at[1]), at[1])
+	add_child(board)
+	dial_board = board
+	var n: int = cfg.target.size()
+	Kit.add(board, Kit.box(Vector3(0.5 * n + 0.2, 0.62, 0.08)), Kit.mat("wood"), Vector3(0, 0.75, 0))
+	Kit.add(board, Kit.box(Vector3(0.5 * n + 0.1, 0.52, 0.02)), Kit.mat("plaster_top"), Vector3(0, 0.75, 0.05))
+	for i in n:
+		var face := Node3D.new()
+		face.position = Vector3((i - (n - 1) / 2.0) * 0.5, 0.75, 0.07)
+		board.add_child(face)
+		dial_board_faces.append(face)
+		var disc := Kit.add(face, Kit.cylinder(0.19, 0.19, 0.02, 20), Kit.mat("stone_dark"))
+		disc.rotation.x = PI / 2
+		var needle := Kit.add(face, Kit.prism(Vector3(0.09, 0.16, 0.02)), Kit.mat("puzzle_%d" % i), Vector3.ZERO)
+		var a: float = cfg.target[i] * PI / 2.0
+		needle.position = Vector3(sin(a) * 0.08, -cos(a) * 0.08 * -1.0, 0.02)
+		needle.rotation.z = -a
+		Kit.emblem(face, i, Kit.mat("brass"), Vector3(0, -0.27, 0.01), 0.04).rotation.x = PI / 2

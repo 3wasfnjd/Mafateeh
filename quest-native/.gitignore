@@ -5,3 +5,4 @@
 *.blend1
 __pycache__/
 art_source/character/textures/
+art_source/creatures/textures/

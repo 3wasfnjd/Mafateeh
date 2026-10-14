@@ -217,7 +217,7 @@ func _on_feedback(event: String, at: Vector3) -> void:
 			play("dial_click", at, -2.0)
 		"falcon_ready":
 			play("bird_2", at, -4.0)
-		"falcon":
+		"falcon", "falcon_recall":
 			play("bird_1", at, -2.0)
 		"falcon_cancel":
 			play("tap", at, -12.0)

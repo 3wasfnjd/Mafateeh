@@ -147,7 +147,7 @@ BONES = [
     # Where carried objects sit, between the hands in the carry pose.
     ("CarrySocket", (0.0, -0.21, 0.66), (0.0, -0.21, 0.72), "Chest"),
     # The falcon perches here (left shoulder).
-    ("Perch", (0.115, 0.01, 0.875), (0.115, 0.01, 0.93), "Clavicle.L"),
+    ("Perch", (0.172, 0.03, 0.853), (0.172, 0.03, 0.91), "Clavicle.L"),
 ]
 BONE_PARENT = {b[0]: b[3] for b in BONES}
 

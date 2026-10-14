@@ -1,68 +1,122 @@
 class_name LevelHints
 extends RefCounted
-## One hint per level (Arabic, English), shown on request from the menu. Each one
-## names the idea of the puzzle and the order of steps without solving every move.
-## Kept in line with the solver's solutions (tests/run_tests.gd prints them).
-
-# level -> [[idea ar, en], [first step ar, en], [full ar, en]]
-const TIERED := {}
-
-const HINTS := {
-	1: ["ادفع الصندوق إلى البلاطة المرسوم عليها مثلث ليفتح لك الطريق، ثم خذ المفتاح واتجه للبوابة.",
-		"Push the crate onto the plate with the triangle to clear the way, then take the key and head for the gate."],
-	2: ["ادفع الصندوقين إلى بلاطتيهما، ثم المس النقوش على الأرض بنفس ترتيب اللوحة فوق البوابة.",
-		"Push both crates onto their plates, then touch the floor symbols in the order shown above the gate."],
-	3: ["المفتاح يفتح الباب المقفل. خذه، وافتح الباب، واجمع الجوهرة خلفه.",
-		"The key opens the locked door. Take it, open the door and collect the gem behind it."],
-	4: ["الرافعة تبدّل بين الجسرين. اجمع الجوهرة القريبة، ثم بدّل الجسر واجمع الثانية.",
-		"The lever swaps the two bridges. Collect the near gem, switch the bridge, then collect the other."],
-	5: ["كل مفتاح يضيء أكثر من قنديل. جرّب الثلاثة مرة واحدة لكل منها، وراقب القناديل فوق البوابة.",
-		"Each switch lights more than one lamp. Try each of the three once and watch the lamps above the gate."],
-	6: ["دوّر المرايا حتى يصل شعاع الضوء إلى البلورة؛ لا يلزم تدويرها كلها.",
-		"Turn the mirrors until the beam reaches the crystal; not all of them need turning."],
-	7: ["المس النقوش على الأرض بنفس ترتيب اللوحة فوق البوابة، واحدًا بعد الآخر.",
-		"Touch the floor symbols in the order shown above the gate, one after another."],
-	8: ["الممر المضيء ينقلك بين الفناءين. خذ المفتاح من الجهة الأخرى، وارجع به إلى الباب المقفل.",
-		"The glowing passage takes you between the courtyards. Fetch the key from the far side and bring it back to the locked door."],
-	9: ["خذ المفتاح أولًا، ثم حرّك الرافعة، ثم وجّه الضوء بالمرآتين ليظهر الجسر نحو الجوهرة.",
-		"Take the key first, then pull the lever, then aim the light with the two mirrors to raise the bridge to the gem."],
-	10: ["أضئ القناديل أولًا لتفتح الباب، ثم خذ المفتاح، ثم المس النقوش بترتيب اللوحة فوق البوابة.",
-		"Light the lamps first to open the door, then take the key, then touch the symbols in the order above the gate."],
-	11: ["كل قرص يحرّك جاره معه. أدِر القرص الأوسط مرة، ثم الأيمن مرتين.",
-		"Each dial turns a neighbour too. Turn the middle dial once, then the right dial twice."],
-	12: ["الأوزان 1 و2 و3 و4: ضع في كل كفة ما مجموعه 5. الرقم فوق كل كفة يساعدك.",
-		"Weights 1, 2, 3 and 4: put a total of 5 in each pan. The number above each pan helps."],
-	13: ["شغّل المفاتيح الثلاثة لتُفتح بوابة الدرج، ثم اصعد وخذ المفتاح.",
-		"Use the three switches to open the stair gate, then climb up for the key."],
-	14: ["أدِر القرص الأيسر الأمامي مرتين، ثم القرص الخلفي مرة واحدة.",
-		"Turn the front-left dial twice, then the back dial once."],
-	15: ["الأوزان 1 و2 و3: ضع 3 في كل كفة (1+2 مقابل 3). الوزن 3 في الخلف.",
-		"Weights 1, 2 and 3: put 3 in each pan (1+2 against 3). The 3 is at the back."],
-	16: ["دوّر المرايا الثلاث ليصل الضوء إلى البلورة فيُفتح الدرج، ثم المس النقوش في الأعلى بترتيب اللوحة.",
-		"Turn the three mirrors so the light reaches the crystal and opens the stairs, then touch the symbols upstairs in the order shown."],
-	17: ["الرافعة تختار الدرج المفتوح. خذ المفتاح، ثم بدّل الرافعة واصعد. أدِر القرص الأول مرة، ثم الثاني مرتين.",
-		"The lever picks which stair is open. Take the key, switch the lever and climb. Turn the first dial once, then the second twice."],
-	18: ["الممرات المضيئة تربط الطابقين. المس كل نقش في دوره حسب اللوحة، وتنقّل بالممرات بينها.",
-		"The glowing passages link the floors. Touch each symbol in turn as shown, using the passages to move between them."],
-	19: ["أضئ القناديل الأربعة لتفتح الدرج. ثم الأوزان 1 و2 و2 و3 و4: ضع 6 في كل كفة، مثل 1+2+3 مقابل 2+4.",
-		"Light all four lamps to open the stairs. Then weights 1, 2, 2, 3 and 4: put 6 in each pan, such as 1+2+3 against 2+4."],
-	20: ["البيت الكبير: الرافعة تبدّل الطريق بين جهتي الطابق العلوي. خذ المفتاح، والمس النقوش بترتيب اللوحة متنقلًا بالرافعة، ثم اضبط الأقراص.",
-		"The Great House: the lever switches the way between the two sides upstairs. Take the key, touch the symbols in order using the lever to cross, then set the dials."],
-	21: ["احمل الطوبة وضعها في قاعدتها لتعبر الماء، ثم خذ المفتاح وافتح الباب واجمع الجوهرة.",
-		"Carry the brick to its socket to cross the water, then take the key, open the door and collect the gem."],
-}
-
+## Three-step hints per level (Arabic, English), revealed one at a time from the menu:
+## 1 the idea of the puzzle, 2 the first move, 3 the whole way. Kept in line with the
+## solver's shortest solutions (tests/run_tests.gd prints them).
 
 const TIERS := 3
 
+# level -> [[idea ar, en], [first step ar, en], [full ar, en]]
+const TIERED := {
+	1: [["الصندوق يسد الطريق، والبلاطة ذات المثلث تنتظره.", "The crate blocks the way, and the plate with the triangle is waiting for it."],
+		["قف خلف الصندوق وادفعه نحو المثلث.", "Stand behind the crate and push it toward the triangle."],
+		["ادفع الصندوق إلى البلاطة، ثم خذ المفتاح من الزاوية واخرج من البوابة.", "Push the crate onto the plate, then take the key from the corner and leave through the gate."]],
+	2: [["الباب المقفل يحتاج مفتاحه الذهبي.", "The locked door needs its golden key."],
+		["المفتاح في الجهة اليمنى من الفناء.", "The key is on the right side of the courtyard."],
+		["خذ المفتاح، وافتح الباب، واجمع الجوهرة خلفه، ثم اخرج.", "Take the key, open the door, collect the gem behind it, then leave."]],
+	3: [["الرافعة تبدّل أيّ الجسرين مرفوع.", "The lever swaps which of the two bridges is up."],
+		["اجمع الجوهرة عبر الجسر المرفوع أولًا.", "Collect the gem across the raised bridge first."],
+		["اعبر الجسر الأيسر واجمع جوهرته، ثم ارجع وحرّك الرافعة واعبر الأيمن للجوهرة الثانية.", "Cross the left bridge for its gem, come back, pull the lever and cross the right bridge for the second gem."]],
+	4: [["لكل باب مفتاح بلونه: ذهبي وفضي.", "Each door has a key of its own colour: gold and silver."],
+		["الفضي خلف الباب الذهبي، فابدأ بالمفتاح الذهبي.", "The silver key is behind the gold door, so start with the gold key."],
+		["خذ الذهبي من اليمين، افتح الباب الذهبي، خذ الفضي، ثم افتح الباب الفضي واخرج.", "Take the gold key on the right, open the gold door, take the silver key, then open the silver door and leave."]],
+	5: [["الممر المضيء ينقلك بين الفناءين.", "The glowing passage carries you between the two courtyards."],
+		["ادخل الممر، فالمفتاح في الجهة الأخرى.", "Step into the passage: the key is on the other side."],
+		["انتقل بالممر وخذ المفتاح، وارجع به، وافتح الباب، واجمع الجوهرة.", "Use the passage, take the key, come back, open the door and collect the gem."]],
+	6: [["الصندوق يسد الفتحة، ولا يندفع إلى الداخل.", "The crate plugs the gap and cannot be pushed further in."],
+		["المس الصندوق وأنت بجانبه لتسحبه نحوك.", "Touch the crate while standing beside it to pull it toward you."],
+		["اسحب الصندوق خارج الفتحة، ثم ادفعه جانبًا، وادخل وخذ المفتاح.", "Pull the crate out of the gap, push it aside, go through and take the key."]],
+	7: [["الدكّة تفتح الباب ما دام عليها شيء ثقيل، ووقوفك عليها لا يكفي.", "The stone plate holds the door open while something heavy sits on it; standing on it is not enough."],
+		["الصندوق يكفي، لكنه يحتاج أن يصل إلى زاوية الدكّة.", "The crate will do, but it has to reach the plate's corner."],
+		["حرّك الصندوق مرتين نحو اليسار، ثم ادفعه نحو الأعلى إلى الدكّة، واعبر الباب إلى الجوهرة.", "Move the crate two tiles left, then push it up onto the plate, and go through the door to the gem."]],
+	8: [["الشعاع يجب أن يصل إلى البلورة؛ لا يلزم تدوير كل المرايا.", "The beam must reach the crystal; not every mirror needs turning."],
+		["ابدأ بالمرآة الأقرب إلى مصدر الضوء.", "Start with the mirror nearest the light source."],
+		["دوّر المرآة الأولى، ثم المرآة اليمنى في الخلف، فيصل الضوء إلى البلورة.", "Turn the first mirror, then the right-hand mirror at the back, and the light reaches the crystal."]],
+	9: [["المرآة تضيء قنديلًا واحدًا في كل مرة، وكل قنديل يفتح بابه.", "The mirror lights one lantern at a time, and each lantern opens its own door."],
+		["المفتاح خلف الباب الأيسر.", "The key is behind the left door."],
+		["وجّه المرآة إلى القنديل الأيسر، خذ المفتاح، ثم أعدها إلى اليمين واخرج.", "Turn the mirror to the left lantern, take the key, then turn it back to the right and leave."]],
+	10: [["الباب ينفتح بثقل على الدكّة، والوزن هو الحل.", "The door opens under weight on the plate, and the weight is the answer."],
+		["احمل الوزن من اليمين.", "Pick up the weight on the right."],
+		["احمل الوزن وضعه على الدكّة، ثم اعبر الباب واجمع الجوهرة.", "Carry the weight onto the plate, then go through the door and collect the gem."]],
+	11: [["لست مضطرًا لاستخدام كل الأوزان.", "You do not have to use every weight."],
+		["الوزن 9 أثقل من مجموع الباقين، فاتركه على الأرض.", "The 9 outweighs all the others together, so leave it on the floor."],
+		["ضع 1 و3 في كفة، و4 في الأخرى، ثم اعبر الباب واجمع الجوهرة.", "Put 1 and 3 in one pan and 4 in the other, then go through the door and collect the gem."]],
+	12: [["الطوبة في قاعدتها ترفع الحجارة فوق الماء.", "The brick in its socket raises the stones across the water."],
+		["احمل الطوبة إلى القاعدة النحاسية قرب البركة.", "Carry the brick to the brass socket by the pool."],
+		["ضع الطوبة في قاعدتها واعبر، خذ المفتاح، وافتح الباب، واجمع الجوهرة.", "Set the brick in its socket and cross, take the key, open the door and collect the gem."]],
+	13: [["طوبة واحدة لعملين: تمسك الباب أو ترفع الحجارة، واحدًا بعد الآخر.", "One brick, two jobs: hold the door, or raise the stones, one after the other."],
+		["ضعها على الدكّة أولًا ليفتح باب المفتاح.", "Put it on the plate first to open the key's door."],
+		["الطوبة على الدكّة، خذ المفتاح، ثم انقل الطوبة إلى القاعدة واعبر إلى الجوهرة.", "Brick on the plate, take the key, then move the brick to the socket and cross to the gem."]],
+	14: [["كل مفتاح يضيء أكثر من قنديل، والضغط على الكل لا يكفي.", "Each switch lights more than one lamp, and pressing them all does not work."],
+		["جرّب زوجًا من المفاتيح وراقب القناديل فوق البوابة.", "Try a pair of switches and watch the lamps above the gate."],
+		["اضغط المفتاح الأيسر والأيمن فقط، ثم اعبر الباب واجمع الجوهرة.", "Press only the left and right switches, then go through the door and collect the gem."]],
+	15: [["الفلج يحمل الماء إلى البركة، والبركة الممتلئة ترفع الحجارة.", "The falaj carries water to the pool, and a full pool raises the stones."],
+		["افتح بوابة الماء الخشبية على القناة.", "Open the wooden sluice on the channel."],
+		["افتح البوابة، فتمتلئ البركة وتظهر الحجارة، فاعبر واجمع الجوهرة.", "Open the sluice; the pool fills and the stones rise, so cross and collect the gem."]],
+	16: [["الماء يمر من بركة إلى أخرى إذا وُصلتا.", "Water flows from one pool into the next when they are joined."],
+		["البركة اليمنى ممتلئة من البداية.", "The right pool is full from the start."],
+		["افتح البوابة التي بين البركتين فقط، فيمتلئ الاثنان، واعبر الجسرين إلى الجوهرة.", "Open only the sluice between the two pools; both fill, so cross both rows of stones to the gem."]],
+	17: [["الرافعة تبدّل الجسرين، والجسر الأيمن يحتاج الضوء أيضًا.", "The lever swaps the bridges, and the right bridge also needs light."],
+		["خذ المفتاح عبر الجسر الأيسر قبل أي شيء.", "Take the key across the left bridge before anything else."],
+		["خذ المفتاح، حرّك الرافعة، دوّر المرآتين حتى تصل الشعاع، ثم اعبر إلى الجوهرة.", "Take the key, pull the lever, turn the two mirrors until the beam arrives, then cross to the gem."]],
+	18: [["شاهين يطير فوق الجدران ويجلب مفتاحًا واحدًا.", "Shaheen flies over walls and fetches a single key."],
+		["المس مجثم الصقر، ثم المس المفتاح المسوّر.", "Touch the falcon's perch, then touch the walled-in key."],
+		["أرسل شاهين إلى المفتاح، وافتح الباب الذهبي، واجمع الجوهرة.", "Send Shaheen for the key, open the gold door and collect the gem."]],
+	19: [["شاهين يطير مرة. المفتاح يمكن الوصول إليه مشيًا، أما الدكّة فلا.", "Shaheen flies once. You can walk to the key later, but never to the plate."],
+		["أرسل شاهين إلى الدكّة لا إلى المفتاح.", "Send Shaheen to the plate, not to the key."],
+		["شاهين على الدكّة يفتح الباب، فامشِ إلى المفتاح واخرج. (إن أخطأت فاضغط تراجع.)", "Shaheen on the plate opens the door; walk to the key and leave. (If you chose wrong, use Undo.)"]],
+	20: [["الرافعة تُنزل الجسر وتفتح الماء معًا.", "The lever lowers the bridge and opens the water at once."],
+		["خذ المفتاح قبل عبور الجسر.", "Take the key before you cross the bridge."],
+		["خذ المفتاح، اعبر الجسر، حرّك الرافعة لتمتلئ البركة، واعبر الحجارة إلى الجوهرة.", "Take the key, cross the bridge, pull the lever to fill the pool, and cross the stones to the gem."]],
+	21: [["دكّتان: واحدة يصلها الصندوق، والأخرى لا يصلها إلا شاهين.", "Two plates: the crate can reach one, only Shaheen can reach the other."],
+		["اسحب الصندوق نحو اليسار إلى الدكّة القريبة.", "Pull the crate left onto the near plate."],
+		["الصندوق على الدكّة القريبة، وشاهين على البعيدة، خذ الجوهرة من الغرفة، وافتح البوابة، واعبر إلى الجوهرة الأخيرة.", "Crate on the near plate, Shaheen on the far one; take the gem in the room, open the sluice, and cross to the last gem."]],
+	22: [["كل قرص يحرّك جاره معه.", "Each dial turns a neighbour too."],
+		["ابدأ بالقرص الأوسط مرة واحدة.", "Start with the middle dial, once."],
+		["أدر الأوسط مرة، والأيمن مرتين، ثم خذ المفتاح.", "Turn the middle dial once and the right dial twice, then take the key."]],
+	23: [["بوابة الدرج دكّة تحتاج ثقلًا.", "The stair gate is a plate that needs weight."],
+		["احمل الوزن إلى الدكّة قرب الدرج.", "Carry the weight to the plate by the stairs."],
+		["ضع الوزن على الدكّة، واصعد، وخذ المفتاح.", "Put the weight on the plate, climb up and take the key."]],
+	24: [["قرص في الأعلى وقرصان في الأسفل، وكلها مترابطة.", "One dial upstairs and two downstairs, all linked."],
+		["أدر القرص الأيمن الأمامي مرتين.", "Turn the front-right dial twice."],
+		["أدر الأيمن الأمامي مرتين، ثم اصعد وأدر القرص العلوي مرة.", "Turn the front-right dial twice, then go up and turn the upper dial once."]],
+	25: [["ليست كل الأوزان مطلوبة في الميزان.", "Not every weight belongs on the scale."],
+		["الوزن 5 لا يتوازن مع غيره.", "The 5 cannot be balanced by the others."],
+		["اصعد بالوزنين 1 و2 إلى كفة، وضع 3 في الأخرى، واترك 5.", "Carry the 1 and the 2 up to one pan, put the 3 in the other, and leave the 5."]],
+	26: [["لا درج هنا، والممر المضيء ينقلك وأنت تحمل.", "There are no stairs here, and the glowing passage carries you while you carry."],
+		["احمل وزنًا وادخل الممر.", "Pick up a weight and step into the passage."],
+		["انقل الوزنين عبر الممر واحدًا بعد الآخر، وضع كلًّا في كفة.", "Carry the two weights through the passage one by one, one in each pan."]],
+	27: [["الرافعة تختار الدرج، والدرج الأيمن يحتاج المفتاح أيضًا.", "The lever picks the stairway, and the right one also needs the key."],
+		["خذ المفتاح من الطابق العلوي عبر الدرج الأيسر أولًا.", "Get the key upstairs by the left stairway first."],
+		["خذ المفتاح، حرّك الرافعة، اصعد يمينًا، وأدر القرص الأول مرة والثاني مرتين.", "Take the key, pull the lever, climb on the right, turn the first dial once and the second twice."]],
+	28: [["الأرقام المطلوبة مكتوبة في الأعلى فقط: احفظها ثم انزل.", "The target numbers are only shown upstairs: remember them and come down."],
+		["اقرأ اللوح على الجدار الخلفي في السطح.", "Read the board on the back wall of the terrace."],
+		["اللوح يقول 3، 1، 2: أدر الأيسر ثلاثًا والأيمن مرتين، ثم اصعد وافتح الباب إلى الجوهرة.", "The board says 3, 1, 2: turn the left dial three times and the right twice, then go up through the door to the gem."]],
+	29: [["البلاط الساخن لا يُمشى عليه إلا في الظل، والظل يتحرك مع كل خطوة تقوم بها.", "Hot tiles can only be crossed in shade, and the shade moves with everything you do."],
+		["المزولة تجعل الشمس تتحرك وأنت تنتظر.", "The sundial moves the sun while you wait."],
+		["انتظر عند المزولة ثلاث مرات حتى يلتقي الظلان في الممر الأوسط، ثم اعبر واجمع الجوهرة.", "Wait at the sundial three times until both shadows meet in the middle lane, then cross and collect the gem."]],
+	30: [["مفتاح ذهبي في الأعلى، وفضي خلف الباب الذهبي في الأسفل.", "A gold key upstairs, and a silver one behind the gold door downstairs."],
+		["اصعد بالدرج الأيسر إلى المفتاح الذهبي.", "Take the left stairs up to the gold key."],
+		["الذهبي من الأعلى، افتح غرفة الفضي، ثم افتح الدرج الأيمن بالفضي واصعد إلى الجوهرة.", "Gold key from upstairs, open the silver key's room, then unlock the right stairway with the silver key and climb to the gem."]],
+	31: [["بوابة واحدة: تملأ صهريج الدرج أو تبقي حجارة المفتاح، لا الاثنين.", "One sluice: it fills the stair cistern or keeps the key's stones up, not both."],
+		["خذ المفتاح الفضي قبل أن تفتح البوابة.", "Take the silver key before you open the sluice."],
+		["خذ الفضي عبر الحجارة، افتح البوابة ليمتلئ الصهريج، اصعد، وافتح الباب الفضي، وخذ الذهبي.", "Take the silver key across the stones, open the sluice to fill the cistern, climb, open the silver door and take the gold key."]],
+	32: [["كل دفعة تحرّك الشمس، والصندوق يجب أن يعبر في الظل.", "Every push moves the sun, and the crate must cross in the shade."],
+		["ادفع مرة، ثم انتظر مرة عند المزولة.", "Push once, then wait once at the sundial."],
+		["ادفع الصندوق مرة، انتظر مرة، ثم ادفعه مرتين عبر الظل إلى الدكّة، واجمع الجوهرة.", "Push the crate once, wait once, then push it twice through the shade onto the plate, and collect the gem."]],
+	33: [["الضوء يعبر الممر المضيء مثلك.", "Light goes through the glowing passage, just like you."],
+		["وجّه المرآة الأمامية نحو الممر.", "Turn the front mirror toward the passage."],
+		["دوّر المرآة الأمامية، وانتقل بالممر، ودوّر المرآة الخلفية حتى يصل الضوء إلى البلورة.", "Turn the front mirror, go through the passage, and turn the back mirror until the light reaches the crystal."]],
+	34: [["بيت الجد: المفتاح الفضي يفتح الدرج الأيمن، والأقراص الثلاثة تفتح الطريق.", "Grandfather's house: the silver key opens the right stairway, and the three dials open the way."],
+		["المفتاح الفضي في الطابق العلوي يسارًا.", "The silver key is upstairs on the left."],
+		["خذ الفضي، افتح الدرج الأيمن، اجمع الجوهرة، وأدر كل قرص مرة واحدة.", "Take the silver key, unlock the right stairway, collect the gem and turn each dial once."]],
+}
 
-## Hint step `tier` (1 idea, 2 first step, 3 full solution) for a level. Levels may
-## give all three in TIERED; older entries in HINTS are the full solution only.
+
+## Hint step `tier` (1 idea, 2 first step, 3 full solution) for a level.
 static func text(level: int, tier := TIERS) -> String:
 	var t: Array = TIERED.get(level, [])
-	var h: Array
-	if t.size() >= tier:
-		h = t[tier - 1]
-	else:
-		h = HINTS.get(level, ["", ""])
+	if t.is_empty():
+		return ""
+	var h: Array = t[clampi(tier, 1, t.size()) - 1]
 	return h[0] if Save.arabic() else h[1]
