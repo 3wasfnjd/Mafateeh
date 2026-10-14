@@ -21,7 +21,7 @@ from mathutils import Matrix, Quaternion, Vector, noise
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.abspath(ARGS[0] if ARGS else os.path.join(HERE, "../../assets/character"))
-SRC = os.path.abspath(os.path.join(HERE, "../../art_source/character"))
+SRC = os.path.abspath(ARGS[1] if len(ARGS) > 1 else os.path.join(HERE, "../../art_source/character"))
 FPS = 30
 V = Vector
 
