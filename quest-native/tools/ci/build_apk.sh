@@ -138,6 +138,15 @@ if [ -n "${META_APP_ID:-}" ]; then
   echo "Entitlement check enabled for Meta App ID ${META_APP_ID}"
 fi
 
+# Test builds install beside the store copy: their own package id and name, so the
+# store version (and its progress) stays on the headset untouched.
+PACKAGE="com.abodengames.mafateeh"
+if [ "${TEST_PACKAGE:-0}" = "1" ]; then
+  PACKAGE="com.abodengames.mafateeh.test"
+  sed -i "s/^package\/unique_name=.*/package\/unique_name=\"${PACKAGE}\"/; s/^package\/name=.*/package\/name=\"مفاتيح (تجربة) — Mafateeh Test\"/" "$ROOT/export_presets.cfg"
+  echo "Test package: ${PACKAGE} (installs beside the store version)"
+fi
+
 log "Version ${APP_VERSION} (${VERSION_CODE})"
 sed -i "s/^version\/code=.*/version\/code=${VERSION_CODE}/; s/^version\/name=.*/version\/name=\"${APP_VERSION}\"/" "$ROOT/export_presets.cfg"
 
@@ -203,7 +212,7 @@ unzip -l "$APK" | grep -q "lib/arm64-v8a/libgodot_meta_toolkit.so"
 ! unzip -l "$APK" | grep -qE "lib/(armeabi-v7a|x86|x86_64)/"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "com.oculus.intent.category.VR"
 "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" | grep -q "org.khronos.openxr.intent.category.IMMERSIVE_HMD"
-"$BT/aapt2" dump badging "$APK" | grep -q "package: name='com.abodengames.mafateeh'"
+"$BT/aapt2" dump badging "$APK" | grep -q "package: name='${PACKAGE}'"
 # Store requirements: targetSdk 34 (Meta rejects higher), headtracking required,
 # Quest 3 / 3S only (the tested devices).
 "$BT/aapt2" dump badging "$APK" | grep -q "targetSdkVersion:'34'"

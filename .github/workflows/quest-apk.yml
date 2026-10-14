@@ -16,7 +16,7 @@ on:
         type: boolean
         default: false
       sideload_test:
-        description: 'Sideload test build: test key, no store entitlement check, published as a pre-release'
+        description: 'Sideload test build: test key, no store entitlement check, own package id (installs beside the store version), published as a pre-release'
         type: boolean
         default: false
       upload_alpha:
@@ -57,6 +57,7 @@ jobs:
           MAFATEEH_KEYSTORE_ALIAS: ${{ !inputs.sideload_test && secrets.MAFATEEH_KEYSTORE_ALIAS || '' }}
           MAFATEEH_KEYSTORE_PASSWORD: ${{ !inputs.sideload_test && secrets.MAFATEEH_KEYSTORE_PASSWORD || '' }}
           META_APP_ID: ${{ !inputs.sideload_test && secrets.META_APP_ID || '' }}
+          TEST_PACKAGE: ${{ inputs.sideload_test && '1' || '0' }}
         run: bash quest-native/tools/ci/build_apk.sh
       - uses: actions/upload-artifact@v4
         if: always()
@@ -79,6 +80,7 @@ jobs:
             echo "Native Meta Quest build of مفاتيح — Mafateeh (Aboden Games — عبودين قيمز)."
             echo
             echo "This is a sideload test build. It is not a Meta Horizon Store release."
+            echo "Test builds use the package com.abodengames.mafateeh.test and install beside the store version."
             echo "Install with developer mode + adb or Meta Quest Developer Hub: see docs/quest-native-install.md."
             echo
             echo '```'
