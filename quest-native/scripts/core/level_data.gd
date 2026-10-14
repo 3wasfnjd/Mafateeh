@@ -20,7 +20,8 @@ extends RefCounted
 ##   roofs    [x, z, w, d] covered passages (no interactables underneath)
 ##   title_ar / title_en  short names shown in the level card
 
-const COUNT := 34
+const COUNT := 37
+const MAIN_COUNT := 34  # levels after this form the bonus chapter (all secret gems)
 const EXIT_X := 1.75
 const UPPER_HEIGHT := 2.1
 
@@ -41,6 +42,9 @@ const CHAPTERS := [
 	{"ar": "السطوح", "en": "The Rooftops", "from": 29, "to": 34,
 		"story_ar": "فوق السطوح، تحت شمس الدرعية، آخر الأبواب: بيت الجد.",
 		"story_en": "Across the rooftops, under the Diriyah sun, the last door: Grandfather's house."},
+	{"ar": "ديوان الجد", "en": "Grandfather's Diwan", "from": 35, "to": 37, "bonus": true,
+		"story_ar": "الجواهر السرية كلها بين يديك، فانفتح ديوان الجد وفيه آخر أسراره.",
+		"story_en": "With every secret gem in hand, Grandfather's diwan opens, and his last secrets with it."},
 ]
 
 const LEVELS := {
@@ -559,11 +563,61 @@ const LEVELS := {
 		"finale": true,
 		"par": 6,
 	},
+	# ======================= ★ ديوان الجد (Bonus: all secret gems) =======================
+	35: {
+		"title_ar": "شاهين والفلج", "title_en": "Shaheen and the Falaj",
+		"time": "dawn", "weather": "clear",
+		"start": [-1.0, 2.0],
+		"walls": [[-3.275, 0.0, 0.75, 0.3], [1.075, 0.0, 5.15, 0.3], [2.6, 1.2, 2.1, 0.3], [1.55, 2.1, 0.3, 1.8]],
+		"falcon": {"at": [-2.6, 2.4]},
+		"keys": [[2.7, 2.4, 1]],
+		"doors": [[-2.2, 0.0, 1.4, 0.3, "lock", 1]],
+		"falaj": {"nodes": [[-3.2, -0.9], [2.6, -0.9]], "source": 0, "channels": [[0, 1, 0]], "pools": [[1, 0]]},
+		"sluices": [[-0.6, -0.9, 0]],
+		"waters": [[0.0, -2.2, 7.3, 0.8, 0]],
+		"gems": [[-2.5, -2.75, 0]], "goal_gems": 1,
+		"secret": [3.25, -0.45],
+		"bypass": [["falcon"], ["lock"], ["sluice"]],
+		"par": 4,
+	},
+	36: {
+		"title_ar": "ميزان الديوان", "title_en": "The Diwan Scales",
+		"time": "night", "weather": "clear",
+		"storeys": true,
+		"start": [0.0, 2.8],
+		"walls": [],
+		"stairs": [[-2.9, "dials", 0]],
+		"dials": {"positions": [[-1.2, 2.2], [1.2, 2.2]], "links": [[1, 1], [0, 1]], "target": [2, 3]},
+		"balance": {"at": [1.1, -1.9], "weights": [[-2.4, 2.6, 2], [2.4, 2.6, 2], [-1.3, -2.3, 1], [2.6, -2.5, 3]]},
+		"need_balance": true,
+		"secret": [-3.0, -2.6],
+		"bypass": [["dial"]],
+		"par": 11,
+	},
+	37: {
+		"title_ar": "سرّ الجد", "title_en": "Grandfather's Secret",
+		"time": "sunset", "weather": "clear",
+		"start": [-1.0, 2.5],
+		"walls": [[0.6, -2.325, 0.3, 1.45], [-1.5, 0.0, 4.0, 0.3]],
+		"crates": [{"at": [0.5, 1.0]}],
+		"falcon": {"at": [-2.6, 2.6]},
+		"plates": [[-1.5, -2.0, 0], [2.5, 1.0, 1]],
+		"doors": [[2.2, -1.75, 2.9, 0.3, "plate", 0], [2.2, -2.45, 2.9, 0.3, "plate", 1]],
+		"gems": [[3.1, -3.0, 0]], "goal_gems": 1,
+		"secret": [-3.25, 1.4],
+		"bypass": [["falcon"], ["crate"]],
+		"finale": true,
+		"par": 4,
+	},
 }
 
 
 static func get_level(n: int) -> Dictionary:
 	return LEVELS.get(n, {})
+
+
+static func is_bonus(n: int) -> bool:
+	return n > MAIN_COUNT
 
 
 static func chapter_of(n: int) -> int:

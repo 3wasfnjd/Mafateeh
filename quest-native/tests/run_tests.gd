@@ -294,10 +294,19 @@ func _test_save() -> void:
 	check(again.unlocked_level == 3 and not again.can_play(4), "old save: only solved levels and the next one open (unlocked=%d)" % again.unlocked_level)
 	check(not again.dev_tools_available(), "old save: developer switch reset")
 	check(again.current_level == 3, "old save: current level clamped to the reachable one (%d)" % again.current_level)
+	# Bonus chapter: closed after the last main level until every secret gem is found.
+	save.reset_progress()
+	for n in range(1, LevelData.MAIN_COUNT + 1):
+		save.mark_completed(n, 3, n != 5)
+	check(save.unlocked_level == LevelData.MAIN_COUNT and not save.can_play(LevelData.MAIN_COUNT + 1), "bonus: closed while a secret gem is missing")
+	save.mark_completed(5, 3, true)
+	check(save.can_play(LevelData.MAIN_COUNT + 1), "bonus: opens once every secret gem is found")
+	again.load_data()
+	check(again.unlocked_level == LevelData.MAIN_COUNT + 1, "bonus: unlock survives reload (unlocked=%d)" % again.unlocked_level)
 	save.reset_progress()
 	save.free()
 	again.free()
-	_log("  progressive unlock (only after solving), persistence, old saves")
+	_log("  progressive unlock (only after solving), persistence, old saves, bonus chapter gate")
 
 
 # --- v2 mechanics (small built-in boards, independent of the level list) -------------

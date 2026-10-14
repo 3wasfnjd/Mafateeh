@@ -586,6 +586,8 @@ func _level_cell(n: int, cur: int) -> Dictionary:
 static func _level_info(n: int) -> String:
 	var d := LevelData.get_level(n)
 	var state := T("مكتملة", "complete") if Save.is_completed(n) else (T("مقفلة", "locked") if not Save.can_play(n) else T("لم تكتمل بعد", "not complete yet"))
+	if LevelData.is_bonus(n) and not Save.can_play(n) and not Save.bonus_open(Save.secrets):
+		state = T("تفتح بجمع كل الجواهر السرية", "opens with every secret gem")
 	if Save.stars.has(n):
 		state += T("  ·  %d من 3 نجوم", "  ·  %d of 3 stars") % int(Save.stars[n])
 	return "%d — %s  ·  %s" % [n, _title(d), state]

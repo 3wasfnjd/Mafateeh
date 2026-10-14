@@ -430,7 +430,7 @@ func _update_pointers() -> void:
 
 func _on_level_completed(n: int) -> void:
 	Save.mark_completed(n, game.last_stars, game.state.has_secret())
-	if n < LevelData.COUNT:
+	if n < LevelData.COUNT and Save.can_play(n + 1):
 		game.go_to_level(n + 1)
 	else:
 		menu.show_credits()

@@ -1,26 +1,18 @@
 class_name FalconView
 extends RefCounted
-## The falcon «شاهين». Uses assets/creatures/falcon.glb (built in Blender by
-## tools/blender/build_creatures.py) when present, with its "perch" and "fly" clips;
-## otherwise a small procedural stand-in. Pure presentation.
-
-const SCENE := "res://assets/creatures/falcon.glb"
+## The falcon «شاهين». Uses the "falcon" creature slot (assets/creatures/falcon.glb,
+## replaceable: see CreatureSlot) with its perch and fly roles; otherwise a small
+## procedural stand-in. Pure presentation.
 
 
 static func make(parent: Node3D) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Falcon"
 	parent.add_child(root)
-	if ResourceLoader.exists(SCENE):
-		var m: Node3D = (load(SCENE) as PackedScene).instantiate()
-		root.add_child(m)
-		var ap: Array = m.find_children("*", "AnimationPlayer", true, false)
-		if not ap.is_empty():
-			root.set_meta("anim", ap[0])
-			for clip in ["perch", "fly"]:
-				if (ap[0] as AnimationPlayer).has_animation(clip):
-					(ap[0] as AnimationPlayer).get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-			(ap[0] as AnimationPlayer).play("perch")
+	var slot := CreatureSlot.spawn(root, "falcon")
+	if slot:
+		root.set_meta("slot", slot)
+		CreatureSlot.play(slot, "perch", 0.0)
 		return root
 	# Stand-in: body, head with hooked beak, folded wings, tail.
 	var brown := StandardMaterial3D.new()
@@ -45,11 +37,8 @@ static func make(parent: Node3D) -> Node3D:
 
 ## Wing beat: amount 0 = folded at rest, 1 = full flapping flight.
 static func flap(root: Node3D, t: float, amount: float) -> void:
-	if root.has_meta("anim"):
-		var ap: AnimationPlayer = root.get_meta("anim")
-		var want := "fly" if amount > 0.5 else "perch"
-		if ap.has_animation(want) and ap.current_animation != want:
-			ap.play(want, 0.2)
+	if root.has_meta("slot"):
+		CreatureSlot.play(root.get_meta("slot"), "fly" if amount > 0.5 else "perch")
 		return
 	for side in [-1, 1]:
 		var wing := root.get_node_or_null("Wing" + str(side))

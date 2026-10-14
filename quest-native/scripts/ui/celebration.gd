@@ -131,7 +131,10 @@ func play(def: Dictionary, level: int, moves: int, stars: int, secret: bool) -> 
 	_quad(panel, Vector2(w, 0.2), _tex_mat("sadu_band.png", Color.WHITE, true), Vector3(0, -h / 2.0 + 0.14, 0.015), w / 1.3)
 	_quad(panel, Vector2(w + 0.16, 0.3), _tex_mat("crenel.png", Color("d6a676"), false), Vector3(0, h / 2.0 + 0.2, -0.04), (w + 0.16) / 1.2)
 	var praise: Array = PRAISE[_rng.randi() % PRAISE.size()]
-	var title: String = "فُتح بيت الجد!" if finale and arabic else ("Grandfather's house is open!" if finale else (praise[0] if arabic else praise[1]))
+	var bonus := LevelData.is_bonus(level)
+	var fin_ar := "فُتح ديوان الجد!" if bonus else "فُتح بيت الجد!"
+	var fin_en := "Grandfather's diwan is open!" if bonus else "Grandfather's house is open!"
+	var title: String = (fin_ar if arabic else fin_en) if finale else (praise[0] if arabic else praise[1])
 	_text(panel, title, 120 if not finale else 128, GOLD, Vector3(0, h * 0.18, 0.03))
 	var name: String = def.get("title_ar" if arabic else "title_en", "")
 	var sub := "%d · %s" % [level, name]
@@ -150,7 +153,10 @@ func play(def: Dictionary, level: int, moves: int, stars: int, secret: bool) -> 
 	var ch := LevelData.chapter_of(level)
 	if level == int(LevelData.CHAPTERS[ch].to) and ch + 1 < LevelData.CHAPTERS.size():
 		var nxt: Dictionary = LevelData.CHAPTERS[ch + 1]
-		_text(panel, Save.text("الفصل التالي: %s", "Next chapter: %s") % (nxt.ar if arabic else nxt.en), 34, Color("ffd9a0"), Vector3(0, h * 0.42 - 0.02, 0.03))
+		var line := Save.text("الفصل التالي: %s", "Next chapter: %s") % (nxt.ar if arabic else nxt.en)
+		if nxt.get("bonus", false) and not Save.bonus_open(Save.secrets):
+			line = Save.text("اجمع كل الجواهر السرية ليُفتح «%s»", "Find every secret gem to open \"%s\"") % (nxt.ar if arabic else nxt.en)
+		_text(panel, line, 34, Color("ffd9a0"), Vector3(0, h * 0.42 - 0.02, 0.03))
 	panel.scale = Vector3.ONE * 0.01
 	if _glow == null:
 		_glow = OmniLight3D.new()

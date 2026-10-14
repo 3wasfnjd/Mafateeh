@@ -110,6 +110,15 @@ const TIERED := {
 	34: [["بيت الجد: المفتاح الفضي يفتح الدرج الأيمن، والأقراص الثلاثة تفتح الطريق.", "Grandfather's house: the silver key opens the right stairway, and the three dials open the way."],
 		["المفتاح الفضي في الطابق العلوي يسارًا.", "The silver key is upstairs on the left."],
 		["خذ الفضي، افتح الدرج الأيمن، اجمع الجوهرة، وأدر كل قرص مرة واحدة.", "Take the silver key, unlock the right stairway, collect the gem and turn each dial once."]],
+	35: [["شاهين يجيب المفتاح الفضي من وراء الجدار، والبوابة تصرّف الماء.", "Shaheen fetches the silver key from behind the wall, and the sluice drains the water."],
+		["أرسل شاهين إلى المفتاح الفضي.", "Send Shaheen to the silver key."],
+		["أرسل شاهين للمفتاح، افتح الباب الفضي، افتح البوابة ليجف الممر، واجمع الجوهرة.", "Send Shaheen for the key, open the silver door, open the sluice so the path dries, and collect the gem."]],
+	36: [["الأقراص تفتح الدرج، والميزان يريد كل الأوزان موزونة.", "The dials open the stairs, and the scales want every weight balanced."],
+		["أدر القرص الأيسر مرتين والأيمن مرة.", "Turn the left dial twice and the right dial once."],
+		["أدر الأيسر مرتين والأيمن مرة، ثم ضع الوزنين ٢ و٢ في كفة، و١ و٣ في الكفة الأخرى.", "Turn the left dial twice and the right once, then put the two 2s on one pan and the 1 and 3 on the other."]],
+	37: [["بابان قدام البوابة، ودكّتان: واحدة للصندوق وواحدة لشاهين.", "Two doors before the gate and two plates: one for the crate, one for Shaheen."],
+		["ادفع الصندوق إلى الدكّة اليمنى.", "Push the crate onto the right-hand plate."],
+		["ادفع الصندوق مرتين إلى الدكّة اليمنى، وأرسل شاهين إلى الدكّة البعيدة، واجمع الجوهرة واطلع.", "Push the crate twice onto the right plate, send Shaheen to the far plate, collect the gem and leave."]],
 }
 
 

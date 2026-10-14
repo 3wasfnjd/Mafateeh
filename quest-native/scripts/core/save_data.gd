@@ -51,7 +51,6 @@ func load_data() -> void:
 			var n := int(k)
 			if n >= 1 and n <= LevelData.COUNT and stored[k]:
 				completed[n] = true
-	unlocked_level = _unlocked_from(completed)
 	stars = {}
 	secrets = {}
 	var st: Variant = cfg.get_value("progress", "stars", {})
@@ -64,6 +63,7 @@ func load_data() -> void:
 		for k in se:
 			if int(k) >= 1 and int(k) <= LevelData.COUNT and se[k]:
 				secrets[int(k)] = true
+	unlocked_level = _unlocked_from(completed, secrets)
 	wearing = {}
 	var wr: Variant = cfg.get_value("progress", "wearing", {})
 	if wr is Dictionary:
@@ -150,11 +150,21 @@ func can_play(level: int) -> bool:
 
 ## A level opens only when the one before it has been solved: the furthest
 ## playable level is the first one not yet completed in an unbroken run from 1.
-static func _unlocked_from(done: Dictionary) -> int:
+## The bonus chapter (after MAIN_COUNT) opens once every main level's secret gem is found.
+static func _unlocked_from(done: Dictionary, found := {}) -> int:
 	var n := 1
 	while n < LevelData.COUNT and done.has(n):
+		if n == LevelData.MAIN_COUNT and not bonus_open(found):
+			break
 		n += 1
 	return n
+
+
+static func bonus_open(found: Dictionary) -> bool:
+	for n in range(1, LevelData.MAIN_COUNT + 1):
+		if not found.get(n, false):
+			return false
+	return true
 
 
 func mark_completed(level: int, earned := 0, secret := false) -> void:
@@ -163,8 +173,8 @@ func mark_completed(level: int, earned := 0, secret := false) -> void:
 		stars[level] = maxi(stars.get(level, 0), earned)
 	if secret:
 		secrets[level] = true
-	unlocked_level = _unlocked_from(completed)
-	if level < LevelData.COUNT:
+	unlocked_level = _unlocked_from(completed, secrets)
+	if level < LevelData.COUNT and level + 1 <= unlocked_level:
 		current_level = level + 1
 	save()
 

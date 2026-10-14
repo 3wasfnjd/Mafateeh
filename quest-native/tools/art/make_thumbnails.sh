@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 GODOT="${GODOT:-godot}"
 FIRST="${1:-1}"
-LAST="${2:-34}"
+LAST="${2:-37}"
 TMP="$(mktemp -d)"
 RUN=()
 command -v xvfb-run >/dev/null && [ -z "${DISPLAY:-}" ] && RUN=(xvfb-run -a -s "-screen 0 1280x720x24")

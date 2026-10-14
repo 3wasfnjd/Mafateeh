@@ -6,15 +6,13 @@ extends Node3D
 ## on a wall, and a villager in a white ghutra strolls round outside the walls.
 ## Purely decorative: never touches the puzzle and never stands where the hero walks.
 
-const SPARROW := "res://assets/creatures/sparrow.glb"
-const CAT := "res://assets/creatures/cat.glb"
 const VILLAGER := "res://assets/character/shaib.glb"
 const FLEE_DIST := 1.1
 const VILLAGER_SPEED := 0.45
 
 var game: Game
 var _rng := RandomNumberGenerator.new()
-var _birds: Array = []  # {node, anim, ground: Vector3, perch: Vector3, mode, t, from, to}
+var _birds: Array = []  # {node, ground: Vector3, perch: Vector3, mode, t, from, to}
 var _cat: Node3D
 var _walker: Node3D
 var _walker_anim: AnimationPlayer
@@ -75,11 +73,9 @@ func build(level: int, def: Dictionary) -> void:
 	# Sparrows: two peck on the paving near the edges, two wait on the walls.
 	var n_birds := 4 if _rng.randf() < 0.8 else 2
 	for i in n_birds:
-		var b := _instance(SPARROW)
+		var b := CreatureSlot.spawn(self, "sparrow")
 		if b == null:
 			break
-		var ap := _anim(b)
-		_loop(ap, ["peck", "fly"])
 		var perch: Vector3 = perches[_rng.randi() % perches.size()]
 		var ground := perch
 		if i < 2:
@@ -89,27 +85,21 @@ func build(level: int, def: Dictionary) -> void:
 				ground = Vector3(gx, 0.07, gz)
 		b.position = ground
 		b.rotation.y = _rng.randf() * TAU
-		b.scale = Vector3.ONE * 2.6
-		if ap and ap.has_animation("peck"):
-			ap.play("peck")
-			ap.seek(_rng.randf() * 2.0)
-		_birds.append({"node": b, "anim": ap, "ground": ground, "perch": perch, "mode": "ground" if ground != perch else "perch",
+		CreatureSlot.play(b, "peck", 0.0, _rng.randf() * 2.0)
+		_birds.append({"node": b, "ground": ground, "perch": perch, "mode": "ground" if ground != perch else "perch",
 			"t": 0.0, "from": ground, "to": ground})
 	# The cat: dozing on the back wall or sitting on a corner of the front wall.
 	if _rng.randf() < 0.75:
-		_cat = _instance(CAT)
+		_cat = CreatureSlot.spawn(self, "cat")
 		if _cat:
-			var ap := _anim(_cat)
-			_loop(ap, ["sit", "sleep", "walk"])
 			var on_back := _rng.randf() < 0.5
 			var x: float = _rng.randf_range(bd[0] + 0.5, bd[1] - 0.5)
 			if on_back and absf(x - ex) < 1.3:
 				x = bd[0] + 0.7
 			_cat.position = Vector3(x, ey + 1.08, -3.59) if on_back else Vector3(bd[1] + 0.44, 0.97, _rng.randf_range(-2.0, 2.0))
 			_cat.rotation.y = PI if on_back else -PI / 2
-			_cat.scale = Vector3.ONE * 1.5
-			if ap:
-				ap.play("sleep" if on_back else "sit")
+			if not (on_back and CreatureSlot.play(_cat, "sleep", 0.0)):
+				CreatureSlot.play(_cat, "sit", 0.0)
 	# A villager strolling round outside the walls (not in every level).
 	if _rng.randf() < 0.6:
 		_walker = _instance(VILLAGER)
@@ -217,8 +207,7 @@ func _process(dt: float) -> void:
 				if k >= 1.0:
 					b.mode = "perch" if b.to == b.perch else "ground"
 					b.t = 0.0
-					if b.anim and b.anim.has_animation("peck"):
-						b.anim.play("peck", 0.15)
+					CreatureSlot.play(b.node, "peck", 0.15)
 	if _walker and _walk_len > 0.0:
 		_walk_s += dt * VILLAGER_SPEED
 		var pd := _path_point(_walk_s)
@@ -234,5 +223,4 @@ func _fly(b: Dictionary, to: Vector3) -> void:
 	var d: Vector3 = to - b.from
 	if Vector2(d.x, d.z).length() > 0.01:
 		b.node.rotation.y = atan2(d.x, d.z)
-	if b.anim and b.anim.has_animation("fly"):
-		b.anim.play("fly", 0.1)
+	CreatureSlot.play(b.node, "fly", 0.1)

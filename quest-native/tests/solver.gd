@@ -126,7 +126,7 @@ func run() -> Dictionary:
 				_add(t, cur, "push crate %d" % i)
 		# Free crates: push away from, or pull toward, any reachable side.
 		for i in s.crates.size():
-			if not s.crates[i].free:
+			if not s.crates[i].free or "crate" in forbid_types:
 				continue
 			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 				if not _reachable_point(entry, s.free_push_position(i, d)):

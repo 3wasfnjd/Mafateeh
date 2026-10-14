@@ -10,8 +10,9 @@ PY="${PYTHON:-python3}"
 REPORT=""
 for a in "$@"; do case "$a" in --report=*) REPORT="${a#--report=}";; esac; done
 status=0
-"$GODOT" --headless --xr-mode off --path . -s tests/run_tests.gd "$@" 2>&1 | grep -v "OpenXR-Loader" || true
-[ "${PIPESTATUS[0]}" -eq 0 ] || status=1
+UNIT=$("$GODOT" --headless --xr-mode off --path . -s tests/run_tests.gd "$@" 2>&1 | grep -v "OpenXR-Loader")
+echo "$UNIT"
+echo "$UNIT" | grep -q "RESULT: PASS" || status=1
 echo
 echo "== Integration (main scene)"
 INT=$("$GODOT" --headless --xr-mode off --path . res://tests/integration_test.tscn 2>&1 | grep -E "✗|INTEGRATION|FAIL:|SCRIPT ERROR")

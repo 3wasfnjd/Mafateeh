@@ -71,7 +71,7 @@ tools/check_scripts.sh               # parse-check every GDScript file
 
 | Suite | What it proves |
 |---|---|
-| `tests/run_tests.gd` — level data | 21 levels, valid spawns, valid time/weather presets, no interactable hidden under a roof |
+| `tests/run_tests.gd` — level data | 37 levels (5 chapters + bonus), chapters, secret gems and three hint steps for each, valid spawns, valid time/weather presets, no interactable hidden under a roof |
 | `tests/solver.gd` | Exhaustive search with the real rules: every level has a solution; **no reachable state is a dead end** (no irreversible traps); forbidding each gate mechanic (lock, lever, portal, brick socket, …) makes the level unsolvable, i.e. **no collision bypass** |
 | `tests/run_tests.gd` — movement | Stops at walls, closed doors, water and closed stairs; walks up/down stairs; no diagonal speed advantage; release stops immediately; interruption requires re-centring the stick; crates push only from the correct side; carried brick stays attached and cannot be dropped into walls; keys collect on contact |
 | `tests/run_tests.gd` — save | Progressive unlock and persistence across reload |
@@ -87,27 +87,34 @@ frame rate and thermals can only be verified on a Quest.
 ```
 quest-native/
   project.godot, export_presets.cfg, openxr_action_map.tres
-  scripts/core/    level_data.gd (21 levels, data only) · puzzle_state.gd (rules) ·
-                   navigator.gd (collision, pathfinding) · hero_motor.gd (character control) ·
-                   save_data.gd (autoload: progress + settings) ·
-                   level_hints.gd (one hint per level, AR/EN)
+  scripts/core/    level_data.gd (34 levels in 5 chapters + 3 bonus, data only) · puzzle_state.gd
+                   (rules, undo snapshots) · navigator.gd (collision, pathfinding) · hero_motor.gd
+                   (character control) · save_data.gd (autoload: progress, stars, secret gems,
+                   wardrobe, settings) · level_hints.gd (three hint steps per level, AR/EN) ·
+                   wardrobe.gd (unlockable outfits)
   scripts/xr/      xr_rig.gd (OpenXR, passthrough, controller input) · board_placement.gd
                    (board transform, scale, drag, surface snap) · scene_surfaces.gd +
                    scene_anchor_probe.gd (Meta Scene API tables/floors)
-  scripts/game/    game.gd (level lifecycle, picking) · hero_view.gd (animation, footsteps) ·
-                   shemagh_spring.gd (secondary motion)
-  scripts/art/     kit.gd (shared materials, kit pieces) · level_view.gd (level visuals)
+  scripts/game/    game.gd (level lifecycle, picking, undo, stars) · hero_view.gd (animation, face,
+                   wardrobe, footsteps) · shemagh_spring.gd (secondary motion) ·
+                   falcon_companion.gd (Shaheen on the old man's shoulder)
+  scripts/art/     kit.gd (shared materials, kit pieces) · level_view.gd (level visuals) ·
+                   falcon_view.gd
   scripts/env/     sky_weather.gd (time of day, automatic day/rain cycle) · rain_field.gd (weather) ·
-                   dust_field.gd (light dust) · vr_scenery.gd
+                   dust_field.gd (light dust) · vr_scenery.gd · life_layer.gd (sparrows, cat,
+                   villagers, finale ardah)
   scripts/audio/   game_audio.gd
   scripts/ui/      settings_menu.gd (start screen with the Aboden Games name and MR/VR choice,
-                   Najdi-styled menu, level cards, hints, settings tabs)
-  assets/character/hero.glb · assets/kit/najdi_kit.glb · assets/textures · assets/fonts · assets/ui (menu icons, level thumbnails)
+                   Najdi-styled menu, level cards, hints, wardrobe, settings tabs) ·
+                   celebration.gd (Diriyah-style level-complete panel)
+  assets/character/shaib.glb · assets/creatures (falcon, cat, sparrow) · assets/kit/najdi_kit.glb · assets/textures · assets/fonts · assets/ui (menu icons, level thumbnails)
   audio/sfx, audio/ambience (generated WAV, imported as QOA)
   art_source/      editable Blender files (ignored by Godot, not packaged)
-  tools/blender/   build_character.py, build_kit.py, render_previews.py, render_kit.py
+  tools/blender/   build_shaib.py (+ shaib_textures.py, shaib_anim.py), build_creatures.py,
+                   build_kit.py, render_shaib.py, render_glb.py, render_kit.py
   tools/audio/     generate_audio.py, check_audio.py
-  tools/art/       make_textures.py, make_icon.py, make_icons.py (menu icons)
+  tools/art/       make_textures.py, make_icon.py, make_icons.py (menu icons), make_identity.py
+                   (Sadu band, Najdi star, crenels, petals), make_thumbnails.sh (level cards)
   tests/           solver, unit, integration and budget tests (not packaged)
 ```
 
@@ -118,10 +125,14 @@ weather, save data and audio are separate modules; weather and time never read o
 
 ```
 python -m venv /opt/bpyenv && /opt/bpyenv/bin/pip install bpy==5.2.2
-/opt/bpyenv/bin/python tools/blender/build_character.py -- assets/character   # hero.glb + art_source/character/hero.blend
+/opt/bpyenv/bin/python tools/blender/build_shaib.py -- assets/character       # shaib.glb + art_source/character/shaib.blend
+/opt/bpyenv/bin/python tools/blender/build_creatures.py                       # falcon/cat/sparrow.glb + art_source/creatures
+/opt/bpyenv/bin/python tools/blender/render_shaib.py                          # review renders (turnaround, faces, clips)
 /opt/bpyenv/bin/python tools/blender/build_kit.py -- assets/kit               # najdi_kit.glb + art_source/kit/najdi_kit.blend
 python3 tools/art/make_textures.py assets/textures
 python3 tools/art/make_icons.py assets/ui/icons
+python3 tools/art/make_identity.py assets/ui/identity
+GODOT=godot tools/art/make_thumbnails.sh 1 37                                  # needs a display or xvfb-run
 python3 tools/audio/generate_audio.py audio                                   # needs numpy + scipy
 python3 tools/art/make_brand.py assets/brand <cairo-arabic.ttf> <cairo-latin.ttf> ../store  # studio mark
 ```
