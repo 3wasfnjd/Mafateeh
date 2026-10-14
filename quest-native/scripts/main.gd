@@ -481,6 +481,9 @@ func _update_desktop_camera() -> void:
 	var target := Vector3(0, 0.6 + (1.0 if game.state and game.state.def.get("storeys", false) else 0.0), -0.4)
 	if _args.has("focus_hero") and game.motor:
 		target = game.hero.global_position + Vector3(0, 0.55, 0)
+	if _args.has("target"):  # documentation close-ups, e.g. --target=2.4,1.0,-3.6
+		var t: PackedFloat64Array = str(_args.target).split_floats(",")
+		target = game.to_global(Vector3(t[0], t[1], t[2]))
 	var dist := 15.5 / _cam_zoom
 	desktop_cam.position = target + Vector3(sin(_cam_yaw) * cos(_cam_pitch), sin(_cam_pitch), cos(_cam_yaw) * cos(_cam_pitch)) * dist
 	desktop_cam.look_at(target)
@@ -563,7 +566,15 @@ func _screenshot() -> void:
 	for i in 20:
 		game.tick(1.0 / 60.0, Vector2.ZERO)
 		await get_tree().process_frame
+	if _args.has("wear"):  # documentation shot of wardrobe items, e.g. --wear=bisht,glasses
+		for id in str(_args.wear).split(","):
+			var it := Wardrobe.item(id)
+			if not it.is_empty():
+				Save.wearing[it.slot] = id
+		game.hero.apply_wardrobe()
 	if _args.has("celebrate"):  # documentation shot of the level-complete panel
+		if game.state.def.get("finale", false):
+			game.life.ardah(game.state.def)
 		game.celebration.play(game.state.def, game.level, int(game.state.def.get("par", 0)), 3, true)
 		for i in 90:
 			game.tick(1.0 / 60.0, Vector2.ZERO)

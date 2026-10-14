@@ -78,6 +78,7 @@ func _ready() -> void:
 		if face:
 			for i in face.mesh.get_blend_shape_count():
 				_shape[str(face.mesh.get_blend_shape_name(i))] = i
+		apply_wardrobe()
 	else:
 		_fallback = true
 		model = Node3D.new()
@@ -85,6 +86,42 @@ func _ready() -> void:
 		Kit.add(model, Kit.cylinder(0.13, 0.15, 0.85, 14), Kit.mat("plaster_top"), Vector3(0, 0.45, 0))
 		Kit.add(model, Kit.sphere(0.17, 14), Kit.mat("wood_light"), Vector3(0, 1.05, 0))
 	shadow = Kit.add(self, Kit.box(Vector3(0.6, 0.002, 0.5)), Kit.mat("shadow_blob"), Vector3(0, 0.0, 0), false)
+
+
+## Dress the hero from Save.wearing: shows the bisht, glasses or beads, swaps the
+## shemagh for a white ghutra, the agal for a gold-threaded one, tints the thobe.
+func apply_wardrobe() -> void:
+	if model == null or _fallback:
+		return
+	var w: Dictionary = Save.wearing
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var n := String(mi.name)
+		if n.begins_with("Bisht"):
+			mi.visible = w.get("bisht", "") == "bisht"
+		elif n.begins_with("Glasses"):
+			mi.visible = w.get("glasses", "") == "glasses"
+		elif n.begins_with("Misbaha"):
+			mi.visible = w.get("misbaha", "") == "misbaha"
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var base := mi.mesh.surface_get_material(i) as StandardMaterial3D
+			if base == null:
+				continue
+			var mat_name := base.resource_name
+			var over: StandardMaterial3D = null
+			if mat_name.begins_with("shemagh") and w.get("head", "") == "ghutra":
+				over = base.duplicate()
+				over.albedo_texture = load("res://assets/character/wardrobe/%s.png" % ("ghutra_border" if mat_name == "shemagh_border" else "ghutra"))
+				over.normal_enabled = false
+			elif mat_name == "agal" and w.get("agal", "") == "agal_gold":
+				over = base.duplicate()
+				over.albedo_texture = load("res://assets/character/wardrobe/agal_gold.png")
+				over.metallic = 0.35
+			elif mat_name.begins_with("thobe") and Wardrobe.THOBE_TINTS.has(w.get("thobe", "")):
+				over = base.duplicate()
+				over.albedo_color = Wardrobe.THOBE_TINTS[w.thobe]
+			mi.set_surface_override_material(i, over)
 
 
 func _build_carry() -> void:

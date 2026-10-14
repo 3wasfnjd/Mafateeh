@@ -388,6 +388,70 @@ def build_thobe():
     return pt
 
 
+# ---- Wardrobe pieces (hidden unless worn; HeroView shows them) -------------------------
+def build_bisht():
+    """Bisht: a dark wool cloak worn open over the thobe, gold zari along the front
+    edges, loose half-sleeves over the upper arms."""
+    pt = Part("Bisht")
+    zs = [0.30, 0.34, 0.40, 0.47, 0.54, 0.61, 0.68, 0.735, 0.775, 0.805, 0.828, 0.846, 0.862, 0.876]
+    n = 34
+    rows = []
+    for z in reversed(zs):
+        # the front opening narrows toward the neck
+        open_half = math.radians(lerp(30, 16, smooth(0.55, 0.87, z)))
+        row = []
+        for j in range(n + 1):
+            th = lerp(open_half, 2 * math.pi - open_half, j / n)
+            p = thobe_point(th, z, folds=False)
+            out = V((p.x, p.y, 0)).normalized()
+            # Under the shemagh (upper back and shoulders) the cloak lies close to the thobe
+            # so the shemagh's flap and drape stay on top of it.
+            under = smooth(0.66, 0.74, z) * (0.6 + 0.4 * smooth(1.2, 0.4, abs(th - math.pi)))
+            flare = lerp(0.012, 0.0035, under) + 0.03 * smooth(0.62, 0.30, z) + 0.004 * math.sin(th * 7) * smooth(0.6, 0.3, z)
+            row.append(p + out * flare + V((0, 0, 0.004 * smooth(0.8, 0.88, z))))
+        rows.append(row)
+    pt.grid(rows, "bisht", uvf=lambda u, v: (u * 3.0, v * 3.0), flip=True)
+    # Gold zari trim down both front edges and along the hem.
+    for edge in (0, n):
+        pt.tube([rows[i][edge] for i in range(len(rows))], lambda t, a: 0.0055, "zari", segs=8, cap0=False, cap1=False)
+    pt.tube(rows[-1], lambda t, a: 0.004, "zari", segs=6, cap0=False, cap1=False)
+    # Loose half-sleeves over the upper arms.
+    for s in (1, -1):
+        pts = sleeve_path(s)
+        path = [catmull(pts, i / 10 * 0.62) for i in range(11)]
+        pt.tube(path, lambda t, a: lerp(0.052, 0.068, t), "bisht", segs=14, cap0=False, cap1=False)
+        pt.tube([catmull(pts, 0.62 - 0.002), catmull(pts, 0.62)], lambda t, a: 0.069, "zari", segs=14, cap0=False, cap1=False)
+    return pt
+
+
+def build_glasses():
+    """Round reading spectacles, in head space (scaled with the head)."""
+    pt = Part("Glasses")
+    for s in (1, -1):
+        e = EYE_C[s] + V((0, -0.028, -0.002))
+        ring = [e + V((0.025 * math.cos(a), 0.003 * math.sin(a) * s, 0.022 * math.sin(a))) for a in [2 * math.pi * i / 24 for i in range(25)]]
+        pt.tube(ring, lambda t, a: 0.0022, "glasses", segs=6, cap0=False, cap1=False)
+        # temple arm back into the shemagh
+        pt.tube([e + V((s * 0.025, 0.0, 0.004)), e + V((s * 0.05, 0.03, 0.006)), e + V((s * 0.07, 0.07, 0.008))], lambda t, a: 0.0018, "glasses", segs=5)
+    bridge = [EYE_C[1] + V((-0.014, -0.03, 0.004)), V((0.0, -0.118, EYE_C[1].z + 0.009)), EYE_C[-1] + V((0.014, -0.03, 0.004))]
+    pt.tube([catmull(bridge, i / 6) for i in range(7)], lambda t, a: 0.002, "glasses", segs=5)
+    return pt
+
+
+def build_misbaha():
+    """Prayer beads looped over the left hand's fingers, with a tassel."""
+    pt = Part("Misbaha")
+    c = V((0.204, -0.03, 0.352))
+    nb = 25
+    for i in range(nb):
+        a = 2 * math.pi * i / nb
+        p = c + V((0.0, 0.03 * math.sin(a), 0.038 * math.cos(a)))
+        pt.sphere(lambda d, p=p: p + d * 0.0058, "misbaha", nu=6, nv=5)
+    tip = c + V((0, 0, -0.045))
+    pt.tube([tip, tip + V((0, 0, -0.03))], lambda t, a: 0.004 * (1 - t) + 0.006 * t, "zari", segs=6)
+    return pt
+
+
 def sleeve_path(s):
     return [V((s * 0.060, 0.004, 0.812)), V((s * 0.100, 0.004, 0.826)), V((s * 0.128, 0.004, 0.79)),
             V((s * 0.148, 0.004, 0.70)), V((s * 0.160, 0.003, 0.626)), V((s * 0.172, -0.004, 0.56)),
@@ -963,6 +1027,10 @@ def make_materials(tex):
     mat("wood", (1, 1, 1), 0.5, image=tex["wood"], spec=0.45)
     mat("brass", srgb("#b8893c"), 0.3, spec=0.9)
     mat("sandal", srgb("#5a3622"), 0.6, image=tex["leather"])
+    mat("bisht", srgb("#2a2018"), 0.85, sheen=0.5)
+    mat("zari", srgb("#c9a04a"), 0.35, spec=0.8)
+    mat("glasses", srgb("#3a2f28"), 0.3, spec=0.7)
+    mat("misbaha", srgb("#7a2d22"), 0.25, spec=0.6)
 
 
 # --------------------------------------------------------------------------------------
@@ -1446,6 +1514,14 @@ def main():
     ch, _ = bone_pts("CaneArm")
     xf = Matrix.Translation(ch + V((0.0, 0.0, -0.0)) - HAND_GRIP + V((0, 0.006, -0.002)))
     cane_arm = mk(build_cane("CaneArm", HAND_GRIP, xform=xf), ["wood", "brass"], w_cane_arm, sub=1)
+    bisht = join([mk(build_bisht(), ["bisht", "zari"], lambda q: w_sleeve(q) if abs(q.x) > 0.105 and q.z > 0.6 and q.z < 0.84 else w_torso(q), sub=1, solid=0.004)], "Bisht")
+    glasses = mk(build_glasses(), ["glasses"], w_head, sub=0, head=True)
+    glasses.name = "Glasses"
+    misbaha = mk(build_misbaha(), ["misbaha", "zari"], lambda q: {"Hand.L": 1.0}, sub=0)
+    misbaha.name = "Misbaha"
+    wardrobe = [bisht, glasses, misbaha]
+    for o in wardrobe:
+        o.hide_render = True  # worn only when chosen in the wardrobe
     for o in (body_obj, thobe, shemagh, cane, cane_arm):
         print("%s: %d verts, %d tris" % (o.name, len(o.data.vertices), sum(len(p.vertices) - 2 for p in o.data.polygons)))
     os.makedirs(SRC, exist_ok=True)
@@ -1458,7 +1534,7 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(SRC, "shaib.blend"))
     print("saved", os.path.join(SRC, "shaib.blend"))
     if GAME:
-        export_glb(arm, [body_obj, thobe, shemagh, cane, cane_arm])
+        export_glb(arm, [body_obj, thobe, shemagh, cane, cane_arm] + wardrobe)
 
 
 def export_glb(arm, meshes):

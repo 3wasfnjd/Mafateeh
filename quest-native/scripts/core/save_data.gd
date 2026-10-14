@@ -12,6 +12,7 @@ var unlocked_level := 1
 var completed := {}  # level -> true
 var stars := {}  # level -> best stars (1..3)
 var secrets := {}  # level -> true when its secret gem was found
+var wearing := {}  # wardrobe slot -> item id (see Wardrobe.ITEMS)
 var master_volume := 0.8
 var muted := false
 var mode := "mr"  # "mr" (passthrough) | "vr"
@@ -63,6 +64,13 @@ func load_data() -> void:
 		for k in se:
 			if int(k) >= 1 and int(k) <= LevelData.COUNT and se[k]:
 				secrets[int(k)] = true
+	wearing = {}
+	var wr: Variant = cfg.get_value("progress", "wearing", {})
+	if wr is Dictionary:
+		for slot in wr:
+			var it := Wardrobe.item(str(wr[slot]))
+			if not it.is_empty() and it.slot == slot:
+				wearing[slot] = it.id
 	master_volume = clampf(float(cfg.get_value("settings", "volume", 0.8)), 0.0, 1.0)
 	muted = bool(cfg.get_value("settings", "muted", false))
 	mode = str(cfg.get_value("settings", "mode", "mr"))
@@ -94,6 +102,7 @@ func save() -> void:
 	cfg.set_value("progress", "completed", completed)
 	cfg.set_value("progress", "stars", stars)
 	cfg.set_value("progress", "secrets", secrets)
+	cfg.set_value("progress", "wearing", wearing)
 	cfg.set_value("settings", "volume", master_volume)
 	cfg.set_value("settings", "muted", muted)
 	cfg.set_value("settings", "mode", mode)
@@ -177,6 +186,23 @@ func total_secrets() -> int:
 	return secrets.size()
 
 
+func wardrobe_unlocked(it: Dictionary) -> bool:
+	return Wardrobe.is_unlocked(it, total_stars(), total_secrets()) or dev_tools_available()
+
+
+## Put an item on (or take it off when already worn). Returns false if still locked.
+func toggle_wear(id: String) -> bool:
+	var it := Wardrobe.item(id)
+	if it.is_empty() or not wardrobe_unlocked(it):
+		return false
+	if wearing.get(it.slot, "") == id:
+		wearing.erase(it.slot)
+	else:
+		wearing[it.slot] = id
+	save()
+	return true
+
+
 func is_completed(level: int) -> bool:
 	return completed.has(level)
 
@@ -187,4 +213,5 @@ func reset_progress() -> void:
 	completed = {}
 	stars = {}
 	secrets = {}
+	wearing = {}
 	save()

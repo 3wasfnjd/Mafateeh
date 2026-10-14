@@ -190,3 +190,25 @@ def paint_all(out):
     lt = _hex("#5c3823")[None, None] * (0.85 + 0.25 * _noise(n, 5, 15, 8)[..., None])
     t["leather"] = _save(out, "shaib_leather.png", lt)
     return t
+
+
+def paint_wardrobe(out):
+    """Wardrobe variants loaded by HeroView at runtime: white ghutra and its hem,
+    gold-threaded agal («عقال مقصّب»)."""
+    os.makedirs(out, exist_ok=True)
+    n = 512
+    yy, xx = np.mgrid[0:n, 0:n] / n
+    weave = (0.5 + 0.5 * np.sin(xx * np.pi * 2 * 200)) * (0.5 + 0.5 * np.sin(yy * np.pi * 2 * 200))
+    white = _hex("#f6f4ee")
+    g = white[None, None] * (0.93 + 0.06 * weave[..., None] + 0.03 * _noise(n, 3, 31, 8)[..., None])
+    t = {"ghutra": _save(out, "ghutra.png", g)}
+    b = np.ones((n, n, 3)) * white
+    stripe = (np.abs(((xx * 2) % 1) - 0.5) < 0.04)
+    b = np.where(stripe[..., None], _hex("#dcd6c8"), b) * (0.94 + 0.06 * weave[..., None])
+    t["ghutra_border"] = _save(out, "ghutra_border.png", b)
+    tw = 0.5 + 0.5 * np.sin((xx * 3 + yy) * np.pi * 2 * 6)
+    gold = (np.abs(((yy * 14 + xx * 2) % 1) - 0.5) < 0.08)
+    ag = _hex("#1b191d")[None, None] * (0.75 + 0.6 * tw[..., None])
+    ag = np.where(gold[..., None], _hex("#d6a548")[None, None] * (0.8 + 0.3 * tw[..., None]), ag)
+    t["agal_gold"] = _save(out, "agal_gold.png", ag)
+    return t

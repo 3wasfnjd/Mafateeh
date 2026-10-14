@@ -138,6 +138,18 @@ for job in jobs:
                 "pose_walk": {"smile": 0.35}}.get(fn, {}))
         for name, yaw in (("front", 0), ("three_quarter", 35), ("side", 90)):
             shot(fn + "_" + name, yaw)
+    elif job == "wardrobe":
+        apply_pose("pose_stand")
+        keys(smile=0.4)
+        for name in ("Bisht", "Glasses", "Misbaha"):
+            if name in bpy.data.objects:
+                bpy.data.objects[name].hide_render = False
+        for name, yaw in (("wardrobe_front", 10), ("wardrobe_three_quarter", 40), ("wardrobe_back", 160)):
+            shot(name, yaw)
+        shot("wardrobe_face", 18, 4, target=(0, -0.03, 1.06), dist=4.2, lens=330, res=(560, 600))
+        for name in ("Bisht", "Glasses", "Misbaha"):
+            if name in bpy.data.objects:
+                bpy.data.objects[name].hide_render = True
     elif job.startswith("strip="):
         clip, n, yaw = job[6:].split(":")
         act = bpy.data.actions[clip]

@@ -17,6 +17,7 @@ var view: LevelView
 var hero: HeroView
 var falcon: FalconCompanion
 var celebration: Celebration
+var life: LifeLayer
 var transition := 0.0  # 0 = visible, 1 = faded out
 var _pending_level := -1
 var _fade_dir := 0.0
@@ -44,6 +45,10 @@ func _ready() -> void:
 	falcon.name = "Shaheen"
 	add_child(falcon)
 	falcon.setup(self)
+	life = LifeLayer.new()
+	life.name = "Life"
+	add_child(life)
+	life.setup(self)
 	marker = Kit.add(self, Kit.torus(0.1, 0.13), Kit.mat("glow"), Vector3.ZERO, false)
 	marker.visible = false
 
@@ -72,6 +77,7 @@ func load_level(n: int) -> void:
 	hero.reset(motor)
 	falcon.reset()
 	celebration.hide_now()
+	life.build(level, state.def)
 	_was_solved = state.solved
 	history.clear()
 	moves = 0
@@ -125,6 +131,8 @@ func _on_push_finished(_i: int) -> void:
 func _on_exit_started() -> void:
 	feedback.emit("exit", _w(Vector2(LevelData.exit_x(state.def), -3.6)))
 	last_stars = LevelData.stars(state.def, moves)
+	if state.def.get("finale", false):
+		life.ardah(state.def)
 	celebration.play(state.def, level, moves, last_stars, state.has_secret())
 
 

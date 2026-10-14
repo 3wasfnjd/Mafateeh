@@ -41,6 +41,7 @@ var _toast: Label3D
 var _toast_t := 0.0
 var _card: Label3D
 var _card_t := 0.0
+var _story: Label3D  # chapter story beat under the level card on a chapter's first level
 var _title_taps := 0
 var _info: Label3D
 var _info_default := ""
@@ -79,6 +80,12 @@ func setup(m: Node) -> void:
 	_card.visible = false
 	main.board.add_child(_card)
 	_card.pixel_size = 0.012
+	_story = _label("", 0.0062)
+	_story.visible = false
+	_story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_story.width = 950.0
+	_story.modulate = Color("ffe2a8")
+	main.board.add_child(_story)
 	_sting = AudioStreamPlayer.new()
 	_sting.stream = load("res://audio/sfx/intro_sting.wav")
 	_sting.volume_db = -3.0
@@ -248,6 +255,7 @@ func open_page(p: String) -> void:
 func _page_width() -> float:
 	match _page:
 		"levels": return 0.52
+		"wardrobe": return 0.56
 		"start": return 0.58
 		"audio", "controls", "display", "atmosphere": return 0.54
 	return 0.44
@@ -264,6 +272,7 @@ func _rebuild() -> void:
 		"start": rows = _start_rows()
 		"levels": rows = _level_rows()
 		"hint": rows = _hint_rows()
+		"wardrobe": rows = _wardrobe_rows()
 		"audio", "controls", "display", "atmosphere": rows = _settings_rows()
 		"reset": rows = _reset_rows()
 		"credits": rows = _credit_rows()
@@ -456,7 +465,8 @@ func _main_rows() -> Array:
 		_dir([_nav_item(T("السابقة", "Previous"), prev, "next" if Save.arabic() else "prev"),
 			{"text": T("المراحل", "Levels"), "icon": "levels", "w": 1.3, "action": func(): open_page("levels")},
 			_nav_item(T("التالية", "Next"), next, "prev" if Save.arabic() else "next")]),
-		_dir([{"text": T("الإعدادات", "Settings"), "icon": "settings", "action": func(): open_page("audio")},
+		_dir([{"text": T("الخزانة", "Wardrobe"), "icon": "star", "action": func(): open_page("wardrobe")},
+			{"text": T("الإعدادات", "Settings"), "icon": "settings", "action": func(): open_page("audio")},
 			{"text": T("حول اللعبة", "About"), "icon": "about", "action": func(): open_page("credits")}]),
 	]
 	if Save.dev_tools_available():
@@ -503,6 +513,38 @@ func _hint_rows() -> Array:
 		foot.append({"text": names[tier], "icon": "hint", "action": func(): g.hint_tier = tier + 1; _rebuild()})
 	foot.append({"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close})
 	rows.append(_dir(foot))
+	return rows
+
+
+## Wardrobe: items unlocked by stars and secret gems; tap to wear or take off.
+func _wardrobe_rows() -> Array:
+	var rows: Array = [
+		{"text": T("خزانة الشايب", "The old man's wardrobe"), "icon": "star"},
+		{"text": T("النجوم %d من %d  ·  الجواهر السرية %d من %d", "Stars %d of %d  ·  secret gems %d of %d") % [
+			Save.total_stars(), Wardrobe.MAX_STARS, Save.total_secrets(), LevelData.COUNT], "small": true},
+	]
+	var row: Array = []
+	for it in Wardrobe.ITEMS:
+		var open: bool = Save.wardrobe_unlocked(it)
+		var worn: bool = Save.wearing.get(it.slot, "") == it.id
+		var label: String = it.ar if Save.arabic() else it.en
+		var cell := {"text": label if open else "%s · %s" % [label, Wardrobe.requirement(it, Save.arabic())], "small": true}
+		if not open:
+			cell["style"] = "locked"
+			cell["icon"] = "lock"
+		else:
+			cell["icon"] = "check" if worn else "star"
+			cell["style"] = "current" if worn else ""
+			var id: String = it.id
+			cell["action"] = func(): Save.toggle_wear(id); main.game.hero.apply_wardrobe(); _rebuild()
+		row.append(cell)
+		if row.size() == 2:
+			rows.append(_dir(row))
+			row = []
+	if not row.is_empty():
+		rows.append(_dir(row))
+	rows.append(_dir([{"text": T("رجوع", "Back"), "icon": "back", "action": func(): open_page("main")},
+		{"text": T("متابعة", "Resume"), "icon": "play", "style": "primary", "action": close}]))
 	return rows
 
 
@@ -803,6 +845,14 @@ func _show_card(n: int) -> void:
 	_card.position = Vector3(-0.5, LevelData.exit_y(d) + 2.6, -3.3)
 	_card.visible = true
 	_card_t = 3.0
+	var ch: Dictionary = LevelData.CHAPTERS[LevelData.chapter_of(n)]
+	_story.visible = n == int(ch.from)
+	if _story.visible:
+		_card.text = "%s  ·  %s\n%d  ·  %s" % [T("الفصل %d" % (LevelData.chapter_of(n) + 1), "Chapter %d" % (LevelData.chapter_of(n) + 1)), T(ch.ar, ch.en), n, _title(d)]
+		_card.position.y += 0.45
+		_story.text = T(ch.story_ar, ch.story_en)
+		_story.position = _card.position + Vector3(0, -1.05, 0.05)
+		_card_t = 6.5
 
 
 func show_credits() -> void:
@@ -822,3 +872,7 @@ func _process(delta: float) -> void:
 		_card.modulate.a = clampf(_card_t, 0.0, 1.0)
 		_card.outline_modulate.a = _card.modulate.a * 0.9
 		_card.visible = _card_t > 0.0
+		if _story.visible or _card_t <= 0.0:
+			_story.modulate.a = _card.modulate.a
+			_story.outline_modulate.a = _card.outline_modulate.a
+			_story.visible = _story.visible and _card_t > 0.0
