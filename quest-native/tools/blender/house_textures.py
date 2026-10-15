@@ -10,8 +10,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 # sampled from the tower's base colour (sRGB): plaster mid tone, light, brick, shadow
-PLASTER = np.array([204, 128, 56], float)
-PLASTER_HI = np.array([224, 148, 70], float)
+PLASTER = np.array([212, 140, 68], float)
+PLASTER_HI = np.array([228, 156, 82], float)
 BRICK = np.array([178, 104, 42], float)
 SHADOW = np.array([128, 66, 22], float)
 
@@ -29,11 +29,19 @@ def tile_noise(n, seed, octaves=(4, 8, 16, 32, 64), falloff=1.7):
     return acc / acc.max()
 
 
+def wrap_blur(a, radius):
+    """Gaussian blur that wraps at the edges (keeps the texture tileable)."""
+    n = a.shape[0]
+    big = np.tile(a, (3, 3))
+    im = Image.fromarray(np.clip(big * 255, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius))
+    return np.asarray(im, float)[n:2 * n, n:2 * n] / 255
+
+
 def shift(a, dy, dx):
     return np.roll(np.roll(a, dy, 0), dx, 1)
 
 
-def mud_wall(n=1024, seed=3, metres=2.0):
+def mud_wall(n=2048, seed=3, metres=4.0):
     """Plaster with brick patches. One tile covers `metres`; bricks are about 28 x 9 cm."""
     rng = np.random.default_rng(seed)
     px = n / metres
@@ -57,10 +65,16 @@ def mud_wall(n=1024, seed=3, metres=2.0):
     mid = tile_noise(n, seed + 2, octaves=(16, 32, 64, 128), falloff=1.4)
     plaster = PLASTER * (0.9 + 0.14 * big[..., None]) * (0.95 + 0.08 * mid[..., None])
     pits = tile_noise(n, seed + 11, octaves=(128, 256, 512), falloff=1.1)
+    lumps = wrap_blur(tile_noise(n, seed + 13, octaves=(8, 16, 32, 64), falloff=1.45), 6)
+    lumps_lit = lumps - shift(lumps, 10, 0)  # light from above: lumps lit on top, shaded below
+    plaster = plaster * (1 + 1.5 * lumps_lit[..., None])
     plaster = plaster * (1 - 0.08 * (pits[..., None] > 0.78)) + 6 * (fine[..., None] - 0.5)
     # where the plaster has fallen: a blotchy mask, edges ragged
     m = tile_noise(n, seed + 3, octaves=(4, 8, 16, 32, 64, 128), falloff=1.55)
-    holes = m < 0.33
+    # more brick shows near the ground (bottom of the tile = foot of a 4 m wall)
+    v = 1.0 - yy / n
+    foot = np.clip(1.0 - v / 0.22, 0, 1) ** 1.5
+    holes = m < 0.27 + 0.22 * foot
     out = np.where(holes[..., None], brick, plaster)
     # baked relief: plaster edge lit on top, shadow on the brick just below it
     h = holes.astype(float)
@@ -72,7 +86,7 @@ def mud_wall(n=1024, seed=3, metres=2.0):
     # hairline cracks
     im = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
     d = ImageDraw.Draw(im)
-    for _ in range(9):
+    for _ in range(22):
         x, y = rng.random(2) * n
         a = rng.random() * np.pi
         for _ in range(rng.integers(6, 14)):
@@ -136,17 +150,30 @@ def door(w=256, h=512, seed=6):
 
 
 def clean_tower_texture(src, dst, size=2048):
-    """Removes the red specks Tripo left in the tower texture (pure red against orange mud)."""
+    """Removes the red specks and lines Tripo left in the tower texture. Mud is orange (hue
+    about 22-30 degrees); the specks are a saturated red (hue under 17). They are refilled from
+    the surrounding good pixels; also a reddish fringe along some seams and a yellow speck (normalised blur, widening until every speck is filled)."""
     a = np.asarray(Image.open(src).convert("RGB")).astype(float)
-    r, g = a[..., 0], a[..., 1]
-    bad = (r > 120) & (g / np.maximum(r, 1) < 0.42)
-    bad = np.asarray(Image.fromarray((bad * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5))) > 0
-    blur = np.asarray(Image.fromarray(a.astype(np.uint8)).filter(ImageFilter.MedianFilter(15)), float)
-    # fill specks from the median of their surroundings (twice, for larger blobs)
-    a[bad] = blur[bad]
-    blur = np.asarray(Image.fromarray(a.astype(np.uint8)).filter(ImageFilter.MedianFilter(9)), float)
-    a[bad] = blur[bad]
-    im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    mx, mn = a.max(-1), a.min(-1)
+    hue = np.where(mx == r, 60 * (g - b) / np.maximum(mx - mn, 1), 99)
+    sat = (mx - mn) / np.maximum(mx, 1)
+    bad = ((hue < 17) & (sat > 0.55) & (r > 90)) | ((hue < 22) & (sat > 0.6) & (r > 140))
+    bad |= (hue > 40) & (hue < 75) & (sat > 0.7) & (r > 200)  # one bright yellow speck
+    bad = np.asarray(Image.fromarray((bad * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(7))) > 0
+    good = (~bad).astype(float)
+    out = a.copy()
+    todo = bad.copy()
+    for radius in (3, 6, 12, 24, 48):
+        if not todo.any():
+            break
+        num = np.stack([np.asarray(Image.fromarray(np.clip(a[..., c] * good, 0, 255).astype(np.uint8))
+                                   .filter(ImageFilter.BoxBlur(radius)), float) for c in range(3)], -1)
+        den = np.asarray(Image.fromarray((good * 255).astype(np.uint8)).filter(ImageFilter.BoxBlur(radius)), float) / 255
+        ok = todo & (den > 0.2)
+        out[ok] = num[ok] / den[ok][:, None]
+        todo &= ~ok
+    im = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
     if im.size[0] != size:
         im = im.resize((size, size), Image.LANCZOS)
     im.save(dst, quality=90)
@@ -155,7 +182,7 @@ def clean_tower_texture(src, dst, size=2048):
 
 def write_all(out):
     os.makedirs(out, exist_ok=True)
-    mud_wall().save(os.path.join(out, "house_wall.png"))
+    mud_wall().save(os.path.join(out, "house_wall.jpg"), quality=88)
     mud_top().save(os.path.join(out, "house_top.png"))
     wood().save(os.path.join(out, "house_wood.png"))
     door().save(os.path.join(out, "house_door.png"))

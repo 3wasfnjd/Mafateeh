@@ -1,4 +1,4 @@
-"""WORK IN PROGRESS (not run yet; waiting for the owner to approve the tower). Mafateeh house kit, built to match the owner's sandstone tower.
+"""Mafateeh house kit, built to match the owner's sandstone tower.
 
 Pieces (one GLB each in assets/world/house/, metres, origin on the ground, front = -Y in
 Blender = +Z in Godot). Walls run 4 m along X so they snap edge to edge:
@@ -15,7 +15,7 @@ Blender = +Z in Godot). Walls run 4 m along X so they snap edge to edge:
   bench        mud bench (dakka) to sit by the door
 and house_sample.glb: all of the above put together as one courtyard house, with palms.
 
-Usage: python3 tools/blender/build_house.py [-- out_dir]
+Usage: python3 tools/blender/build_house.py [-- out_dir|- [piece ...]]   (default pieces: tower wall)
 Deterministic. Textures come from house_textures.py and are embedded (JPEG).
 """
 import math
@@ -33,7 +33,7 @@ import house_textures as HT  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-OUT = os.path.abspath(ARGS[0]) if ARGS else os.path.join(ROOT, "assets", "world", "house")
+OUT = os.path.abspath(ARGS[0]) if ARGS and ARGS[0] != "-" else os.path.join(ROOT, "assets", "world", "house")
 TEX = os.path.join(ROOT, "art_source", "world", "textures")
 TOWER_SRC = os.path.join(ROOT, "art_source", "world", "sandstone_tower.usdz")
 PALM = os.path.join(ROOT, "assets", "world", "palm.glb")
@@ -72,7 +72,7 @@ def mat(name, img=None, color=(1, 1, 1), rough=0.95):
     return m
 
 
-WALL = mat("house_wall", "house_wall")
+WALL = mat("house_wall", os.path.join(TEX, "house_wall.jpg"))
 TOP = mat("house_top", "house_top")
 WOOD = mat("house_wood", "house_wood", rough=0.85)
 DOOR = mat("house_door", "house_door", rough=0.8)
@@ -158,12 +158,12 @@ def rounded_rect(sx, sy, r, step=0.4):
 
 
 def mud_solid(name, sx, sy, h, r=0.18, taper_x=0.0, taper_y=WALL_TAPER, top_round=0.08,
-              horn=None, seed=0, disp=0.04):
+              horn=None, seed=0, disp=0.04, subdiv=1, step=0.4, levels=(0.0, 0.06, 0.3, 0.55, 0.8, 0.94, 1.0),
+              tile=2.0):
     """A mud mass: rounded-rectangle footprint, faces leaning in by taper_*, soft rounded top.
     horn(x, y) -> extra height lets the top rise (corner horns)."""
-    ring = rounded_rect(sx, sy, r)
+    ring = rounded_rect(sx, sy, r, step)
     bm = bmesh.new()
-    levels = (0.0, 0.06, 0.3, 0.55, 0.8, 0.94, 1.0)
 
     def at(p, lv, extra=0.0):
         ix = taper_x * lv + extra
@@ -185,7 +185,7 @@ def mud_solid(name, sx, sy, h, r=0.18, taper_x=0.0, taper_y=WALL_TAPER, top_roun
     bm.faces.new(rings[0][::-1])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     o = obj_from_bm(bm, name, WALL)
-    return soften(o, disp=disp, seed=seed)
+    return soften(o, subdiv=subdiv, disp=disp, seed=seed, tile=tile)
 
 
 def box(name, size, at, m, rot=None, bevel=0.0, tile=1.0):
@@ -263,13 +263,30 @@ def join(objs, name):
 
 # --- pieces -----------------------------------------------------------------------------
 
+WALL_LEVELS = tuple(i / 12 for i in range(13))
+
+
+def wall_horn(x, y):
+    """The top of a wall rises a little towards both ends, like the tower's corners."""
+    d = abs(x) - (WALL_LEN / 2 - 0.45)
+    t = max(0.0, d / 0.45)
+    return 0.2 * (3 * t * t - 2 * t * t * t)  # smooth rise
+
+
+def mud_wall(name, seed):
+    """Flat-faced mud wall (no subdivision, so it stays a wall and not a cushion), slightly
+    wavy faces, soft vertical edges, ends that rise a little."""
+    return mud_solid(name, WALL_LEN + 0.04, WALL_T, WALL_H, r=0.1, top_round=0.06, horn=wall_horn,
+                     seed=seed, disp=0.06, subdiv=0, step=0.2, levels=WALL_LEVELS, tile=4.0)
+
+
 def p_wall(seed=1):
-    return mud_solid("wall", WALL_LEN + 0.04, WALL_T, WALL_H, seed=seed)
+    return mud_wall("wall", seed)
 
 
 def p_wall_door():
     w, h = 1.25, 2.3
-    parts = [mud_solid("wall_door", WALL_LEN + 0.04, WALL_T, WALL_H, seed=2)]
+    parts = [mud_wall("wall_door", 2)]
     parts.append(recess("door_recess", 0, 0, w, h))
     parts.append(frame("door_frame", 0, 0, w, h, depth=0.08, border=0.16))
     y = wall_face_y(h)
@@ -294,7 +311,7 @@ def p_wall_door():
 
 
 def p_wall_window():
-    parts = [mud_solid("wall_window", WALL_LEN + 0.04, WALL_T, WALL_H, seed=3)]
+    parts = [mud_wall("wall_window", 3)]
     for cx in (-0.95, 0.95):
         w, h, z0 = 0.55, 0.65, 2.25
         parts.append(recess("win_recess", cx, z0, w, h))
@@ -504,58 +521,32 @@ def place(src, at, yaw=0.0, name=None):
 
 
 def main():
+    """Builds the pieces named on the command line (default: tower and wall) and a small
+    preview scene, house_preview.glb, with them standing side by side on sand."""
+    names = [a for a in ARGS[1:] if not a.startswith("--")] or ["tower", "wall"]
+    makers = {"wall": p_wall, "wall_door": p_wall_door, "wall_window": p_wall_window,
+              "corner": p_corner, "crenels": p_crenels, "beams": p_beams,
+              "stairs": p_stairs, "bench": p_bench, "tower": p_tower}
     pieces = {}
-    makers = [("wall", p_wall), ("wall_door", p_wall_door), ("wall_window", p_wall_window),
-              ("corner", p_corner), ("crenels", p_crenels), ("beams", p_beams),
-              ("stairs", p_stairs), ("bench", p_bench), ("tower", p_tower)]
-    for name, fn in makers:
-        o = fn()
+    for name in names:
+        o = makers[name]()
         pieces[name] = o
         export([o], name)
         o.hide_set(True)
         o.hide_render = True
-
-    # --- sample courtyard house: 12 x 12 m, door in the front (-Y), tower at the front right
-    S = 6.0
     placed = []
     ground = bmesh.new()
-    bmesh.ops.create_grid(ground, x_segments=1, y_segments=1, size=22)
+    bmesh.ops.create_grid(ground, x_segments=1, y_segments=1, size=12)
     uv_box(ground, 4.0)
     placed.append(obj_from_bm(ground, "Ground", SAND))
-    ring = [  # (piece, centre, yaw): yaw 0 faces -Y (outwards on the front)
-        ("wall", (-4.0, -S), 0), ("wall_door", (0.0, -S), 0),
-        ("wall_window", (-S, -4.0), -90), ("wall", (-S, 0.0), -90), ("wall_window", (-S, 4.0), -90),
-        ("wall", (-4.0, S), 180), ("wall_window", (0.0, S), 180), ("wall", (4.0, S), 180),
-        ("wall_window", (S, 4.0), 90), ("wall", (S, 0.0), 90),
-    ]
-    for name, (x, y), yaw in ring:
-        placed.append(place(pieces[name], (x, y, 0), yaw))
-        placed.append(place(pieces["crenels"], (x, y, WALL_H + 0.02), yaw))
-    for x, y in ((-S, -S), (-S, S), (S, S)):
-        placed.append(place(pieces["corner"], (x, y, 0)))
-    placed.append(place(pieces["tower"], (S - 1.5, -S + 1.5, 0), 0, "Tower"))
-    placed.append(place(pieces["beams"], (-4.0, -S, 0), 0))
-    placed.append(place(pieces["bench"], (-2.0, -S - 0.75, 0), 0))
-    placed.append(place(pieces["stairs"], (-2.2, S - 0.9, 0), 0))
-    for o in placed:
-        o.hide_set(False)
-        o.hide_render = False
-    # palms (the existing low-poly palm)
-    if os.path.exists(PALM):
-        for i, (x, y, s) in enumerate(((-9.0, -9.5, 1.35), (8.5, -10.5, 1.15), (-10.5, 3.0, 1.5), (2.5, 2.0, 1.4))):
-            before = set(bpy.data.objects)
-            bpy.ops.import_scene.gltf(filepath=PALM)
-            new = [o for o in bpy.data.objects if o not in before]
-            root = bpy.data.objects.new("Palm%d" % i, None)
-            sc.collection.objects.link(root)
-            for o in new:
-                if o.parent is None:
-                    o.parent = root
-            root.location = (x, y, 0)
-            root.scale = (s, s, s)
-            root.rotation_euler = (0, 0, i * 1.3)
-            placed.append(root)
-    export(placed, "house_sample")
+    if "tower" in pieces:  # the wall runs into the tower's left side, as on a house front
+        placed.append(place(pieces["tower"], (2.5, 0, 0)))
+    x = 0.0 - WALL_LEN / 2
+    for name in names:
+        if name != "tower":
+            placed.append(place(pieces[name], (x, -1.0, 0)))
+            x -= WALL_LEN
+    export(placed, "house_preview")
 
 
 main()
