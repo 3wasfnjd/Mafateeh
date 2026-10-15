@@ -73,7 +73,8 @@ def make_textures():
         im = Image.fromarray(a)
         if key in ("p4", "p8"):  # these need their alpha (vent holes)
             path = os.path.join(TEX, "kit_%s.png" % key)
-            im.save(path)
+            # 256-colour PNG keeps the alpha and is a third of the size
+            im.quantize(256, method=Image.Quantize.FASTOCTREE).save(path, optimize=True)
         else:
             path = os.path.join(TEX, "kit_%s.jpg" % key)
             im.convert("RGB").save(path, quality=88)

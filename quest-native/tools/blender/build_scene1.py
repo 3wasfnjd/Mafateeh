@@ -378,6 +378,21 @@ def rigged(path, at, yaw_deg, name, height=None):
     for o in new:
         if o.animation_data:
             o.animation_data.action = None
+    # the diorama is small on a table: drop the hidden wardrobe pieces and normal maps
+    for o in list(new):
+        if o.type == "MESH" and o.name.split(".")[0] in ("Bisht", "Glasses", "Misbaha", "CaneArm"):
+            new.remove(o)
+            bpy.data.objects.remove(o)
+    for o in new:
+        if o.type != "MESH":
+            continue
+        for m in o.data.materials:
+            if not (m and m.use_nodes):
+                continue
+            b = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if b:
+                for lk in list(b.inputs["Normal"].links):
+                    m.node_tree.links.remove(lk)
     root = bpy.data.objects.new(name, None)
     sc.collection.objects.link(root)
     for o in new:
@@ -439,7 +454,23 @@ def render(out):
     bpy.data.objects.remove(so)
 
 
+def shrink_images(limit=1024, small=512):
+    """Tabletop scale: no texture above 1024 px; character textures 512 px."""
+    for img in bpy.data.images:
+        if not img.has_data and img.source == "FILE":
+            try:
+                img.reload()
+            except RuntimeError:
+                continue
+        w, h = img.size
+        cap = small if img.name.lower().startswith(("shaib", "cat")) else limit
+        if max(w, h) > cap:
+            k = cap / max(w, h)
+            img.scale(max(1, int(w * k)), max(1, int(h * k)))
+
+
 def export():
+    shrink_images()
     lib = bpy.data.collections.get("lib")
     bpy.ops.object.select_all(action="DESELECT")
     for o in sc.collection.all_objects:
