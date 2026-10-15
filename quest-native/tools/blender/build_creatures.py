@@ -478,7 +478,8 @@ def main():
     bpy.context.scene.render.fps = FPS
     materials()
     build_falcon()
-    build_cat()
+    if "--placeholder-cat" in sys.argv:  # cat.glb now comes from tools/blender/import_cat.py
+        build_cat()
     build_sparrow()
     os.makedirs(SRC, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(SRC, "creatures_last.blend"))

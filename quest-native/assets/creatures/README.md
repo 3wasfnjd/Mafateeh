@@ -1,7 +1,9 @@
 # Creature slots — replacing the falcon, cat and sparrow models
 
-The current `falcon.glb`, `cat.glb` and `sparrow.glb` are placeholders built by
-`tools/blender/build_creatures.py`. To use a new model, **overwrite the file with the same
+The current `falcon.glb` and `sparrow.glb` are placeholders built by
+`tools/blender/build_creatures.py`. `cat.glb` is the owner's rigged cat
+(`art_source/creatures/cat_rigged.fbx`), converted by `tools/blender/import_cat.py`: it keeps the
+mesh, rig and run clip (as `walk`), paints flat colours and adds `sit` and `sleep` loops. To use a new model, **overwrite the file with the same
 name** and reopen the project in Godot (or run `godot --headless --import`). No code changes needed.
 
 | Slot | File | Size in game | Animation roles (any clip named like these) |
