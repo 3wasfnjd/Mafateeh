@@ -377,9 +377,8 @@ def life():
     for x, y, s, yaw in ((-5.4, 2.8, 0.75, 10), (-4.6, -11.6, 1.0, 30), (11.0, 9.0, 1.0, 200),
                          (-6.5, 10.6, 0.9, 120), (6.0, -11.6, 0.9, 300), (13.0, -5.0, 0.95, 0)):
         place(palm, (x, y, 0), yaw, s)
-    # the old man and his cat, just inside the gate
+    # the old man just inside the gate (cats, birds and the falcon are added live in the game: scripts/preview/diorama.gd)
     rigged(os.path.join(ROOT, "assets", "character", "shaib.glb"), (0.9, -4.4, 0), 0, "Shaib")
-    rigged(os.path.join(ROOT, "assets", "creatures", "cat.glb"), (1.75, -4.9, 0), 25, "Cat", height=0.3)
 
 
 def rigged(path, at, yaw_deg, name, height=None):
