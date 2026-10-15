@@ -212,6 +212,9 @@ def place(path, at, yaw_deg=0.0, scale=1.0, name=None):
             dup(ch, c)
     for r in roots:
         dup(r, group)
+    at = V(at)
+    if abs(at.z) < 1e-6:
+        at.z = float(dune_height(np.array(at.x), np.array(at.y)))
     group.location = at
     group.rotation_euler = (0, 0, math.radians(yaw_deg))
     group.scale = (scale, scale, scale)
@@ -226,15 +229,25 @@ def p(name):
     return os.path.join(PROPS, name + ".glb")
 
 
-def crenels_on(cx, cy, yaw, length=4.0, z=WALL_H, step=0.8, skip_ends=False):
+def crenels_on(cx, cy, yaw, length=4.0, z=WALL_H, step=0.8, keep=None):
+    """Crenels along a wall top; keep(x, y) can drop ones that would run into the tower or house."""
     a = math.radians(yaw)
     d = V((math.cos(a), math.sin(a), 0))
     n = int(round(length / step))
     for i in range(n):
         t = -length / 2 + (i + 0.5) * step
-        if skip_ends and (i == 0 or i == n - 1):
+        p = V((cx, cy, z)) + d * t
+        if keep and not keep(p.x, p.y):
             continue
-        place(k("crenel"), V((cx, cy, z)) + d * t, yaw)
+        place(k("crenel"), p, yaw)
+
+
+def clear_of_tower_and_house(x, y):
+    if x > GX - 2.75 and y < -GY + 2.75:      # the tower's corner
+        return False
+    if abs(x) < 3.4 and y > GY - 0.5:          # the house roof against the back wall
+        return False
+    return True
 
 
 def compound():
@@ -250,18 +263,18 @@ def compound():
     # front (-Y): wall, door, wall; tower on the right corner
     for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
         place(k(name), (x, -GY, 0), 0)
-        crenels_on(x, -GY, 0)
+        crenels_on(x, -GY, 0, keep=clear_of_tower_and_house)
     place(os.path.join(ROOT, "assets", "world", "house", "tower.glb"), (GX, -GY, 0), 180)
     # sides: front of each piece faces outwards
     for y in (-2.0, 2.0):
         place(k("wall"), (-GX, y, 0), -90)
         crenels_on(-GX, y, -90)
         place(k("wall"), (GX, y, 0), 90)
-        crenels_on(GX, y, 90)
+        crenels_on(GX, y, 90, keep=clear_of_tower_and_house)
     # back: the house stands against the middle of it
     for x in (-4.0, 0.0, 4.0):
         place(k("wall"), (x, GY, 0), 180)
-        crenels_on(x, GY, 180)
+        crenels_on(x, GY, 180, keep=clear_of_tower_and_house)
 
 
 def tile_mat():
@@ -335,35 +348,34 @@ def house():
         block("Rafter%d" % i, (0.12, 1.9, 0.1), (-2.4 + i * 0.8, -0.8, 3.07), wood, uv_full=True)
     straw = bpy.data.materials.new("scene1_straw")
     straw.use_nodes = True
-    straw.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.55, 0.40, 0.20, 1)
+    straw.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.36, 0.25, 0.13, 1)
     straw.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 1.0
     block("PorchRoof", (5.4, 2.1, 0.06), (0, -0.8, 3.15), straw)
 
 
 def life():
-    # camel camp outside, on the left
-    place(p("tent"), (-12.4, 1.2, 0), -90)
-    place(p("camel_standing"), (-11.6, -4.6, 0), 35)
-    place(p("camel_calf"), (-10.2, -6.0, 0), 60)
-    place(p("camel_kneeling"), (-13.3, 5.4, 0), -20)
-    place(p("camel_standing"), (-14.2, -1.8, 0), 100)
-    # sheep on the right
-    for x, y, yaw in ((11.6, 2.6, 10), (12.6, 4.0, -40), (13.2, 1.4, 70), (11.2, 5.2, 150)):
+    # camel camp outside on the left: the tent spans about x -14.4..-10.4, y -1.9..4.3
+    place(p("tent"), (-12.3, 1.2, 0), -90)
+    place(p("camel_standing"), (-11.4, -5.0, 0), 35)
+    place(p("camel_standing"), (-14.0, -3.6, 0), 75)
+    place(p("camel_calf"), (-10.0, -6.9, 0), 50)
+    place(p("camel_kneeling"), (-9.4, -9.6, 0), 20)  # on the flat sand, clear of the tent
+    # sheep on the right, spaced so none touch
+    for x, y, yaw in ((11.4, 1.8, 20), (12.8, 3.4, -30), (11.2, 4.6, 60), (13.0, 0.6, 100)):
         place(p("sheep"), (x, y, 0), yaw)
-    # hens in the courtyard
-    for x, y, yaw, kind in ((-4.6, -2.6, 20, "hen"), (-3.8, -3.6, 120, "hen"), (-5.4, -3.4, -60, "rooster")):
+    # hens in the courtyard, clear of the walls
+    for x, y, yaw, kind in ((-3.6, -1.6, 20, "hen"), (-2.6, -2.6, 140, "hen"), (-4.4, -2.8, -60, "rooster")):
         place(p(kind), (x, y, 0), yaw)
-    # crates and lanterns
-    place(p("crate"), (5.4, 2.6, 0), 10)
-    place(p("crate"), (6.2, 2.9, 0), -15)
-    place(p("crate"), (5.8, 2.75, 0.8), 30)
+    # crates side by side (none stacked)
+    place(p("crate"), (5.4, 2.4, 0), 8)
+    place(p("crate"), (6.4, 2.6, 0), -12)
     for x in (-1.4, 1.4):
         place(p("lantern"), (x, -GY - 0.7, 0), 0)
-    place(p("lantern"), (-1.0, -0.6, 0), 0)
+    place(p("lantern"), (-1.1, -0.55, 0), 0)
     # palms
     palm = os.path.join(ROOT, "assets", "world", "palm.glb")
-    for x, y, s, yaw in ((-6.4, -3.8, 0.8, 10), (-11.0, -10.0, 1.0, 30), (11.5, 9.0, 1.05, 200),
-                         (-12.8, 9.4, 0.95, 120), (6.5, -12.0, 0.9, 300), (-4.0, 12.2, 0.9, 0)):
+    for x, y, s, yaw in ((-5.4, 2.8, 0.75, 10), (-4.6, -11.6, 1.0, 30), (11.0, 9.0, 1.0, 200),
+                         (-6.5, 10.6, 0.9, 120), (6.0, -11.6, 0.9, 300), (13.0, -5.0, 0.95, 0)):
         place(palm, (x, y, 0), yaw, s)
     # the old man and his cat, just inside the gate
     rigged(os.path.join(ROOT, "assets", "character", "shaib.glb"), (0.9, -4.4, 0), 0, "Shaib")

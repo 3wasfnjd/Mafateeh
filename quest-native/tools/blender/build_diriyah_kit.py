@@ -189,13 +189,13 @@ def slab_wall(name, length, tops, front, back, tile, total_h, opening=None, flip
             for lp in f.loops:
                 lp[uv].uv = uvf(lp.vert.co.x, lp.vert.co.z, mirror)
             store.append(f)
-        # top strip
+        # top strip (faces up: the game culls back faces, so winding matters)
         vs = [bm.verts.new((xa, yF, za)), bm.verts.new((xb, yF, zb)), bm.verts.new((xb, yB, zb)), bm.verts.new((xa, yB, za))]
-        faces_tile.append(bm.faces.new(vs[::-1]))
-        # soffit over the opening
+        faces_tile.append(bm.faces.new(vs))
+        # soffit over the opening (faces down)
         if ba > 0:
             vs = [bm.verts.new((xa, yF, ba)), bm.verts.new((xb, yF, bb)), bm.verts.new((xb, yB, bb)), bm.verts.new((xa, yB, ba))]
-            faces_tile.append(bm.faces.new(vs))
+            faces_tile.append(bm.faces.new(vs[::-1]))
     # ends and opening jambs
     for x, z in (cols[0], cols[-1]):
         s = -1 if x < 0 else 1
@@ -345,6 +345,22 @@ def drop_bottoms(objs):
             bmesh.ops.delete(bm, geom=dead, context="FACES")
             bm.to_mesh(ob.data)
             bm.free()
+
+
+def check_outward(objs):
+    """Each face should point away from the piece's middle (or its own slab's middle line)."""
+    bad = 0
+    for o in objs:
+        for ob in [o] + list(o.children_recursive):
+            if ob.type != "MESH":
+                continue
+            me = ob.data
+            me.update()
+            for p in me.polygons:
+                n, c = p.normal, p.center
+                if abs(n.z) > 0.7 and c.z > 0.05 and n.z < 0 and not p.material_index == 2:
+                    bad += 1
+    return bad
 
 
 def export(objs, name):
