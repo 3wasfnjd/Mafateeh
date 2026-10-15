@@ -366,6 +366,11 @@ def life():
     # hens in the courtyard, clear of the walls
     for x, y, yaw, kind in ((-3.6, -1.6, 20, "hen"), (-2.6, -2.6, 140, "hen"), (-4.4, -2.8, -60, "rooster")):
         place(p(kind), (x, y, 0), yaw)
+    # the well, its channel and the basin it fills, in the left half of the courtyard
+    place(k("well"), (-5.6, -2.2, 0), 0)
+    for y in (-0.5, 1.5):
+        place(k("water_channel"), (-5.6, y, 0), 0)
+    place(k("water_basin"), (-5.6, 3.6, 0), 0)
     # crates side by side (none stacked)
     place(p("crate"), (5.4, 2.4, 0), 8)
     place(p("crate"), (6.4, 2.6, 0), -12)
@@ -374,7 +379,7 @@ def life():
     place(p("lantern"), (-1.1, -0.55, 0), 0)
     # palms
     palm = os.path.join(ROOT, "assets", "world", "palm.glb")
-    for x, y, s, yaw in ((-5.4, 2.8, 0.75, 10), (-4.6, -11.6, 1.0, 30), (11.0, 9.0, 1.0, 200),
+    for x, y, s, yaw in ((-7.1, 5.3, 0.75, 10), (-4.6, -11.6, 1.0, 30), (11.0, 9.0, 1.0, 200),
                          (-6.5, 10.6, 0.9, 120), (6.0, -11.6, 0.9, 300), (13.0, -5.0, 0.95, 0)):
         place(palm, (x, y, 0), yaw, s)
     # the old man just inside the gate (cats, birds and the falcon are added live in the game: scripts/preview/diorama.gd)

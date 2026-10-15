@@ -24,7 +24,7 @@ const CAT_WALK := [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)]  # along t
 const SPARROW_SPOTS := [
 	Vector3(-1.4, 0, 2.6), Vector3(-0.6, 0, 3.3), Vector3(2.2, 0, 3.0), Vector3(3.0, 0, 2.2),
 	Vector3(-2.0, 0, 9.0), Vector3(-2.7, 0, 9.8), Vector3(2.1, 0, 9.4), Vector3(2.8, 0, 10.4),
-	Vector3(-5.6, 0, -3.6), Vector3(4.2, 0, -4.4)]
+	Vector3(-4.0, 0, -0.5), Vector3(4.2, 0, -4.4)]
 const SPARROWS := 7
 const FALCON_CENTRE := Vector3(8.25, 0.0, 6.25)  # the tower
 const FALCON_RADIUS := 4.8
