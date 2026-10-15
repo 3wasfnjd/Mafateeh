@@ -357,7 +357,7 @@ func _process(dt: float) -> void:
 	if _walking:
 		_step(dt)
 	if follower and _walking:
-		var target := walker.position + walker.global_basis.z * 0.5
+		var target := walker.position + walker.basis.z.normalized() * 0.5
 		follower.position = follower.position.lerp(target, clampf(dt * 2.5, 0, 1))
 		var d := walker.position - follower.position
 		if Vector2(d.x, d.z).length() > 0.05:
@@ -481,7 +481,7 @@ func _update_villager(dt: float) -> void:
 	var r := 3.6
 	var a := _villager_t
 	villager.position = Vector3(cos(a) * r, 0, -1.6 + sin(a) * r)
-	villager.rotation.y = atan2(-sin(a), cos(a)) + PI
+	villager.rotation.y = atan2(-sin(a), cos(a))  # face the way it walks (models face +Z)
 
 
 func _sfx(name: String, at: Vector3, db := 0.0) -> void:

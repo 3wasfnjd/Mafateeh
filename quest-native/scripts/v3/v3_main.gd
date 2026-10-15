@@ -23,6 +23,8 @@ var _pitch := -0.15
 var _mouse_draw := false
 var _snap_ready := true
 var _demo := false  # screenshot demo feeds the pointer itself
+var mr_scale := 0.5   # mixed reality: the scene starts at half size; left stick y resizes it
+var _drag := {}       # grip drag of the mixed-reality scene: {hand, ctrl, pos}
 
 
 func _ready() -> void:
@@ -62,6 +64,7 @@ func _ready() -> void:
 		desk_cam.current = true
 	rig.menu_pressed.connect(_show_card)
 	rig.trigger_pressed.connect(_on_trigger)
+	rig.grip_tapped.connect(_on_grip_tap)
 	if _args.has("mode"):
 		_start(str(_args.mode))
 	else:
@@ -81,8 +84,9 @@ func _show_card() -> void:
 	var fwd := -head.basis.z
 	fwd.y = 0
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
-	card.global_position = head.origin + fwd * 0.9 + Vector3(0, -0.12, 0)
-	card.look_at(head.origin, Vector3.UP, true)
+	card.global_position = head.origin + fwd * 0.9
+	if head.origin.length() > 0.01:
+		card.look_at(head.origin, Vector3.UP, true)
 	var bg := MeshInstance3D.new()
 	var q := QuadMesh.new()
 	q.size = Vector2(0.62, 0.36)
@@ -181,11 +185,66 @@ func _start(m: String) -> void:
 		fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 		var basis := Basis.looking_at(fwd, Vector3.UP)
 		level.setup("mr", Transform3D(basis, Vector3(head.origin.x, 0, head.origin.z)))
+		_place_mr()
 		if not xr:
 			get_viewport().transparent_bg = false
 			env.background_mode = Environment.BG_COLOR
 			env.background_color = Color("8f8a82")  # stand-in for the room on desktop
 	level.level_won.connect(func(): get_tree().create_timer(5.0).timeout.connect(_show_card))
+
+
+func _on_grip_tap(_hand: String) -> void:
+	if level and mode == "mr" and card == null:
+		_place_mr()
+
+
+## Mixed reality: put the scene on the floor in front of the player at the current size.
+func _place_mr() -> void:
+	var head := _head()
+	var fwd := -head.basis.z
+	fwd.y = 0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var basis := Basis.looking_at(fwd, Vector3.UP)
+	level.global_transform = Transform3D(basis.scaled(Vector3.ONE * mr_scale), Vector3(head.origin.x, 0, head.origin.z) + fwd * 0.3)
+
+
+## Mixed reality scene control: left stick x turns it, y resizes it; hold grip to drag it,
+## tap grip to bring it back in front of you.
+func _mr_controls(dt: float) -> void:
+	var st := rig.stick("left")
+	if absf(st.x) > 0.25:
+		level.rotate_y(-st.x * 1.4 * dt)
+	if absf(st.y) > 0.25:
+		var ns := clampf(mr_scale * exp(st.y * 0.9 * dt), 0.2, 1.0)
+		var k := ns / mr_scale
+		mr_scale = ns
+		var t := level.global_transform
+		level.global_transform = Transform3D(t.basis.scaled(Vector3.ONE * k), t.origin)
+	var dh := rig.dragging_hand()
+	if dh != "":
+		var c: Vector3 = rig.hands[dh].grip.global_position
+		if _drag.get("hand", "") != dh:
+			_drag = {"hand": dh, "ctrl": c, "pos": level.global_position}
+		var d: Vector3 = c - _drag.ctrl
+		d.y = 0
+		level.global_position = _drag.pos + d * 1.5
+	else:
+		_drag = {}
+
+
+func _follow_card(dt: float) -> void:
+	var head := _head()
+	if head.origin.length() < 0.01:
+		return  # tracking not ready yet
+	var fwd := -head.basis.z
+	fwd.y = 0
+	if fwd.length() < 0.01:
+		return
+	fwd = fwd.normalized()
+	var target := head.origin + fwd * 0.9 + Vector3(0, -0.04, 0)
+	var k := 1.0 if card.global_position.distance_to(target) > 2.0 else clampf(dt * 3.0, 0.0, 1.0)
+	card.global_position = card.global_position.lerp(target, k)
+	card.look_at(head.origin, Vector3.UP, true)
 
 
 func _head() -> Transform3D:
@@ -195,8 +254,12 @@ func _head() -> Transform3D:
 
 
 func _process(dt: float) -> void:
+	if card and xr:
+		_follow_card(dt)
 	if level == null:
 		return
+	if xr and mode == "mr" and card == null:
+		_mr_controls(dt)
 	var held := false
 	var hit = null
 	if xr:
@@ -270,6 +333,13 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_V: _start("vr")
 			KEY_M: _start("mr")
 			KEY_ESCAPE: _show_card()
+			KEY_Q: _desk_turn(0.2)
+			KEY_E: _desk_turn(-0.2)
+
+
+func _desk_turn(a: float) -> void:
+	if level and mode == "mr":
+		level.rotate_y(a)
 
 
 func _desk_move(dt: float) -> void:
