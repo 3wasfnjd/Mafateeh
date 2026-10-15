@@ -1,5 +1,6 @@
 extends Node3D
-## Mafateeh v3 entry: a wordless start card (play in VR or in your room), then level 1.
+## Mafateeh v3 entry: a wordless start card (play in VR or in your room, or see the tabletop
+## diorama of scene 1), then level 1.
 ##   VR: you stand life size in the Diriyah courtyard (left stick walks, right stick turns).
 ##   MR: passthrough; the old man, his cat, sparrows and a villager appear on your floor.
 ## Draw with either trigger: point at the sand and hold. Menu button: back to the card.
@@ -25,6 +26,8 @@ var _snap_ready := true
 var _demo := false  # screenshot demo feeds the pointer itself
 var mr_scale := 0.5   # mixed reality: the scene starts at half size; left stick y resizes it
 var _drag := {}       # grip drag of the mixed-reality scene: {hand, ctrl, pos}
+var diorama: Diorama  # tabletop preview of scene 1 (mixed reality, no gameplay)
+var table_k := 1.0    # its size on top of Diorama.BASE_SCALE (left stick y)
 
 
 func _ready() -> void:
@@ -106,8 +109,9 @@ func _show_card() -> void:
 		tri.position = Vector3((i - 1) * 0.036, 0.14, 0.003)
 		card.add_child(tri)
 	_buttons.clear()
-	_icon_button("vr", Vector3(-0.13, -0.01, 0.004), 0.085, func(): _start("vr"))
-	_icon_button("mr", Vector3(0.13, -0.01, 0.004), 0.085, func(): _start("mr"))
+	_icon_button("vr", Vector3(-0.19, -0.01, 0.004), 0.07, func(): _start("vr"))
+	_icon_button("mr", Vector3(0.0, -0.01, 0.004), 0.07, func(): _start("mr"))
+	_icon_button("board", Vector3(0.19, -0.01, 0.004), 0.07, func(): _start("table"))
 
 
 func _icon_button(icon: String, at: Vector3, r: float, action: Callable) -> void:
@@ -171,6 +175,13 @@ func _start(m: String) -> void:
 		card = null
 	if level:
 		level.queue_free()
+		level = null
+	if diorama:
+		diorama.queue_free()
+		diorama = null
+	if m == "table":
+		_start_table()
+		return
 	rig.set_mode(m)
 	level = SandLevel.new()
 	add_child(level)
@@ -196,6 +207,55 @@ func _start(m: String) -> void:
 func _on_grip_tap(_hand: String) -> void:
 	if level and mode == "mr" and card == null:
 		_place_mr()
+	elif diorama and card == null:
+		_place_table()
+
+
+# --- tabletop diorama (mixed reality preview of scene 1) ------------------------------
+
+func _start_table() -> void:
+	rig.set_mode("mr")
+	diorama = Diorama.new()
+	add_child(diorama)
+	diorama.setup()
+	table_k = 1.0
+	_place_table()
+	if not xr:
+		get_viewport().transparent_bg = false
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color("8f8a82")
+
+
+## Puts the diorama in front of the player at about table height (a little below the hands).
+func _place_table() -> void:
+	var head := _head()
+	var fwd := -head.basis.z
+	fwd.y = 0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var y := maxf(0.55, head.origin.y - 0.55) if head.origin.y > 0.3 else 0.75
+	var basis := Basis.looking_at(fwd, Vector3.UP)  # model front (+Z) faces back towards you: the gate side
+	diorama.global_transform = Transform3D(basis.scaled(Vector3.ONE * table_k), Vector3(head.origin.x, y, head.origin.z) + fwd * 0.75)
+
+
+## Left stick: x turns the diorama, y resizes it (0.4x to 3x). Hold grip and move the hand
+## to carry it, up and down too. Tap grip to bring it back in front of you.
+func _table_controls(dt: float) -> void:
+	var st := rig.stick("left")
+	if absf(st.x) > 0.25:
+		diorama.rotate_y(-st.x * 1.4 * dt)
+	if absf(st.y) > 0.25:
+		var nk := clampf(table_k * exp(st.y * 0.9 * dt), 0.4, 3.0)
+		var t := diorama.global_transform
+		diorama.global_transform = Transform3D(t.basis.scaled(Vector3.ONE * (nk / table_k)), t.origin)
+		table_k = nk
+	var dh := rig.dragging_hand()
+	if dh != "":
+		var c: Vector3 = rig.hands[dh].grip.global_position
+		if _drag.get("hand", "") != dh:
+			_drag = {"hand": dh, "ctrl": c, "pos": diorama.global_position}
+		diorama.global_position = _drag.pos + (c - _drag.ctrl)
+	else:
+		_drag = {}
 
 
 ## Mixed reality: put the scene on the floor in front of the player at the current size.
@@ -256,6 +316,12 @@ func _head() -> Transform3D:
 func _process(dt: float) -> void:
 	if card and xr:
 		_follow_card(dt)
+	if diorama:
+		if xr and card == null:
+			_table_controls(dt)
+		elif not xr:
+			_desk_move(dt)
+		return
 	if level == null:
 		return
 	if xr and mode == "mr" and card == null:
@@ -332,6 +398,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		match (e as InputEventKey).physical_keycode:
 			KEY_V: _start("vr")
 			KEY_M: _start("mr")
+			KEY_T: _start("table")
 			KEY_ESCAPE: _show_card()
 			KEY_Q: _desk_turn(0.2)
 			KEY_E: _desk_turn(-0.2)
@@ -340,6 +407,8 @@ func _unhandled_input(e: InputEvent) -> void:
 func _desk_turn(a: float) -> void:
 	if level and mode == "mr":
 		level.rotate_y(a)
+	elif diorama:
+		diorama.rotate_y(a)
 
 
 func _desk_move(dt: float) -> void:
