@@ -1,48 +1,50 @@
 class_name TablePathLevel
 extends Node3D
 ## Level 1 on the table, «درب في الرمل» (a path in the sand). Wordless.
-## The old man's cat is out on the sand beyond the gate; thorn bushes lie between it and home.
-## Hold the trigger on the cat and draw a path in the sand to the gate; let go and the cat
-## follows it. A thorn on the way sends it hopping back. At the gate it trots in to the old
-## man, who cheers; the sparrows lift. Three rounds, more thorns each time; the last ends in
-## the ardah.
+## The old man sits on his mat on the porch, inside the courtyard. His cat is out on the sand
+## beyond the gate, with thorn bushes in between. Hold the trigger on the cat and draw its way
+## home: round the thorns, in through the gate (the line can't go through walls; near the gate
+## it slips through the opening by itself), across the courtyard to him. Let go and the cat
+## follows the line. A thorn sends it hopping back. When it reaches him it sits at his knee
+## and he strokes it; that ends the level.
 ##
 ## Lives under Diorama.model, so every position here is in the diorama's own metres
 ## (Godot axes, +Z = outside the gate).
 
-signal round_won(round: int)
 signal level_won
 
 const SFX := "res://audio/sfx/"
-const ROUNDS := 3
-const GOAL := Vector3(0.03, 0.0, 7.0)      # just outside the gate opening
-const SHAIB_AT := Vector3(-1.8, 0.0, 7.3)  # the old man waits just outside the gate
-const HOME := Vector3(-0.95, 0.0, 7.35)    # where the cat settles beside him
+const MAT := "res://assets/world/props/majlis.glb"   # the owner's mat, when it arrives
+const SEAT := Vector3(0.0, 0.0, 0.75)        # the old man on the porch, facing the gate
+const HOME := Vector3(-0.22, 0.0, 1.45)      # where the cat sits to be stroked (his right hand)
+const GATE_OUT := Vector3(0.03, 0.0, 7.0)
+const GATE_IN := Vector3(0.03, 0.0, 5.5)
+const START := Vector3(0.0, 0.0, 11.2)
 const THORN_R := 0.75
+const CAT_R := 0.3                           # how close the cat may come to a wall
 const POINT_STEP := 0.3
-const WALK_SPEED := 2.6
-const START_RADIUS := 1.4                  # a path must begin this close to the cat
-const GOAL_RADIUS := 0.9
-# per round: cat start, thorn bushes (x, z)
-# per round: cat start and thorn bushes (x, z). Everything stays on the flat sand in front of
-# the gate (the dunes begin about 11.5 m from the centre).
-const ROUND_DATA := [
-	{"start": Vector3(3.0, 0, 10.6), "thorns": [Vector2(1.6, 9.0), Vector2(-0.8, 9.4)]},
-	{"start": Vector3(-3.6, 0, 10.4), "thorns": [Vector2(-2.4, 9.6), Vector2(-1.5, 8.5), Vector2(0.3, 9.9),
-		Vector2(1.6, 8.4)]},
-	# two rows: get round the far row at either end, then through the gap in the near row
-	{"start": Vector3(0.0, 0, 11.2), "thorns": [Vector2(-1.4, 10.0), Vector2(0.0, 10.0), Vector2(1.4, 10.0),
-		Vector2(2.8, 10.0), Vector2(-3.2, 8.0), Vector2(-1.9, 8.0), Vector2(1.9, 8.0), Vector2(3.2, 8.0)]},
+const WALK_SPEED := 2.4
+const START_RADIUS := 1.4
+const HOME_RADIUS := 0.9
+# two rows outside the gate: round the far row at either end, then through the gap in the near one
+const THORNS := [Vector2(-1.4, 10.0), Vector2(0.0, 10.0), Vector2(1.4, 10.0), Vector2(2.8, 10.0),
+	Vector2(-3.2, 8.0), Vector2(-1.9, 8.0), Vector2(1.9, 8.0), Vector2(3.2, 8.0)]
+# solid ground plan (model metres): walls, the house, the tower — x0, z0, x1, z1
+const BLOCKS := [
+	Rect2(-8.5, 6.0, 8.03, 0.5),   # front wall, left of the gate
+	Rect2(0.53, 6.0, 7.97, 0.5),   # front wall, right of the gate
+	Rect2(-8.5, -6.5, 17.0, 0.5),  # back wall
+	Rect2(-8.5, -6.5, 0.5, 13.0),  # left wall
+	Rect2(8.0, -6.5, 0.5, 13.0),   # right wall
+	Rect2(-3.3, -6.5, 6.6, 6.55),  # the house
+	Rect2(5.7, 4.0, 5.1, 4.5),     # the tower
+	Rect2(-2.6, 1.4, 0.6, 0.6),    # porch columns
+	Rect2(2.0, 1.4, 0.6, 0.6),
 ]
-# a path that solves each round (screenshots and tests)
-const SOLUTIONS := [
-	[Vector3(2.8, 0, 8.4), Vector3(1.0, 0, 7.6)],
-	[Vector3(-1.1, 0, 10.6), Vector3(-0.5, 0, 9.4), Vector3(0.0, 0, 8.0)],
-	[Vector3(-2.6, 0, 11.0), Vector3(-2.6, 0, 9.0), Vector3(0.0, 0, 9.0)],
-]
+# a path that works (hint dot, screenshots and tests)
+const SOLUTION := [Vector3(-2.6, 0, 11.0), Vector3(-2.6, 0, 9.0), Vector3(0.03, 0, 9.0), GATE_OUT, GATE_IN]
 
 var diorama: Diorama
-var round := 0
 var cat: Node3D
 var thorns: Array = []  # {node, pos: Vector2}
 var _path := PackedVector3Array()
@@ -58,60 +60,75 @@ var _ghost_t := 0.0
 var _ghost_on := true
 var _idle_t := 0.0
 var _t := 0.0
+var _bump_t := 0.0
 
 
 func setup(d: Diorama) -> void:
 	diorama = d
+	_add_mat()
+	if diorama.shaib:
+		diorama.shaib.position = SEAT
+		diorama.shaib.rotation.y = 0.0
+		diorama.play_shaib("sit_idle", "")
 	cat = CreatureSlot.spawn(self, "cat")
 	cat.scale = Vector3.ONE * Diorama.LIFE_SCALE.cat
-	_start_ring = _ring(1.0, Color("f1dcae"))
-	_goal_ring = _ring(1.3, Color("e6b85a"))
-	_goal_ring.position = GOAL + Vector3(0, 0.06, 0)
+	_start_ring = _ring(0.9, Color("f1dcae"))
+	_goal_ring = _ring(1.0, Color("e6b85a"))
+	_goal_ring.position = HOME + Vector3(0, 0.06, 0)
 	_line = MeshInstance3D.new()
 	_line.mesh = ImmediateMesh.new()
 	_line.material_override = _glow_mat(Color("fff4dc"), 0.95)
 	add_child(_line)
 	_ghost = MeshInstance3D.new()
 	var sm := SphereMesh.new()
-	sm.radius = 0.32
-	sm.height = 0.64
+	sm.radius = 0.3
+	sm.height = 0.6
 	_ghost.mesh = sm
 	_ghost.material_override = _glow_mat(Color("fff4dc"), 0.85)
 	add_child(_ghost)
-	if diorama.shaib:  # the old man waits at the gate, looking out for his cat
-		diorama.shaib.position = SHAIB_AT
-		diorama.shaib.rotation.y = 0.0
-		diorama.play_shaib("idle_look", "")
-	_start_round(0)
-
-
-# --- rounds ----------------------------------------------------------------------------
-
-func _start_round(r: int) -> void:
-	round = r
-	_won = false
-	_walking = false
-	_clear_path()
-	for t in thorns:
-		t.node.queue_free()
-	thorns.clear()
-	var data: Dictionary = ROUND_DATA[r]
 	var i := 0
-	for p in data.thorns:
+	for p in THORNS:
 		var n := _thorn_bush(Vector3(p.x, 0, p.y))
 		n.scale = Vector3.ONE * 0.01
 		create_tween().tween_property(n, "scale", Vector3.ONE, 0.35).set_delay(0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		thorns.append({"node": n, "pos": p})
 		i += 1
-	cat.position = data.start
-	_face(cat, GOAL - data.start)
+	cat.position = START
+	_face(cat, GATE_OUT - START)
 	CreatureSlot.play(cat, "sit")
-	_ghost_t = 0.0
-	_idle_t = 0.0
-	_ghost_on = r == 0
-	if r > 0:
-		_sfx("tap", data.start, -6.0)
 
+
+## The mat and cushion he sits on: the owner's model when it exists, else a simple stand-in.
+func _add_mat() -> void:
+	if ResourceLoader.exists(MAT):
+		var m: Node3D = (load(MAT) as PackedScene).instantiate()
+		add_child(m)
+		m.position = SEAT
+		return
+	var rug := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.9, 0.05, 1.4)
+	rug.mesh = bm
+	rug.material_override = _mat(Color("8e3b2e"))
+	rug.position = SEAT + Vector3(0, 0.025, 0.05)
+	add_child(rug)
+	var band := MeshInstance3D.new()
+	var bb := BoxMesh.new()
+	bb.size = Vector3(1.94, 0.052, 0.16)
+	band.mesh = bb
+	band.material_override = _mat(Color("d9b36a"))
+	band.position = SEAT + Vector3(0, 0.027, 0.55)
+	add_child(band)
+	var cushion := MeshInstance3D.new()
+	var cb := BoxMesh.new()
+	cb.size = Vector3(1.7, 0.42, 0.3)
+	cushion.mesh = cb
+	cushion.material_override = _mat(Color("5d3a2a"))
+	cushion.position = SEAT + Vector3(0, 0.26, -0.55)
+	add_child(cushion)
+
+
+# --- drawing ---------------------------------------------------------------------------
 
 ## Feed the pointer every frame: held = trigger down, p = point on the diorama ground (model
 ## metres) or null when the ray misses it.
@@ -128,9 +145,9 @@ func pointer(held: bool, p) -> void:
 			_ghost.visible = false
 			_path = PackedVector3Array([cat.position])
 			_sfx("tap", cat.position, -8.0)
-		if _path[_path.size() - 1].distance_to(q) >= POINT_STEP:
-			_path.append(q)
-			_redraw()
+		var last := _path[_path.size() - 1]
+		if last.distance_to(q) >= POINT_STEP:
+			_extend(last, q)
 	elif _drawing and not held:
 		_drawing = false
 		if _path.size() >= 3:
@@ -141,11 +158,74 @@ func pointer(held: bool, p) -> void:
 			_clear_path()
 
 
-## Screenshot/test helper: draws a path that dodges this round's thorns and lets go.
-func demo_round() -> void:
+## Adds q to the path unless the way there crosses a wall; near the gate, the line is led
+## through the opening.
+func _extend(a: Vector3, q: Vector3) -> void:
+	if _blocked(q):
+		if _gate_zone(q) or _gate_zone(a):
+			_through_gate(a, q)
+		else:
+			_bump(q)
+		return
+	if _crosses(a, q):
+		if _gate_zone(q) or _gate_zone(a) or _crosses_front_wall(a, q):
+			_through_gate(a, q)
+		else:
+			_bump(q)
+		return
+	_path.append(q)
+	_redraw()
+
+
+func _through_gate(a: Vector3, q: Vector3) -> void:
+	var inward := a.z > 6.25
+	var pts := [GATE_OUT, GATE_IN] if inward else [GATE_IN, GATE_OUT]
+	if (pts[0] as Vector3).distance_to(a) > 0.05 and not _crosses(a, pts[0]):
+		_path.append(pts[0])
+	elif _crosses(a, pts[0]):
+		_bump(q)
+		return
+	_path.append(pts[1])
+	if not _blocked(q) and not _crosses(pts[1], q):
+		_path.append(q)
+	_redraw()
+
+
+func _gate_zone(p: Vector3) -> bool:
+	return absf(p.x) < 2.2 and p.z > 4.6 and p.z < 7.8
+
+
+func _crosses_front_wall(a: Vector3, b: Vector3) -> bool:
+	return (a.z - 6.25) * (b.z - 6.25) < 0.0 and absf(lerpf(a.x, b.x, (6.25 - a.z) / (b.z - a.z))) < 2.2
+
+
+func _blocked(p: Vector3) -> bool:
+	for r in BLOCKS:
+		var g: Rect2 = (r as Rect2).grow(CAT_R)
+		if g.has_point(Vector2(p.x, p.z)):
+			return true
+	return false
+
+
+func _crosses(a: Vector3, b: Vector3) -> bool:
+	var n := maxi(1, int(a.distance_to(b) / 0.1))
+	for k in range(1, n + 1):
+		if _blocked(a.lerp(b, float(k) / n)):
+			return true
+	return false
+
+
+func _bump(at: Vector3) -> void:
+	if _t - _bump_t > 0.4:
+		_bump_t = _t
+		_sfx("soft_reject", at, -12.0)
+
+
+## Screenshot/test helper: draws the working path (as a hand would) and lets go.
+func demo() -> void:
 	var pts: Array = [cat.position]
-	pts.append_array(SOLUTIONS[round])
-	pts.append(GOAL)
+	pts.append_array(SOLUTION)
+	pts.append(HOME)
 	var dense: Array = []
 	for i in pts.size() - 1:
 		var a: Vector3 = pts[i]
@@ -153,7 +233,7 @@ func demo_round() -> void:
 		var n := maxi(1, int(a.distance_to(b) / POINT_STEP))
 		for k in n:
 			dense.append(a.lerp(b, float(k) / n))
-	dense.append(GOAL)
+	dense.append(HOME)
 	for q in dense:
 		pointer(true, q)
 	pointer(false, null)
@@ -171,12 +251,11 @@ func _process(dt: float) -> void:
 	_goal_ring.visible = not _won
 	if not _walking and not _drawing and not _won:
 		_idle_t += dt
-		if _idle_t > 12.0:  # stuck for a while: show the hint
+		if _idle_t > 12.0:  # stuck for a while: show the hint again
 			_ghost_on = true
 	if _ghost_on and not _won:
-		# the hint: a light dot running along a path that works, from the cat to the gate
 		_ghost_t += dt
-		var k := fmod(_ghost_t, 3.6) / 3.0
+		var k := fmod(_ghost_t, 4.4) / 3.8
 		_ghost.visible = k <= 1.0
 		if k <= 1.0:
 			_ghost.position = _along(_hint_path(), k) + Vector3(0, 0.3, 0)
@@ -188,8 +267,8 @@ func _process(dt: float) -> void:
 
 func _hint_path() -> Array:
 	var pts: Array = [cat.position]
-	pts.append_array(SOLUTIONS[round])
-	pts.append(GOAL)
+	pts.append_array(SOLUTION)
+	pts.append(HOME)
 	return pts
 
 
@@ -222,14 +301,15 @@ func _step(dt: float) -> void:
 		if mv >= dist:
 			_walk_i += 1
 		diorama.scare_birds(cat.position, 1.6)
+		diorama.scare_hens(cat.position, 1.8)
 		for t in thorns:
 			if Vector2(cat.position.x, cat.position.z).distance_to(t.pos) < THORN_R:
 				_hit_thorn(t)
 				return
-		if cat.position.distance_to(GOAL) < GOAL_RADIUS:
-			_reach_goal()
+		if cat.position.distance_to(HOME) < HOME_RADIUS:
+			_reach_home()
 			return
-	if _walk_i >= _path.size():  # the path ran out short of the gate
+	if _walk_i >= _path.size():  # the line ran out before reaching him
 		_walking = false
 		_clear_path()
 		CreatureSlot.play(cat, "sit")
@@ -247,34 +327,24 @@ func _hit_thorn(t: Dictionary) -> void:
 	tw.tween_property(n, "scale", Vector3(1.2, 0.85, 1.2), 0.08)
 	tw.tween_property(n, "scale", Vector3.ONE, 0.2)
 	CreatureSlot.play(cat, "sit")
-	diorama.play_shaib("think")
 	_clear_path()
 
 
-func _reach_goal() -> void:
+func _reach_home() -> void:
 	_walking = false
 	_won = true
 	_clear_path()
-	_sfx("success", GOAL, -2.0)
-	# home to the old man's feet
-	CreatureSlot.play(cat, "walk")
-	_face(cat, HOME - cat.position)
+	_sfx("success", HOME, -2.0)
 	var tw := create_tween()
-	tw.tween_property(cat, "position", HOME, 0.8)
+	tw.tween_property(cat, "position", HOME, 0.4)
 	tw.tween_callback(func():
-		_face(cat, SHAIB_AT - HOME)
-		CreatureSlot.play(cat, "sit"))
-	diorama.scare_birds(GOAL, 8.0)
-	diorama.play_shaib("excited" if round < ROUNDS - 1 else "ardah", "idle" if round < ROUNDS - 1 else "")
-	round_won.emit(round)
-	if round < ROUNDS - 1:
-		var won_round := round
-		get_tree().create_timer(3.6).timeout.connect(func():
-			if round == won_round and _won:  # nothing else restarted the level meanwhile
-				_start_round(won_round + 1))
-	else:
-		_sfx("level_complete", GOAL)
-		get_tree().create_timer(1.0).timeout.connect(func(): level_won.emit())
+		_face(cat, SEAT - HOME)
+		CreatureSlot.play(cat, "sit")
+		diorama.play_shaib("sit_pet", ""))
+	diorama.scare_birds(HOME, 6.0)
+	get_tree().create_timer(4.5).timeout.connect(func():
+		_sfx("level_complete", HOME)
+		level_won.emit())
 
 
 # --- visuals -----------------------------------------------------------------------------
@@ -306,6 +376,13 @@ func _redraw() -> void:
 static func _face(n: Node3D, d: Vector3) -> void:
 	if Vector2(d.x, d.z).length() > 0.001:
 		n.rotation.y = atan2(d.x, d.z)  # models face +Z
+
+
+static func _mat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = 1.0
+	return m
 
 
 static func _glow_mat(c: Color, alpha := 0.9) -> StandardMaterial3D:

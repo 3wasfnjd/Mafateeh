@@ -220,6 +220,10 @@ def apply_pose(arm, pose, set_pose):
     update()
     if "_feet" in pose:
         solve_feet(arm, pose["_feet"])
+    for side, (target, pole, foot_dir) in pose.get("_legs", {}).items():  # free leg IK (seated poses)
+        two_bone(arm, "Thigh." + side, "Shin." + side, target, pole)
+        aim(arm, "Foot." + side, foot_dir)
+        aim(arm, "Toe." + side, foot_dir)
     for side, goal in pose.get("_hands", {}).items():
         solve_hand(arm, side, goal[0], goal[1])
     # The forearm-hung cane always hangs plumb (a touch of swing comes from the clip).
@@ -655,6 +659,44 @@ def clip_tired(t, T):
     return p
 
 
+def sit_pose(t):
+    """Sitting cross-legged on a floor mat (majlis style): hips low, knees out, ankles
+    crossed in front, the thobe spread round, hands on the knees, cane laid aside."""
+    p = mix(breathe(t, period=4.0), RELAXED_L, {
+        "Fingers1.R": (0, -20, 0), "Fingers2.R": (0, -24, 0), "Thumb.R": (0, -8, 0),
+        "Hips": ((-6, 0, 0), (0, 0.03, -0.385)),
+        "Spine": (10, 0, 0), "Chest": (6, 0, 0), "Neck": (-2, 0, 0), "Head": (2, 0, 0),
+        "Skirt.F": (-66, 0, 0), "Skirt.B": (70, 0, 0), "Skirt.L": (0, -58, 0), "Skirt.R": (0, 58, 0),
+    })
+    p["_legs"] = {
+        "L": (V((-0.045, -0.19, 0.035)), V((1.0, -0.4, 0.5)), V((-0.9, -0.3, -0.2))),
+        "R": (V((0.05, -0.21, 0.06)), V((-1.0, -0.4, 0.5)), V((0.9, -0.3, -0.2))),
+    }
+    p["_hands"] = {"L": (V((0.16, -0.16, 0.17)), V((0.8, 0.3, -0.5))), "R": (V((-0.16, -0.16, 0.17)), V((-0.8, 0.3, -0.5)))}
+    p["_hide"] = ["Cane", "CaneArm"]
+    return p
+
+
+def clip_sit_idle(t, T):
+    """Seated and content: breathing, a slow look round now and then (loops, T = 4.0)."""
+    p = sit_pose(t)
+    look = math.sin(2 * math.pi * t / T)
+    return mix(p, {"Head": (0, 0, 14 * look * smooth(0.0, 1.0, abs(look))), "Neck": (0, 0, 4 * look)})
+
+
+def clip_sit_pet(t, T):
+    """Seated, the right hand strokes the cat sitting in front of him: head down, smiling
+    eyes, two slow strokes per loop (T = 2.4)."""
+    u = t / T
+    p = mix(sit_pose(t), {"Spine": (8, 0, -4), "Chest": (6, 0, -4), "Head": (12, 0, -10), "Neck": (6, 0, -4),
+                          "Fingers1.R": (0, 12, 0), "Fingers2.R": (0, 14, 0)})
+    k = 0.5 - 0.5 * math.cos(2 * math.pi * 2 * u)            # 0 -> 1 -> 0 twice: along the back
+    lift = max(0.0, math.sin(2 * math.pi * 2 * u + math.pi)) * 0.03  # hand lifts on the way back
+    hand = V((-0.11, -0.25, 0.37)).lerp(V((-0.13, -0.42, 0.31)), k) + V((0, 0, lift))
+    p["_hands"] = {"L": p["_hands"]["L"], "R": (hand, V((-0.7, 0.4, -0.3)))}
+    return p
+
+
 CLIPS = [
     # name, seconds, function, loop
     ("idle", 4.8, clip_idle, True),
@@ -676,6 +718,8 @@ CLIPS = [
     ("interact", 0.7, clip_interact, False),
     ("excited", 1.6, clip_excited, False),
     ("tired", 2.4, clip_tired, False),
+    ("sit_idle", 4.0, clip_sit_idle, True),
+    ("sit_pet", 2.4, clip_sit_pet, True),
 ]
 
 

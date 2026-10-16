@@ -355,9 +355,7 @@ LATER = {"tent": 4, "sheep": 4, "lantern": 5, "camel": 7, "crate": 8, "well": 9,
 
 
 def life():
-    # hens in the courtyard, clear of the walls
-    for x, y, yaw, kind in ((-3.6, -1.6, 20, "hen"), (-2.6, -2.6, 140, "hen"), (-4.4, -2.8, -60, "rooster")):
-        place(p(kind), (x, y, 0), yaw)
+    # (hens are live in the game now: scripts/preview/diorama.gd walks them about)
     # palms
     palm = os.path.join(ROOT, "assets", "world", "palm.glb")
     for x, y, s, yaw in ((-5.6, 3.4, 0.75, 10), (-6.0, -11.6, 1.0, 30), (11.0, 7.5, 1.0, 200), (-11.5, 2.0, 0.95, 120)):

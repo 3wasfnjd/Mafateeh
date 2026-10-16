@@ -13,13 +13,13 @@ extends Node3D
 const SCENE1 := "res://assets/world/scene1/scene1.glb"
 const SHAIB := "res://assets/character/shaib.glb"
 const BASE_SCALE := 1.0 / 50.0   # 33 m island -> about 66 cm on the table
-const LIFE_SCALE := {"cat": 2.4, "sparrow": 3.0, "falcon": 4.0, "shaib": 1.25}
+const LIFE_SCALE := {"cat": 1.6, "sparrow": 3.0, "falcon": 4.0, "shaib": 1.25, "hen": 1.6}
+const HEN := "res://assets/world/props/hen.glb"
+const ROOSTER := "res://assets/world/props/rooster.glb"
 
 # cats: position, facing (degrees), role
 const CATS := [
-	[Vector3(1.8, 3.19, 1.2), 10.0, "sit"],     # on the porch roof, watching the gate
-	[Vector3(4.1, 0.0, -1.0), 200.0, "sleep"],  # asleep in the courtyard
-	[Vector3(-1.9, 0.0, 0.7), 160.0, "sit"],    # by the house door
+	[Vector3(5.6, 0.0, 1.0), 200.0, "sleep"],   # one cat asleep in a corner of the courtyard
 ]
 const CAT_WALK := [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)]  # along the stone path outside
 # sparrow spots: they peck here and hop between them (the first six are inside the walls)
@@ -29,7 +29,10 @@ const SPARROW_SPOTS := [
 	Vector3(-2.0, 0, 9.0), Vector3(-2.7, 0, 9.8), Vector3(2.1, 0, 9.4), Vector3(2.8, 0, 10.4)]
 const INSIDE_SPOTS := 6
 const SPARROWS := 7
-const SHAIB_AT := Vector3(0.9, 0.0, 4.4)
+const SHAIB_AT := Vector3(0.0, 0.0, 0.75)  # seated on the porch, facing the gate
+# hens wander inside this part of the courtyard (x0, x1, z0, z1), clear of the porch
+const HEN_AREA := Rect2(-7.4, 1.4, 14.8, 4.2)
+const HENS := [["hen", Vector3(-4.6, 0, 2.6)], ["hen", Vector3(-3.4, 0, 4.4)], ["rooster", Vector3(4.2, 0, 3.6)]]
 const FALCON_CENTRE := Vector3(8.25, 0.0, 6.25)  # the tower
 const FALCON_RADIUS := 4.8
 const FALCON_HEIGHT := 10.5
@@ -44,6 +47,7 @@ var _walk_t := 0.0
 var _falcon: Node3D
 var _falcon_a := 0.0
 var _birds: Array = []  # {node, from, to, t, wait}
+var _hens: Array = []   # {node, target, wait, peck, speed}
 var _rng := RandomNumberGenerator.new()
 
 
@@ -108,11 +112,11 @@ func _add_shaib() -> void:
 	var aps := shaib.find_children("*", "AnimationPlayer", true, false)
 	if not aps.is_empty():
 		shaib_anim = aps[0]
-		for a in ["idle", "walk", "ardah", "idle_look", "think"]:
+		for a in ["idle", "walk", "ardah", "idle_look", "think", "sit_idle", "sit_pet"]:
 			if shaib_anim.has_animation(a):
 				shaib_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
-		if shaib_anim.has_animation("idle"):
-			shaib_anim.play("idle")
+		var first := "sit_idle" if shaib_anim.has_animation("sit_idle") else "idle"
+		shaib_anim.play(first)
 	dress()
 
 
@@ -143,11 +147,65 @@ func _add_life() -> void:
 			_birds.append({"node": b, "from": b.position, "to": b.position, "t": 1.0,
 				"wait": _rng.randf_range(2.0, 9.0)})
 	_falcon = _creature("falcon", FALCON_CENTRE + Vector3(FALCON_RADIUS, FALCON_HEIGHT, 0), 0.0, "fly")
+	for h in HENS:
+		var ps := load(HEN if h[0] == "hen" else ROOSTER) as PackedScene
+		if ps == null:
+			continue
+		var n: Node3D = ps.instantiate()
+		model.add_child(n)
+		n.position = h[1]
+		n.scale = Vector3.ONE * LIFE_SCALE.hen
+		n.rotation.y = _rng.randf() * TAU
+		_hens.append({"node": n, "target": h[1], "wait": _rng.randf_range(0.5, 3.0), "peck": 0.0, "speed": 0.0, "flee": 0.0})
+
+
+## Hens near p run off (the cat walking by).
+func scare_hens(p: Vector3, r: float) -> void:
+	for hd in _hens:
+		var n: Node3D = hd.node
+		var d := Vector3(n.position.x - p.x, 0, n.position.z - p.z)
+		if d.length() < r:
+			var away := d.normalized() if d.length() > 0.01 else Vector3.RIGHT
+			hd.target = _in_hen_area(n.position + away * 2.5)
+			hd.flee = 1.0
+			hd.wait = 0.0
+
+
+func _in_hen_area(p: Vector3) -> Vector3:
+	return Vector3(clampf(p.x, HEN_AREA.position.x, HEN_AREA.end.x), 0, clampf(p.z, HEN_AREA.position.y, HEN_AREA.end.y))
+
+
+func _update_hens(dt: float) -> void:
+	for hd in _hens:
+		var n: Node3D = hd.node
+		var to: Vector3 = hd.target - n.position
+		to.y = 0
+		var d := to.length()
+		if d > 0.08:
+			var speed := 2.6 if hd.flee > 0.0 else 0.8
+			n.position += to / d * minf(d, speed * dt)
+			var want := atan2(to.x, to.z)
+			n.rotation.y = lerp_angle(n.rotation.y, want, clampf(dt * 8.0, 0, 1))
+			var hop := absf(sin(Time.get_ticks_msec() * 0.001 * (14.0 if hd.flee > 0.0 else 9.0)))
+			n.position.y = hop * (0.12 if hd.flee > 0.0 else 0.05)
+			n.rotation.x = 0.0
+			hd.peck = 0.0
+		else:
+			n.position.y = 0.0
+			hd.flee = 0.0
+			hd.wait -= dt
+			hd.peck += dt
+			# peck: dip forward now and then
+			n.rotation.x = 0.45 * maxf(0.0, sin(hd.peck * 5.0)) ** 3
+			if hd.wait <= 0.0:
+				hd.target = _in_hen_area(n.position + Vector3(_rng.randf_range(-2.5, 2.5), 0, _rng.randf_range(-1.8, 1.8)))
+				hd.wait = _rng.randf_range(1.5, 4.5)
 
 
 func _process(dt: float) -> void:
 	if model == null:
 		return
+	_update_hens(dt)
 	# the pacing cat walks the path: out, turn, back
 	if _walker:
 		_walk_t += dt * 0.12

@@ -10,7 +10,7 @@ extends Node3D
 ## Desktop (no headset): click buttons, drag on the sand to draw, WASD walk, right-drag look,
 ##   Q/E turn the diorama, Esc the card.
 ## Screenshot args: --screenshot=path [--start=play|wardrobe] [--cam=x,y,z,yaw,pitch]
-##   [--round=n] [--demo=1] (play: draw the round's solution and let it walk) [--wait=frames]
+##   [--demo=1] (play: draw a working path and let the cat walk it) [--wait=frames]
 
 const ICONS := "res://assets/ui/icons/"
 # palette: light, warm, no green (owner's choice)
@@ -412,12 +412,8 @@ func _screenshot() -> void:
 		_place_table()
 	if card:
 		_place_card(true)
-	if level and _args.has("round"):
-		level._start_round(int(_args.round))
-		for i in 30:
-			await get_tree().process_frame
 	if level and _args.has("demo"):
-		level.demo_round()
+		level.demo()
 	for i in int(_args.get("wait", "40")):
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
