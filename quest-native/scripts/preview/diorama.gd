@@ -127,6 +127,17 @@ const LAYOUTS := {
 		"falcon": [],
 		"shaib": [Vector3(0.0, 0.0, 2.8), 180.0, "idle"],
 	},
+	9: {
+		"scene": "res://assets/world/scene9/scene9.glb",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [Vector3(-2.6, 0, 6.2), Vector3(2.4, 0, 6.6), Vector3(5.6, 0, -3.6), Vector3(-1.0, 0, -4.2)],
+		"inside": 4,
+		"hens": [["hen", Vector3(3.0, 0, -4.4)], ["hen", Vector3(4.4, 0, -3.6)]],
+		"hen_area": Rect2(1.8, -5.2, 3.6, 2.0),                 # by the hut
+		"falcon": [Vector3(0.0, 0.0, 1.0), 6.5, 10.0],
+		"shaib": [Vector3(-5.4, 0.0, 1.4), 70.0, "idle"],      # by the basin
+	},
 }
 const SPARROWS := 7
 
