@@ -8,7 +8,7 @@ Built from:
   assets/character/shaib.glb, assets/creatures/cat.glb
 and a ground baked here: sand dunes round the edge (after Motri's DunesField: ridge
 gaussians, sand from #d9a65e to #f4d397 with ripples), slab patches fading into the sand in
-the courtyard (Motri's floor: slabs texture x noise) and stone-paved paths.
+the courtyard (Motri's floor: slabs texture x noise) 
 
 Real metres; the game scales the whole diorama down onto a table. Front (-Y in Blender) is
 the side the player first sees. Writes assets/world/scene1/scene1.glb.
@@ -94,20 +94,10 @@ def bake_ground(n=1024):
     sy = ((Y / 5.71) % 1 * slabs.shape[0]).astype(int) % slabs.shape[0]
     st = slabs[sy, sx]
     patch = noise2(n, 7, (6, 12, 24), 1.7)
-    apron = smooth(0, 1.5, 3.2 - np.hypot(X - 0.0, (Y + GY + 2.2) * 0.8))  # outside the gate
+    apron = smooth(0, 1.8, 3.8 - np.hypot(X * 0.9, (Y + GY + 2.4) * 0.7))  # outside the gate
     slab_mask = np.clip(court * smooth(0.5, 0.68, patch) + apron * smooth(0.35, 0.6, patch), 0, 1) * 0.92
     slab_col = np.array([0xa8, 0x77, 0x62], float) * (1 - st[..., None]) + np.array([0xff, 0xcf, 0x8b], float) * st[..., None]
     col = col * (1 - slab_mask[..., None]) + slab_col * slab_mask[..., None]
-    # stone-paved paths: gate -> house door, and gate -> front edge
-    pave = np.asarray(Image.open(os.path.join(MOTRI, "stone-paving.png")).convert("RGB"), float)
-    px = ((X / 2.4) % 1 * pave.shape[1]).astype(int) % pave.shape[1]
-    py = ((Y / 2.4) % 1 * pave.shape[0]).astype(int) % pave.shape[0]
-    pv = pave[py, px]
-    edge = (noise2(n, 11, (32, 64), 1.3) - 0.5) * 0.35
-    inner = smooth(0.0, 0.25, 0.85 + edge - np.abs(X)) * smooth(0, 0.2, Y + GY + 0.3) * smooth(0, 0.2, -2.0 - Y)
-    outer = smooth(0.0, 0.3, 1.0 + edge - np.abs(X)) * smooth(0, 0.2, -GY + 0.2 - Y) * smooth(0, 2.0, Y + 14.5)
-    path = np.clip(inner + outer, 0, 1)
-    col = col * (1 - path[..., None]) + pv * path[..., None]
     img = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8)).filter(ImageFilter.SMOOTH)
     path_out = os.path.join(TEX, "scene1_ground.jpg")
     img.save(path_out, quality=88)
