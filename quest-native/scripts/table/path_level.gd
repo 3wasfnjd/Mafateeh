@@ -20,6 +20,10 @@ const HOME := Vector3(-0.22, 0.0, 1.45)      # where the cat sits to be stroked 
 const GATE_OUT := Vector3(0.03, 0.0, 7.0)
 const GATE_IN := Vector3(0.03, 0.0, 5.5)
 const START := Vector3(0.0, 0.0, 11.2)
+# the only ground the cat may be led over: the courtyard, and the paved ellipse outside the
+# gate (must match APRON in tools/blender/build_scene1.py): centre x, centre z, radii x, z
+const APRON := [0.0, 8.6, 4.6, 3.9]
+const COURT := Rect2(-8.0, -6.0, 16.0, 12.0)
 const THORN_R := 0.75
 const CAT_R := 0.3                           # how close the cat may come to a wall
 const POINT_STEP := 0.3
@@ -199,7 +203,18 @@ func _crosses_front_wall(a: Vector3, b: Vector3) -> bool:
 	return (a.z - 6.25) * (b.z - 6.25) < 0.0 and absf(lerpf(a.x, b.x, (6.25 - a.z) / (b.z - a.z))) < 2.2
 
 
+## Off the paving (out on the sand) counts as blocked too.
+func _on_paving(p: Vector3) -> bool:
+	if COURT.has_point(Vector2(p.x, p.z)):
+		return true
+	var ex := (p.x - APRON[0]) / (APRON[2] - CAT_R)
+	var ez := (p.z - APRON[1]) / (APRON[3] - CAT_R)
+	return ex * ex + ez * ez <= 1.0
+
+
 func _blocked(p: Vector3) -> bool:
+	if not _on_paving(p):
+		return true
 	for r in BLOCKS:
 		var g: Rect2 = (r as Rect2).grow(CAT_R)
 		if g.has_point(Vector2(p.x, p.z)):

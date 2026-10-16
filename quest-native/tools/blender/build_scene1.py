@@ -39,6 +39,7 @@ ISLAND_R = 16.5      # radius of the sand island
 SIZE = 34.0          # ground texture covers SIZE x SIZE metres
 GX, GY = 8.25, 6.25  # compound wall centrelines: x = +-GX, y = +-GY
 WALL_H = 2.8
+APRON = (0.0, 8.6, 4.6, 3.9)  # paved ellipse outside the gate: centre x, centre z (Godot), radii x, z
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
@@ -94,8 +95,11 @@ def bake_ground(n=1024):
     sy = ((Y / 5.71) % 1 * slabs.shape[0]).astype(int) % slabs.shape[0]
     st = slabs[sy, sx]
     patch = noise2(n, 7, (6, 12, 24), 1.7)
-    apron = smooth(0, 1.8, 3.8 - np.hypot(X * 0.9, (Y + GY + 2.4) * 0.7))  # outside the gate
-    slab_mask = np.clip(court * smooth(0.5, 0.68, patch) + apron * smooth(0.35, 0.6, patch), 0, 1) * 0.92
+    # outside the gate: one solid paved ellipse (the only ground outside the walls the cat
+    # may be led over; it must match APRON in scripts/table/path_level.gd)
+    e = np.hypot(X / APRON[2], (-Y - APRON[1]) / APRON[3])
+    apron = smooth(1.06, 0.94, e) * (-Y > GY)
+    slab_mask = np.clip(court * smooth(0.5, 0.68, patch) + apron * 0.97, 0, 1) * 0.94
     slab_col = np.array([0xa8, 0x77, 0x62], float) * (1 - st[..., None]) + np.array([0xff, 0xcf, 0x8b], float) * st[..., None]
     col = col * (1 - slab_mask[..., None]) + slab_col * slab_mask[..., None]
     img = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8)).filter(ImageFilter.SMOOTH)
@@ -442,7 +446,7 @@ def render(out):
         cam.lens = lens
         co.location = loc
         co.rotation_euler = (V(tgt) - V(loc)).to_track_quat("-Z", "Y").to_euler()
-        sc.render.filepath = os.path.join(out, "scene1_%s.png" % name)
+        sc.render.filepath = os.path.join(out, "%s_%s.png" % (os.path.basename(OUT), name))
         bpy.ops.render.render(write_still=True)
     bpy.data.objects.remove(t)
     bpy.data.objects.remove(co)
@@ -472,7 +476,8 @@ def export():
         if lib and o.name in lib.objects:
             continue
         o.select_set(True)
-    path = os.path.join(OUT, "scene1.glb")
+    name = os.path.basename(OUT)  # scene1, or scene2 when build_scene2.py sets OUT
+    path = os.path.join(OUT, name + ".glb")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True,
                               export_materials="EXPORT", export_vertex_color="MATERIAL", export_image_format="AUTO",
                               export_animations=False, export_skins=True)
@@ -481,7 +486,7 @@ def export():
         if o.type == "MESH":
             o.data.calc_loop_triangles()
             tris += len(o.data.loop_triangles)
-    print("exported scene1", os.path.getsize(path) // 1024, "KB", tris, "tris")
+    print("exported", name, os.path.getsize(path) // 1024, "KB", tris, "tris")
 
 
 def main():
@@ -495,4 +500,5 @@ def main():
     export()
 
 
-main()
+if __name__ == "__main__":  # build_scene2.py imports the helpers above
+    main()

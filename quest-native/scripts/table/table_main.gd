@@ -4,13 +4,15 @@ extends Node3D
 ##
 ## Start card: play, and the wardrobe. The wardrobe shows the old man himself, turning slowly,
 ## dressed in what he wears; tap an item to put it on or take it off.
-## In play: the scene-1 diorama sits on the table and level 1 (TablePathLevel) runs on it.
+## In play: a scene diorama sits on the table and its level runs on it. Level 1 (scene 1,
+## TablePathLevel: draw the cat's way home); once won, level 2 follows on the same spot
+## (scene 2, TableStepsLevel: stand the mud blocks up as steps); then the card again.
 ##   Trigger: draw (or press a card button). Hold grip and move the hand: carry the diorama.
 ##   Left stick x: turn it; y: resize it. Tap grip: bring it back in front. Menu: the card.
 ## Desktop (no headset): click buttons, drag on the sand to draw, WASD walk, right-drag look,
 ##   Q/E turn the diorama, Esc the card.
 ## Screenshot args: --screenshot=path [--start=play|wardrobe] [--cam=x,y,z,yaw,pitch]
-##   [--demo=1] (play: draw a working path and let the cat walk it) [--wait=frames]
+##   [--level=N] [--k=size] [--demo=1] (play: solve the level by itself) [--wait=frames]
 
 const ICONS := "res://assets/ui/icons/"
 # palette: light, warm, no green (owner's choice). The card itself is the owner's clay plaque
@@ -29,7 +31,10 @@ var card: Node3D
 var _buttons: Array = []  # {local, r, action}
 var _args := {}
 var diorama: Diorama
-var level: TablePathLevel
+var level: Node3D           # TablePathLevel | TableStepsLevel: setup(d), pointer(held, p), demo(), level_won
+var stage := 1              # which level is on the table
+var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
+const LAST_LEVEL := 2
 var table_k := 1.0
 var _drag := {}
 var _yaw := 0.0
@@ -96,7 +101,7 @@ func _ready() -> void:
 		_pitch = deg_to_rad(c[4])
 		desk_cam.rotation = Vector3(_pitch, _yaw, 0)
 	match str(_args.get("start", "")):
-		"play": _play()
+		"play": _play(int(_args.get("level", "1")))
 		"wardrobe": _show_card("wardrobe")
 		_: _show_card("start")
 	if _args.has("screenshot"):
@@ -280,24 +285,44 @@ func _on_trigger(_hand: String, origin: Vector3, dir: Vector3) -> void:
 
 # --- play ---------------------------------------------------------------------------------
 
-func _play() -> void:
+func _play(n := 1) -> void:
 	if card:
 		card.queue_free()
 		card = null
 	_card_kind = ""
+	var keep := Transform3D()
+	var keep_spot := diorama != null and n > 1   # the next level goes where the last one was
 	if diorama:
+		keep = diorama.global_transform
 		diorama.queue_free()
+	stage = n
+	_round += 1
 	diorama = Diorama.new()
-	diorama.pacing_cat = false     # the level's cat is the one on the path
-	diorama.birds_outside = false  # keep the sand in front of the gate clear for drawing
+	diorama.pacing_cat = false     # the level's cat is the one being played
+	diorama.birds_outside = false  # keep the ground the player works on clear
 	add_child(diorama)
-	diorama.setup()
-	level = TablePathLevel.new()
+	diorama.setup(n)
+	level = TableStepsLevel.new() if n == 2 else TablePathLevel.new()
 	diorama.model.add_child(level)
 	level.setup(diorama)
-	level.level_won.connect(func(): get_tree().create_timer(5.0).timeout.connect(func(): _show_card("start")))
-	table_k = 1.0
-	_place_table()
+	level.level_won.connect(_on_level_won)
+	if keep_spot:
+		diorama.global_transform = keep
+	else:
+		table_k = 1.0
+		_place_table()
+
+
+func _on_level_won() -> void:
+	var won := stage
+	var r := _round
+	get_tree().create_timer(4.0).timeout.connect(func():
+		if r != _round or diorama == null:
+			return  # the player already started again
+		if won < LAST_LEVEL:
+			_play(won + 1)
+		else:
+			_show_card("start"))
 
 
 ## Puts the diorama in front of the player at about table height, the gate facing them.
@@ -411,12 +436,16 @@ func _process(dt: float) -> void:
 			if down and card == null:
 				held = true
 				hit = p
+				if level.has_method("aim"):
+					level.aim(r[0], r[1])
 				break
 	else:
 		held = _mouse_draw and card == null
 		if held:
 			var mp := get_viewport().get_mouse_position()
 			hit = diorama.model_point(desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp))
+			if level.has_method("aim"):
+				level.aim(desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp))
 	level.pointer(held, hit)
 
 
@@ -460,6 +489,7 @@ func _screenshot() -> void:
 	for i in 20:
 		await get_tree().process_frame
 	if diorama:
+		table_k = float(_args.get("k", "1"))  # --k=N: the diorama N times its usual size
 		_place_table()
 	if card:
 		_place_card(true)

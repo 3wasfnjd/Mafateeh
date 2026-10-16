@@ -1,42 +1,64 @@
 class_name Diorama
 extends Node3D
-## The scene-1 diorama (assets/world/scene1/scene1.glb, built in real metres by
-## tools/blender/build_scene1.py), shown small on a table in mixed reality, and brought to
-## life: the old man (live, dressed from the wardrobe), cats in a few spots, sparrows pecking
-## and hopping, the falcon circling the tower. The parent moves, turns and resizes this node.
+## A scene diorama (assets/world/scene<N>/scene<N>.glb, built in real metres by
+## tools/blender/build_scene<N>.py), shown small on a table in mixed reality, and brought to
+## life: the old man (live, dressed from the wardrobe), cats, hens, sparrows pecking and
+## hopping, the falcon circling. What lives where is in LAYOUTS. The parent moves, turns and
+## resizes this node.
 ##
 ## Positions below are in the model's own metres (Godot axes: +Z is the gate side).
-## Animals and the old man are drawn larger than life (LIFE_SCALE) so they read at table size.
 ## A level can switch off the pacing cat and the sparrows outside the gate (set before setup)
 ## and use model_point() / scare_birds() / play_shaib().
 
-const SCENE1 := "res://assets/world/scene1/scene1.glb"
 const SHAIB := "res://assets/character/shaib.glb"
 const BASE_SCALE := 1.0 / 50.0   # 33 m island -> about 66 cm on the table
-const LIFE_SCALE := {"cat": 1.6, "sparrow": 3.0, "falcon": 4.0, "shaib": 1.25, "hen": 1.6}
+# true to the old man (1.6 m): cat about 0.43 m, hen about 0.42 m, sparrow about 0.16 m;
+# the falcon, always up in the air, a little larger than life so it reads
+const LIFE_SCALE := {"cat": 1.6, "sparrow": 1.15, "falcon": 2.2, "shaib": 1.25, "hen": 0.62}
 const HEN := "res://assets/world/props/hen.glb"
 const ROOSTER := "res://assets/world/props/rooster.glb"
 
-# cats: position, facing (degrees), role
-const CATS := [
-	[Vector3(5.6, 0.0, 1.0), 200.0, "sleep"],   # one cat asleep in a corner of the courtyard
-]
-const CAT_WALK := [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)]  # along the stone path outside
-# sparrow spots: they peck here and hop between them (the first six are inside the walls)
-const SPARROW_SPOTS := [
-	Vector3(-1.4, 0, 2.6), Vector3(-0.6, 0, 3.3), Vector3(2.2, 0, 3.0), Vector3(3.0, 0, 2.2),
-	Vector3(-4.0, 0, -0.5), Vector3(4.2, 0, -4.4),
-	Vector3(-2.0, 0, 9.0), Vector3(-2.7, 0, 9.8), Vector3(2.1, 0, 9.4), Vector3(2.8, 0, 10.4)]
-const INSIDE_SPOTS := 6
+# One layout per scene (model metres, Godot axes):
+#   scene     the baked diorama (tools/blender/build_scene<N>.py)
+#   cats      [position, facing in degrees, role]: cats that just live there
+#   cat_walk  the pacing cat's two ends (when pacing_cat)
+#   sparrows  spots they peck at and hop between; the first `inside` are the ones kept
+#             when birds_outside is off
+#   hens      [kind, start]; they wander inside hen_area (kept clear of walls and porch)
+#   falcon    centre, radius and height of its circle
+#   shaib     where the old man is, and his first clip
+const LAYOUTS := {
+	1: {
+		"scene": "res://assets/world/scene1/scene1.glb",
+		"cats": [[Vector3(5.6, 0.0, 1.0), 200.0, "sleep"]],   # asleep in a corner of the courtyard
+		"cat_walk": [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)],
+		"sparrows": [
+			Vector3(-1.4, 0, 2.6), Vector3(-0.6, 0, 3.3), Vector3(2.2, 0, 3.0), Vector3(3.0, 0, 2.2),
+			Vector3(-4.0, 0, -0.5), Vector3(4.2, 0, -4.4),
+			Vector3(-2.0, 0, 9.0), Vector3(-2.7, 0, 9.8), Vector3(2.1, 0, 9.4), Vector3(2.8, 0, 10.4)],
+		"inside": 6,
+		"hens": [["hen", Vector3(-4.6, 0, 2.6)], ["hen", Vector3(-3.4, 0, 4.4)], ["rooster", Vector3(4.2, 0, 3.6)]],
+		"hen_area": Rect2(-7.0, 2.4, 12.0, 3.0),  # x0, z0, w, d: clear of the walls, the tower's corner and the porch
+		"falcon": [Vector3(8.25, 0.0, 6.25), 4.8, 10.5],      # round the tower
+		"shaib": [Vector3(0.0, 0.0, 0.75), 0.0, "sit_idle"],   # seated on the porch, facing the gate
+	},
+	2: {
+		"scene": "res://assets/world/scene2/scene2.glb",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [
+			Vector3(-5.0, 0, 5.0), Vector3(-3.6, 0, 6.0), Vector3(3.0, 0, 5.6), Vector3(5.2, 0, 4.0),
+			Vector3(-6.4, 0, 1.6), Vector3(2.6, 0, 6.6)],
+		"inside": 6,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [Vector3(-3.5, 0.0, -3.0), 5.5, 9.5],       # round the tall house
+		"shaib": [Vector3(-1.8, 0.0, 2.6), 40.0, "idle"],      # standing in the lane
+	},
+}
 const SPARROWS := 7
-const SHAIB_AT := Vector3(0.0, 0.0, 0.75)  # seated on the porch, facing the gate
-# hens wander inside this part of the courtyard (x0, x1, z0, z1), clear of the porch
-const HEN_AREA := Rect2(-7.4, 1.4, 14.8, 4.2)
-const HENS := [["hen", Vector3(-4.6, 0, 2.6)], ["hen", Vector3(-3.4, 0, 4.4)], ["rooster", Vector3(4.2, 0, 3.6)]]
-const FALCON_CENTRE := Vector3(8.25, 0.0, 6.25)  # the tower
-const FALCON_RADIUS := 4.8
-const FALCON_HEIGHT := 10.5
 
+var layout: Dictionary = LAYOUTS[1]
 var model: Node3D
 var shaib: Node3D
 var shaib_anim: AnimationPlayer
@@ -51,10 +73,11 @@ var _hens: Array = []   # {node, target, wait, peck, speed}
 var _rng := RandomNumberGenerator.new()
 
 
-func setup(path := SCENE1) -> void:
-	var ps := load(path) as PackedScene
+func setup(scene := 1) -> void:
+	layout = LAYOUTS[scene]
+	var ps := load(layout.scene) as PackedScene
 	if ps == null:
-		push_error("Diorama: cannot load " + path)
+		push_error("Diorama: cannot load " + str(layout.scene))
 		return
 	model = ps.instantiate()
 	add_child(model)
@@ -108,14 +131,15 @@ func _add_shaib() -> void:
 	shaib = ps.instantiate()
 	model.add_child(shaib)
 	shaib.scale = Vector3.ONE * LIFE_SCALE.shaib
-	shaib.position = SHAIB_AT
+	shaib.position = layout.shaib[0]
+	shaib.rotation.y = deg_to_rad(layout.shaib[1])
 	var aps := shaib.find_children("*", "AnimationPlayer", true, false)
 	if not aps.is_empty():
 		shaib_anim = aps[0]
 		for a in ["idle", "walk", "ardah", "idle_look", "think", "sit_idle", "sit_pet"]:
 			if shaib_anim.has_animation(a):
 				shaib_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
-		var first := "sit_idle" if shaib_anim.has_animation("sit_idle") else "idle"
+		var first: String = layout.shaib[2] if shaib_anim.has_animation(layout.shaib[2]) else "idle"
 		shaib_anim.play(first)
 	dress()
 
@@ -132,22 +156,23 @@ func _creature(kind: String, at: Vector3, yaw_deg: float, role: String) -> Node3
 
 
 func _spots() -> Array:
-	return SPARROW_SPOTS if birds_outside else SPARROW_SPOTS.slice(0, INSIDE_SPOTS)
+	var all: Array = layout.sparrows
+	return all if birds_outside else all.slice(0, layout.inside)
 
 
 func _add_life() -> void:
-	for cat in CATS:
+	for cat in layout.cats:
 		_creature("cat", cat[0], cat[1], cat[2])
-	if pacing_cat:
-		_walker = _creature("cat", CAT_WALK[0], 0.0, "walk")
+	if pacing_cat and not layout.cat_walk.is_empty():
+		_walker = _creature("cat", layout.cat_walk[0], 0.0, "walk")
 	var spots := _spots()
 	for i in SPARROWS:
 		var b := _creature("sparrow", spots[i % spots.size()], _rng.randf_range(0, 360), "peck")
 		if b:
 			_birds.append({"node": b, "from": b.position, "to": b.position, "t": 1.0,
 				"wait": _rng.randf_range(2.0, 9.0)})
-	_falcon = _creature("falcon", FALCON_CENTRE + Vector3(FALCON_RADIUS, FALCON_HEIGHT, 0), 0.0, "fly")
-	for h in HENS:
+	_falcon = _creature("falcon", layout.falcon[0] + Vector3(layout.falcon[1], layout.falcon[2], 0), 0.0, "fly")
+	for h in layout.hens:
 		var ps := load(HEN if h[0] == "hen" else ROOSTER) as PackedScene
 		if ps == null:
 			continue
@@ -172,7 +197,8 @@ func scare_hens(p: Vector3, r: float) -> void:
 
 
 func _in_hen_area(p: Vector3) -> Vector3:
-	return Vector3(clampf(p.x, HEN_AREA.position.x, HEN_AREA.end.x), 0, clampf(p.z, HEN_AREA.position.y, HEN_AREA.end.y))
+	var r: Rect2 = layout.hen_area
+	return Vector3(clampf(p.x, r.position.x, r.end.x), 0, clampf(p.z, r.position.y, r.end.y))
 
 
 func _update_hens(dt: float) -> void:
@@ -210,16 +236,17 @@ func _process(dt: float) -> void:
 	if _walker:
 		_walk_t += dt * 0.12
 		var u := pingpong(_walk_t, 1.0)
-		var a: Vector3 = CAT_WALK[0]
-		var b: Vector3 = CAT_WALK[1]
+		var a: Vector3 = layout.cat_walk[0]
+		var b: Vector3 = layout.cat_walk[1]
 		_walker.position = a.lerp(b, smoothstep(0.0, 1.0, u))
 		var going_out := fmod(_walk_t, 2.0) < 1.0
 		_walker.rotation.y = 0.0 if going_out else PI
 	# the falcon circles the tower, head first, banking into the turn
 	if _falcon:
 		_falcon_a += dt * 0.35
-		var p := FALCON_CENTRE + Vector3(cos(_falcon_a) * FALCON_RADIUS, FALCON_HEIGHT + sin(_falcon_a * 2.0) * 0.8,
-			sin(_falcon_a) * FALCON_RADIUS)
+		var c: Vector3 = layout.falcon[0]
+		var fr: float = layout.falcon[1]
+		var p := c + Vector3(cos(_falcon_a) * fr, layout.falcon[2] + sin(_falcon_a * 2.0) * 0.8, sin(_falcon_a) * fr)
 		_falcon.position = p
 		# it moves along (-sin a, 0, cos a); the model faces +Z, so its yaw is -a
 		_falcon.rotation = Vector3(0, -_falcon_a, deg_to_rad(16))
