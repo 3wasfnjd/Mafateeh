@@ -13,11 +13,13 @@ extends Node3D
 ##   [--demo=1] (play: draw a working path and let the cat walk it) [--wait=frames]
 
 const ICONS := "res://assets/ui/icons/"
-# palette: light, warm, no green (owner's choice)
-const CARD := Color("f4ecdf")
-const ACCENT := Color("b08a5e")     # light brown buttons
-const ACCENT_DARK := Color("7a5a3a") # worn-item ring, little vents
-const DISC := Color("fbf6ee")
+# palette: light, warm, no green (owner's choice). The card itself is the owner's clay plaque
+# (assets/ui/menu_plaque.png: crenellated top, an emblem pressed in the lower left corner).
+const PLAQUE := "res://assets/ui/menu_plaque.png"
+const PLAQUE_ASPECT := 1024.0 / 541.0
+const ACCENT := Color("7a5a3a")      # brown buttons on the clay
+const ACCENT_DARK := Color("4f3826") # worn-item ring
+const DISC := Color("fbf3e4")
 
 var env: Environment
 var rig: XRRig
@@ -116,19 +118,13 @@ func _new_card(size: Vector2) -> void:
 	var q := QuadMesh.new()
 	q.size = size
 	bg.mesh = q
-	var m := _flat(CARD)
-	m.albedo_color.a = 0.97
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = load(PLAQUE)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	bg.material_override = m
 	card.add_child(bg)
-	for i in 3:  # a small row of vent triangles, the only ornament
-		var tri := MeshInstance3D.new()
-		var pm := PrismMesh.new()
-		pm.size = Vector3(0.022, 0.022, 0.004)
-		tri.mesh = pm
-		tri.material_override = _flat(ACCENT)
-		tri.position = Vector3((i - 1) * 0.032, size.y / 2 - 0.035, 0.003)
-		card.add_child(tri)
 
 
 func _show_card(kind: String) -> void:
@@ -136,13 +132,13 @@ func _show_card(kind: String) -> void:
 	if kind == "wardrobe":
 		_wardrobe_card()
 		return
-	_new_card(Vector2(0.46, 0.26))
-	_icon_button("play", Vector3(-0.1, -0.012, 0.004), 0.07, _play)
-	_icon_button("wardrobe", Vector3(0.1, -0.012, 0.004), 0.07, func(): _show_card("wardrobe"))
+	_new_card(Vector2(0.48, 0.48 / PLAQUE_ASPECT))
+	_icon_button("play", Vector3(-0.07, -0.005, 0.004), 0.06, _play)
+	_icon_button("wardrobe", Vector3(0.09, -0.005, 0.004), 0.06, func(): _show_card("wardrobe"))
 
 
 func _wardrobe_card() -> void:
-	_new_card(Vector2(0.62, 0.40))
+	_new_card(Vector2(0.66, 0.66 / PLAQUE_ASPECT))
 	# the old man on a small round stand, turning slowly
 	var stand := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -150,15 +146,15 @@ func _wardrobe_card() -> void:
 	cm.bottom_radius = 0.08
 	cm.height = 0.012
 	stand.mesh = cm
-	stand.material_override = _flat(Color("e3d3bb"))
-	stand.position = Vector3(-0.17, -0.15, 0.06)
+	stand.material_override = _flat(Color("c79b6c"))
+	stand.position = Vector3(-0.13, -0.112, 0.05)
 	card.add_child(stand)
 	var ps := load(Diorama.SHAIB) as PackedScene
 	if ps:
 		_preview = ps.instantiate()
 		card.add_child(_preview)
-		_preview.scale = Vector3.ONE * 0.17  # 1.7 m -> about 29 cm
-		_preview.position = Vector3(-0.17, -0.144, 0.06)
+		_preview.scale = Vector3.ONE * 0.16  # about 20 cm tall on the card
+		_preview.position = Vector3(-0.13, -0.106, 0.05)
 		var aps := _preview.find_children("*", "AnimationPlayer", true, false)
 		if not aps.is_empty():
 			_preview_anim = aps[0]
@@ -173,10 +169,10 @@ func _wardrobe_card() -> void:
 	for i in ids.size():
 		var col := i % 4
 		var row := i / 4
-		var at := Vector3(0.03 + col * 0.075, 0.08 - row * 0.09, 0.004)
-		_item_button(ids[i], at, 0.032)
-	_icon_button("back", Vector3(0.07, -0.13, 0.004), 0.032, func(): _show_card("start"))
-	_icon_button("play", Vector3(0.20, -0.13, 0.004), 0.032, _play)
+		var at := Vector3(0.04 + col * 0.07, 0.065 - row * 0.08, 0.004)
+		_item_button(ids[i], at, 0.03)
+	_icon_button("back", Vector3(0.08, -0.105, 0.004), 0.03, func(): _show_card("start"))
+	_icon_button("play", Vector3(0.21, -0.105, 0.004), 0.03, _play)
 
 
 func _icon_button(icon: String, at: Vector3, r: float, action: Callable) -> void:
