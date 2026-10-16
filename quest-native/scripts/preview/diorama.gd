@@ -16,8 +16,8 @@ const LIFE_SCALE := {"cat": 2.4, "sparrow": 3.0, "falcon": 4.0}
 # cats: position, facing (degrees), role
 const CATS := [
 	[Vector3(1.8, 3.19, 1.2), 10.0, "sit"],     # on the porch roof, watching the gate
-	[Vector3(4.1, 0.0, -1.0), 200.0, "sleep"],  # asleep near the crates
-	[Vector3(-10.0, 0.0, -0.4), 90.0, "sit"],   # at the tent
+	[Vector3(4.1, 0.0, -1.0), 200.0, "sleep"],  # asleep in the courtyard
+	[Vector3(-1.9, 0.0, 0.7), 160.0, "sit"],    # by the house door
 ]
 const CAT_WALK := [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)]  # along the stone path outside
 # sparrow spots: they peck here and hop between them

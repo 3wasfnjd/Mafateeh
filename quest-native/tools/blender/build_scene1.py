@@ -353,34 +353,24 @@ def house():
     block("PorchRoof", (5.4, 2.1, 0.06), (0, -0.8, 3.15), straw)
 
 
+# Which props belong to which chapter (owner: don't crowd the first scene; each level gets
+# what fits its mood). Scene 1, "a path in the sand", keeps the house, the old man, his cats,
+# the hens, sparrows and the falcon. The rest waits for its own level:
+#   tent + sheep            -> level 4 (al-sadu weaving: goat-hair tent, wool)
+#   lanterns                -> level 5 (the guest's coffee, evening majlis)
+#   camels                  -> level 7 (Suhail star: the night caravan)
+#   crates                  -> level 8 (barter market)
+#   well, channel, basin    -> level 9 (al-saniya: drawing water for the palms)
+LATER = {"tent": 4, "sheep": 4, "lantern": 5, "camel": 7, "crate": 8, "well": 9, "water": 9}
+
+
 def life():
-    # camel camp outside on the left: the tent spans about x -14.4..-10.4, y -1.9..4.3
-    place(p("tent"), (-12.3, 1.2, 0), -90)
-    place(p("camel_standing"), (-11.4, -5.0, 0), 35)
-    place(p("camel_standing"), (-14.0, -3.6, 0), 75)
-    place(p("camel_calf"), (-10.0, -6.9, 0), 50)
-    place(p("camel_kneeling"), (-9.4, -9.6, 0), 20)  # on the flat sand, clear of the tent
-    # sheep on the right, spaced so none touch
-    for x, y, yaw in ((11.4, 1.8, 20), (12.8, 3.4, -30), (11.2, 4.6, 60), (13.0, 0.6, 100)):
-        place(p("sheep"), (x, y, 0), yaw)
     # hens in the courtyard, clear of the walls
     for x, y, yaw, kind in ((-3.6, -1.6, 20, "hen"), (-2.6, -2.6, 140, "hen"), (-4.4, -2.8, -60, "rooster")):
         place(p(kind), (x, y, 0), yaw)
-    # the well, its channel and the basin it fills, in the left half of the courtyard
-    place(k("well"), (-5.6, -2.2, 0), 0)
-    for y in (-0.5, 1.5):
-        place(k("water_channel"), (-5.6, y, 0), 0)
-    place(k("water_basin"), (-5.6, 3.6, 0), 0)
-    # crates side by side (none stacked)
-    place(p("crate"), (5.4, 2.4, 0), 8)
-    place(p("crate"), (6.4, 2.6, 0), -12)
-    for x in (-1.4, 1.4):
-        place(p("lantern"), (x, -GY - 0.7, 0), 0)
-    place(p("lantern"), (-1.1, -0.55, 0), 0)
     # palms
     palm = os.path.join(ROOT, "assets", "world", "palm.glb")
-    for x, y, s, yaw in ((-7.1, 5.3, 0.75, 10), (-4.6, -11.6, 1.0, 30), (11.0, 9.0, 1.0, 200),
-                         (-6.5, 10.6, 0.9, 120), (6.0, -11.6, 0.9, 300), (13.0, -5.0, 0.95, 0)):
+    for x, y, s, yaw in ((-5.6, 3.4, 0.75, 10), (-6.0, -11.6, 1.0, 30), (11.0, 7.5, 1.0, 200), (-11.5, 2.0, 0.95, 120)):
         place(palm, (x, y, 0), yaw, s)
     # the old man just inside the gate (cats, birds and the falcon are added live in the game: scripts/preview/diorama.gd)
     rigged(os.path.join(ROOT, "assets", "character", "shaib.glb"), (0.9, -4.4, 0), 0, "Shaib")
