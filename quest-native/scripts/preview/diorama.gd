@@ -68,6 +68,19 @@ const LAYOUTS := {
 		"falcon": [],                                          # the level's own falcon is the hero
 		"shaib": [Vector3(0.0, 0.0, -2.0), 0.0, "sit_idle"],   # seated at the front of the arish, facing the gate
 	},
+	4: {
+		"scene": "res://assets/world/scene4/scene4.glb",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [
+			Vector3(-6.4, 0, -4.4), Vector3(-7.4, 0, 3.8), Vector3(4.6, 0, -6.6), Vector3(7.8, 0, -2.8),
+			Vector3(-4.4, 0, -6.2), Vector3(8.6, 0, 1.4)],
+		"inside": 6,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [Vector3(0.0, 0.0, -1.0), 7.0, 11.0],       # high over the camp
+		"shaib": [Vector3(1.8, 0.0, -7.0), 0.0, "idle"],       # by the tent
+	},
 }
 const SPARROWS := 7
 
