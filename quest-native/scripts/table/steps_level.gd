@@ -169,6 +169,18 @@ func pointer(held: bool, p) -> void:
 		_sfx("tap", p, -10.0)
 
 
+## The blocks' boxes, a little enlarged (for the pointer's ring, and picking). Taps on the
+## ground walk him, so no snapping onto a block the ray misses.
+var assist := false
+func hover_boxes() -> Dictionary:
+	var out := {}
+	for i in blocks.size():
+		var b: Dictionary = blocks[i]
+		var n: Node3D = b.node
+		out[str(i)] = AABB(n.position - Vector3(BLOCK_W / 2, 0, BLOCK_W / 2), Vector3(BLOCK_W, b.h, BLOCK_W)).grow(0.18)
+	return out
+
+
 ## The side (grid direction from the block to him) he is standing against, or ZERO.
 func _side_against(b: Dictionary) -> Vector2i:
 	var rel: Vector3 = _man() - b.node.position
@@ -183,20 +195,9 @@ func _side_against(b: Dictionary) -> Vector2i:
 
 ## The block under the ray (its box, a little enlarged), else the one nearest the ground point.
 func _pick(p) -> Dictionary:
-	if _ray.size() == 2:
-		var o := to_local(_ray[0])
-		var d := to_local(_ray[0] + _ray[1]) - o
-		var best := {}
-		var best_t := INF
-		for b in blocks:
-			var n: Node3D = b.node
-			var box := AABB(n.position - Vector3(BLOCK_W / 2, 0, BLOCK_W / 2), Vector3(BLOCK_W, b.h, BLOCK_W)).grow(0.18)
-			var hit = box.intersects_ray(o, d)
-			if hit != null and o.distance_to(hit) < best_t:
-				best_t = o.distance_to(hit)
-				best = b
-		if not best.is_empty():
-			return best
+	var id := TableKit.ray_pick(self, _ray, hover_boxes(), false)
+	if id != "":
+		return blocks[int(id)]
 	if p == null:
 		return {}
 	var q: Vector3 = p

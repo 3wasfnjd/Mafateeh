@@ -1,8 +1,8 @@
 """Scene 6 of the tabletop diorama: the palace square, where the ardah is danced.
 
 A tall palace front (the vented-gable facade and the stepped facade side by side, a flat roof
-inside their parapets, a carved door), the owner's sandstone tower at its right corner, low
-crenellated walls running off both sides, and a wide paved square in front. Level 6 is
+inside their parapets, a carved door), the owner's sandstone tower at its right corner, and a
+wide paved square in front (no side walls: they only ran into the dunes). Level 6 is
 played here: the drums, the flag poles and the line of men are live (drum_level.gd).
 
 Reuses the helpers of build_scene1.py. Real metres; writes assets/world/scene6/scene6.glb.
@@ -81,10 +81,6 @@ def palace():
     for i in range(13):
         block("BeamEnd%d" % i, (0.12, 0.35, 0.12), g(-5.7 + i * 0.95, FRONT_Z + 0.2, 3.3), wood, uv_full=True)
     place(os.path.join(b1.ROOT, "assets", "world", "house", "tower.glb"), g(8.4, FRONT_Z - 0.6), 180)
-    # low crenellated walls off to the left
-    for x in (-8.25, -12.25):
-        place(k("wall"), g(x, FRONT_Z), 0)
-        b1.crenels_on(x, -FRONT_Z, 0)
 
 
 def life():

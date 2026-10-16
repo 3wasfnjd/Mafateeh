@@ -7,11 +7,16 @@ downloads). The owner asked for quiet music and gentle effects in place of the o
   audio/sfx/<name>.wav
       every effect the table levels play, remade soft and short (taps of wood, a felt-muted
       chime, a gentle sand shuffle for pushing, rising chimes for success)
+  audio/ambience/<name>.ogg
+      each scene's quiet surroundings, 40 s seamless loops: birds, wind, fire, night (crickets),
+      market (a far murmur and the odd clink), water (a running channel), rain (a soft shower)
 
-Usage: python3 tools/audio/make_soft_audio.py      (needs numpy and ffmpeg)
+Usage: python3 tools/audio/make_soft_audio.py [ambience]      (needs numpy and ffmpeg)
+       (with "ambience": only the surroundings)
 """
 import os
 import subprocess
+import sys
 import wave
 
 import numpy as np
@@ -239,9 +244,134 @@ def effects():
     print("effects", len(fx))
 
 
+# --- surroundings -------------------------------------------------------------------------------
+
+AMB = os.path.join(ROOT, "audio", "ambience")
+
+
+def bandnoise(n, lo, hi):
+    """Noise between lo and hi Hz (two one-pole filters, done with the FFT for speed)."""
+    x = rng.standard_normal(n)
+    f = np.fft.rfft(x)
+    fr = np.fft.rfftfreq(n, 1 / SR)
+    f *= np.exp(-((np.log(np.maximum(fr, 1)) - np.log(np.sqrt(lo * hi))) ** 2) / (2 * (np.log(hi / lo) / 2.5) ** 2))
+    y = np.fft.irfft(f, n)
+    return y / (np.max(np.abs(y)) + 1e-9)
+
+
+def slow(n, period, depth=0.5, seed=0):
+    """A slow wandering swell between 1 - depth and 1 (sum of a few sines, loops exactly)."""
+    t = np.arange(n) / n
+    r = np.random.default_rng(seed)
+    v = np.zeros(n)
+    for k in (1, 2, 3, 5):
+        v += np.sin(2 * np.pi * k * t * max(1, round(n / SR / period)) + r.uniform(0, 6.28)) / k
+    v = (v - v.min()) / (v.max() - v.min() + 1e-9)
+    return 1 - depth + depth * v
+
+
+def place(out, x, at):
+    at = at % len(out)
+    end = min(len(out), at + len(x))
+    out[at:end] += x[:end - at]
+    if at + len(x) > len(out):   # wrap round: a seamless loop
+        out[:at + len(x) - len(out)] += x[end - at:]
+
+
+def chirp(f0, f1, seconds, level):
+    n = int(seconds * SR)
+    t = np.arange(n) / SR
+    f = np.linspace(f0, f1, n)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    e = np.sin(np.pi * t / seconds) ** 2
+    return np.sin(ph) * e * level
+
+
+def amb_birds(n, r):
+    out = bandnoise(n, 300, 2500) * 0.02 * slow(n, 8, 0.6, 1)   # a breath of air
+    t = 0.0
+    while t < n / SR:
+        f = r.uniform(2600, 4200)
+        song = np.concatenate([chirp(f, f * r.uniform(0.8, 1.25), r.uniform(0.05, 0.12), 0.05) for _ in range(r.integers(2, 6))])
+        place(out, song, int(t * SR))
+        t += r.uniform(1.2, 4.5)
+    return out
+
+
+def amb_wind(n, r):
+    w = bandnoise(n, 120, 900) * slow(n, 9, 0.75, 2) * 0.22
+    hiss = bandnoise(n, 1500, 5000) * slow(n, 6, 0.9, 3) * 0.035   # sand on the wind
+    return w + hiss
+
+
+def amb_fire(n, r):
+    out = bandnoise(n, 80, 400) * 0.06 * slow(n, 5, 0.4, 4)        # the soft roar
+    for _ in range(int(n / SR * 7)):
+        c = int(r.uniform(0.002, 0.012) * SR)
+        crack = r.standard_normal(c) * np.exp(-np.arange(c) / (c / 4)) * r.uniform(0.05, 0.25)
+        place(out, crack, int(r.uniform(0, n)))
+    return lowpass(out, 3500)
+
+
+def amb_night(n, r):
+    out = bandnoise(n, 100, 600) * 0.025 * slow(n, 10, 0.5, 5)
+    for voice, (f, rate) in enumerate(((4300, 0.9), (3800, 1.3))):
+        t = np.arange(n) / SR
+        trill = (np.sin(2 * np.pi * 28 * t) > 0.2) * (np.sin(2 * np.pi * rate * t + voice) > 0.4)
+        out += np.sin(2 * np.pi * f * t) * trill * 0.018 * slow(n, 7, 0.8, 6 + voice)
+    return out
+
+
+def amb_market(n, r):
+    # a far murmur: many voices blurred into a band of noise that rises and falls at speech pace
+    out = bandnoise(n, 180, 1100) * slow(n, 4, 0.5, 7) * 0.12
+    t = np.arange(n) / SR
+    syll = 0.6 + 0.4 * np.abs(np.sin(2 * np.pi * 2.3 * t) * np.sin(2 * np.pi * 0.37 * t))
+    out *= syll
+    for _ in range(int(n / SR / 3)):
+        place(out, chime([r.uniform(1800, 2600)], 0.5, 0.05), int(r.uniform(0, n)))   # a cup, a coin
+    return out
+
+
+def amb_water(n, r):
+    out = bandnoise(n, 400, 3000) * 0.07 * slow(n, 3, 0.4, 8)
+    for _ in range(int(n / SR * 9)):
+        f = r.uniform(500, 1400)
+        place(out, chirp(f, f * 1.6, r.uniform(0.02, 0.05), r.uniform(0.02, 0.06)), int(r.uniform(0, n)))
+    return out
+
+
+def amb_rain(n, r):
+    out = bandnoise(n, 900, 7000) * 0.1 * slow(n, 6, 0.3, 9)
+    for _ in range(int(n / SR * 25)):
+        c = int(0.01 * SR)
+        drop = r.standard_normal(c) * np.exp(-np.arange(c) / (c / 5)) * r.uniform(0.02, 0.08)
+        place(out, drop, int(r.uniform(0, n)))
+    return lowpass(out, 5000)
+
+
+def ambience():
+    os.makedirs(AMB, exist_ok=True)
+    n = 40 * SR
+    for name, fn in (("birds", amb_birds), ("wind", amb_wind), ("fire", amb_fire), ("night", amb_night),
+                     ("market", amb_market), ("water", amb_water), ("rain", amb_rain)):
+        x = fn(n, np.random.default_rng(len(name) * 31))
+        x = x / (np.max(np.abs(x)) + 1e-9) * 0.5
+        tmp = os.path.join(AMB, "_tmp_" + name + ".wav")   # (the old game has its own <name>.wav here)
+        save_wav(tmp, x)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp, "-c:a", "libvorbis", "-q:a", "2",
+                        os.path.join(AMB, name + ".ogg")], check=True)
+        os.remove(tmp)
+        print("ambience", name)
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "ambience":
+        ambience()
+        sys.exit(0)
     os.makedirs(MUSIC, exist_ok=True)
     effects()
     music("day", tempo=60)
     music("evening", tempo=54, sparse=0.85)
     music("night", tempo=48, base=0.75, sparse=0.6, drum_on=False)
+    ambience()

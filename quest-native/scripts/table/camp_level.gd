@@ -224,20 +224,21 @@ func pointer(held: bool, p) -> void:
 
 
 func _pick_car() -> Dictionary:
-	if _ray.size() != 2:
-		return {}
-	var o := to_local(_ray[0])
-	var d := to_local(_ray[0] + _ray[1]) - o
-	var best := {}
-	var best_t := INF
-	for car in cars:
+	var id := TableKit.ray_pick(self, _ray, hover_boxes(), false)
+	return cars[int(id)] if id != "" else {}
+
+
+## The cars' boxes (for the pointer's ring, and picking): taps on the ground between them
+## matter here, so no snapping onto a car the ray misses.
+var assist := false
+func hover_boxes() -> Dictionary:
+	var out := {}
+	for i in cars.size():
+		var car: Dictionary = cars[i]
 		var c := _car_centre(car)
 		var half := Vector3(CELL * (0.95 if car.h else 0.45), 1.2, CELL * (0.45 if car.h else 0.95))
-		var hit = AABB(c - Vector3(half.x, 0, half.z), Vector3(half.x * 2, 2.4, half.z * 2)).intersects_ray(o, d)
-		if hit != null and o.distance_to(hit) < best_t:
-			best_t = o.distance_to(hit)
-			best = car
-	return best
+		out[str(i)] = AABB(c - Vector3(half.x, 0, half.z), Vector3(half.x * 2, 2.4, half.z * 2))
+	return out
 
 
 func _select(car: Dictionary) -> void:

@@ -6,7 +6,8 @@ extends Node3D
 ## and wants the brass coffee pot. Tap a stall and he walks over: if he carries what that
 ## merchant wants, they trade; if not, the merchant shakes his head. Trade your way to the
 ## coffee pot. (Dates -> cloth -> jar -> coffee -> the coffee pot; the incense seller and the
-## perfumer trade in a circle that leads nowhere.)
+## perfumer trade in a circle that leads nowhere.) The coffee-pot seller first asks for the
+## jar; the moment the old man has one, he raises his price: now he wants the coffee.
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
@@ -42,11 +43,17 @@ var _idle_t := 0.0
 var _t := 0.0
 var _hint := -1
 var _hint_ring: MeshInstance3D
-var _demo: Array = []
+var _demo := false
+var wants: Array = []         # what each merchant wants now (the coffee-pot seller changes his mind)
+const POT := 2                # the coffee-pot seller
+const FIRST_PRICE := "jar"
 
 
 func setup(d: Diorama) -> void:
 	diorama = d
+	for s in STALLS:
+		wants.append(s[3])
+	wants[POT] = FIRST_PRICE
 	if diorama.shaib:
 		diorama.shaib.position = OLD_MAN
 		diorama.shaib.rotation.y = PI
@@ -75,7 +82,7 @@ func setup(d: Diorama) -> void:
 		b.position = s[0] + Vector3(0, 2.75, 0)
 		var disc := TableKit.cyl(b, 0.5, 0.5, 0.04, TableKit.glow_mat(Color("fbf3e4"), 0.92), Vector3.ZERO, 24)
 		disc.rotation.x = PI / 2
-		var want := item(s[3])
+		var want := item(wants[i])
 		b.add_child(want)
 		want.position = Vector3(0, -0.15, 0.12)
 		want.scale = Vector3.ONE * 1.25
@@ -179,7 +186,7 @@ func _trade(i: int) -> void:
 	var sh := diorama.shaib
 	if sh:
 		TableKit.face(sh, s[0] - sh.position)
-	if holding != s[3]:
+	if holding != wants[i]:
 		TableKit.sfx(self, "soft_reject", s[0], -4.0)
 		_play(m, "reject")
 		diorama.play_shaib("think", "idle")
@@ -205,7 +212,31 @@ func _trade(i: int) -> void:
 	t2.tween_callback(func():
 		_busy = false
 		if holding == GOAL:
-			_win())
+			_win()
+		elif holding == FIRST_PRICE and wants[POT] == FIRST_PRICE:
+			_raise_price())
+
+
+## The coffee-pot seller saw the old man get the jar: he wants the coffee now.
+func _raise_price() -> void:
+	wants[POT] = STALLS[POT][3]
+	var b: Node3D = _bubbles[POT]
+	var old: Node3D = b.get_child(1)
+	_play(_merchants[POT], "think")
+	TableKit.sfx(self, "soft_reject", b.position, -8.0, 1.3)
+	var tw := create_tween()
+	tw.tween_property(b, "scale", Vector3.ONE * 1.25, 0.15)
+	tw.tween_property(b, "rotation:z", 0.25, 0.08)
+	tw.tween_property(b, "rotation:z", -0.25, 0.12)
+	tw.tween_property(b, "rotation:z", 0.0, 0.08)
+	tw.tween_callback(func():
+		old.queue_free()
+		var want := item(wants[POT])
+		b.add_child(want)
+		want.position = Vector3(0, -0.15, 0.12)
+		want.scale = Vector3.ONE * 1.25
+		TableKit.sfx(self, "dial_click", b.position, -6.0))
+	tw.tween_property(b, "scale", Vector3.ONE, 0.25)
 
 
 static func _play(m: Dictionary, clip: String) -> void:
@@ -243,14 +274,14 @@ func route() -> Array:
 				k = prev[k][0]
 			return stalls
 		for i in STALLS.size():
-			if STALLS[i][3] == it and not prev.has(STALLS[i][4]):
+			if wants[i] == it and not prev.has(STALLS[i][4]):
 				prev[STALLS[i][4]] = [it, i]
 				queue.append(STALLS[i][4])
 	return []
 
 
 func demo() -> void:
-	_demo = route()
+	_demo = true
 
 
 func _process(dt: float) -> void:
@@ -261,12 +292,15 @@ func _process(dt: float) -> void:
 	elif _carried and diorama.shaib and _carried.scale.x > 0.99:
 		_carried.position = _carried.position.lerp(diorama.shaib.position + Vector3(0, 1.75, 0), clampf(dt * 6.0, 0, 1))
 	for b in _bubbles:
-		var want: Node3D = b.get_child(1)
-		want.rotation.y += dt * 0.8
+		if b.get_child_count() > 1:
+			var want: Node3D = b.get_child(b.get_child_count() - 1)
+			want.rotation.y += dt * 0.8
 	if _won or _busy:
 		return
-	if not _demo.is_empty():
-		_visit(_demo.pop_front())
+	if _demo:
+		var r := route()
+		if not r.is_empty():
+			_visit(r[0])
 		return
 	_idle_t += dt
 	if _idle_t > HINT_AFTER:

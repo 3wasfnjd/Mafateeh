@@ -7,6 +7,8 @@ extends Node3D
 ## played back right raises a flag on one of the four poles turn the square, and the next
 ## phrase is a beat longer. A wrong drum: the beat breaks and he plays the phrase again. Tap
 ## the old man to hear it again. With all four flags up the men dance the ardah.
+## Each round the beat quickens a little, and while it is the player's turn the men keep
+## the time with a soft stamp.
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
@@ -26,6 +28,7 @@ const POLES := [Vector3(-5.6, 0, -4.4), Vector3(5.2, 0, -4.4), Vector3(-7.0, 0, 
 const POLE_H := 4.2
 const ROUNDS := [3, 4, 5, 6]
 const BEAT := 0.62
+const QUICKEN := 0.88         # each round's beat is this much of the last one's
 const HINT_AFTER := 15.0
 
 var diorama: Diorama
@@ -44,6 +47,7 @@ var _idle_t := 0.0
 var _t := 0.0
 var _demo := false
 var _started := false
+var _stamp := 0.0
 
 
 func setup(d: Diorama) -> void:
@@ -151,7 +155,7 @@ func _play_phrase() -> void:
 				TableKit.face(diorama.shaib, drum_pos(i) - OLD_MAN)
 				diorama.play_shaib("interact", "idle")
 			_beat(i))
-		tw.tween_interval(BEAT)
+		tw.tween_interval(beat())
 	tw.tween_callback(func():
 		if diorama.shaib:
 			diorama.shaib.rotation.y = 0.0
@@ -159,6 +163,11 @@ func _play_phrase() -> void:
 		_idle_t = 0.0
 		if _demo:
 			_demo_round())
+
+
+## This round's beat (seconds between strokes): quicker every round.
+func beat() -> float:
+	return BEAT * pow(QUICKEN, turn)
 
 
 func aim(origin: Vector3, dir: Vector3) -> void:
@@ -262,6 +271,11 @@ func _process(dt: float) -> void:
 		_play_phrase()
 	if _won or not _listening:
 		return
+	# the men stamp the time softly while the player beats
+	_stamp -= dt
+	if _stamp <= 0.0:
+		_stamp = beat()
+		TableKit.sfx(self, "tap", Vector3(0, 0.2, -3.5), -16.0, 0.6)
 	_idle_t += dt
 	if _idle_t > HINT_AFTER and _heard.is_empty():
 		_play_phrase()   # forgotten it? he plays it again

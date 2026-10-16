@@ -8,6 +8,9 @@ extends Node3D
 ## line from the Pleiades towards the cairn in the gap of the dunes, with Suhail the last of
 ## them, the line lights up, the camels rise and the old man leads the caravan out.
 ##
+## The night wind gusts now and then and pushes one ring round a notch (twice at most): no
+## standing about admiring the sky. The ring the pointer is on glows.
+##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
 signal level_won
@@ -41,6 +44,9 @@ var _hint := -1
 var _demo: Array = []
 var _camels: Array = []
 var _fire: Node3D
+var _gust_wait := 28.0
+var _gusts := 2
+var _hot := -1
 
 
 func setup(d: Diorama) -> void:
@@ -65,7 +71,7 @@ func setup(d: Diorama) -> void:
 		var bright := TableKit.sphere(ring, 0.32 if k == 2 else 0.22, TableKit.lit_mat(SUHAIL if k == 2 else STAR, 2.6), _slot_pos(k, 0), 8)
 		for s in DECOYS[k]:
 			TableKit.sphere(ring, 0.16, TableKit.lit_mat(STAR, 1.4), _slot_pos(k, s), 6)
-		_rings.append({"node": ring, "bright": bright})
+		_rings.append({"node": ring, "bright": bright, "line": line})
 		ring.rotation.y = -TAU * offsets[k] / SLOTS
 	_line = TableKit.box(sky, Vector3(0.08, 0.08, RADII[2]), TableKit.lit_mat(SUHAIL, 2.0), Vector3(0, 0, RADII[2] / 2))
 	_line.visible = false
@@ -137,17 +143,24 @@ func aim(origin: Vector3, dir: Vector3) -> void:
 func pointer(held: bool, p) -> void:
 	var pressed := held and not _was_held
 	_was_held = held
-	if not pressed or _busy or _won or _ray.size() != 2:
+	if not pressed or _busy or _won:
 		return
-	# where the ray crosses the sky's plane picks the ring
-	var o := to_local(_ray[0])
-	var d := to_local(_ray[0] + _ray[1]) - o
-	if absf(d.y) < 1e-5:
-		return
-	var t := (SKY_Y - o.y) / d.y
-	if t < 0:
-		return
-	var hit := o + d * t
+	var best := _ring_under(_ray)
+	if best >= 0:
+		_tap(best)
+
+
+## Where the ray crosses the sky (world), for the pointer; null off the sky.
+func hover_point(ray: Array) -> Variant:
+	var hit = _sky_hit(ray)
+	return to_global(hit) if hit != null and _ring_under(ray) >= 0 else null
+
+
+## Where the ray crosses the sky's plane picks the ring (-1: none near).
+func _ring_under(ray: Array) -> int:
+	var hit = _sky_hit(ray)
+	if hit == null:
+		return -1
 	var r := Vector2(hit.x, hit.z).length()
 	var best := -1
 	var best_d := 1.0
@@ -155,8 +168,20 @@ func pointer(held: bool, p) -> void:
 		if absf(r - RADII[k]) < best_d:
 			best_d = absf(r - RADII[k])
 			best = k
-	if best >= 0:
-		_tap(best)
+	return best
+
+
+func _sky_hit(ray: Array) -> Variant:
+	if ray.size() != 2:
+		return null
+	var o := to_local(ray[0])
+	var d := to_local(ray[0] + ray[1]) - o
+	if absf(d.y) < 1e-5:
+		return null
+	var t := (SKY_Y - o.y) / d.y
+	if t < 0:
+		return null
+	return o + d * t
 
 
 func _tap(k: int) -> void:
@@ -235,17 +260,55 @@ func _set_off() -> void:
 
 
 func demo() -> void:
+	_demo_on = true
 	_demo = solution()
+
+
+var _demo_on := false
+
+
+## A gust of the night wind turns one ring a notch on its own (one not yet in place, if any).
+func _gust() -> void:
+	_gusts -= 1
+	_gust_wait = randf_range(25.0, 40.0)
+	var k := randi() % RADII.size()
+	for j in RADII.size():
+		if offsets[j] != TARGET:
+			k = j
+			break
+	_busy = true
+	_hint = -1
+	TableKit.sfx(self, "bridge_move", Vector3(0, SKY_Y, 0), -6.0, 0.7)
+	var ring: Node3D = _rings[k].node
+	offsets[k] = (offsets[k] + 1) % SLOTS
+	var tw := create_tween()
+	tw.tween_property(ring, "rotation:y", ring.rotation.y - TAU / SLOTS, 1.1).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func():
+		_busy = false
+		_show_aligned()
+		if aligned():
+			_win())
 
 
 func _process(dt: float) -> void:
 	_t += dt
 	for c in _fire.get_children():
 		c.scale.y = 1.0 + 0.2 * sin(_t * 9.0 + c.position.x * 30.0)
+	# the ring under the pointer glows
+	var hot := -1 if _won else _ring_under(_ray)
+	if hot != _hot:
+		_hot = hot
+		for k in _rings.size():
+			var line: MeshInstance3D = _rings[k].line
+			(line.material_override as StandardMaterial3D).albedo_color.a = 0.85 if k == hot else 0.35
 	if _won or _busy:
 		return
 	if not _demo.is_empty():
 		_tap(_demo.pop_front())
+		return
+	_gust_wait -= dt
+	if _gust_wait <= 0.0 and _gusts > 0 and not _demo_on:
+		_gust()
 		return
 	_idle_t += dt
 	if _idle_t > HINT_AFTER:

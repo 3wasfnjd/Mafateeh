@@ -2,67 +2,81 @@ extends Node3D
 ## Mafateeh: the tabletop game in mixed reality (the owner's direction: AR only, a small
 ## diorama on the table, few words, light simple menus in beige / light brown).
 ##
-## Start card: play, the wardrobe, and a row of level numbers to jump to any level. The wardrobe shows the old man himself, turning slowly,
-## dressed in what he wears; tap an item to put it on or take it off.
-## In play: a scene diorama sits on the table and its level runs on it. Level 1 (scene 1,
-## TablePathLevel: draw the cat's way home); once won, level 2 follows on the same spot
-## (scene 2, TableStepsLevel: push the mud blocks into a stair), then level 3 (scene 3,
-## TableFalconLevel: fly the falcon perch to perch to fetch a key), then level 4 (scene 4,
-## TableCampLevel: drive the parked cars aside to get the water truck out); then the card.
-##   Trigger: draw (or press a card button). Hold grip and move the hand: carry the diorama.
-##   Left stick x: turn it; y: resize it. Right stick: walk the old man (level 2). Tap grip: bring it back in front. Menu: the card.
-## Desktop (no headset): click buttons, drag on the sand to draw, WASD walk, right-drag look,
-##   Q/E turn the diorama, Esc the card.
-## Screenshot args: --screenshot=path [--start=play|wardrobe] [--cam=x,y,z,yaw,pitch]
-##   [--level=N] [--k=size] [--turn=deg] [--demo=1] (play: solve the level by itself) [--wait=frames]
+## The menu (TableMenu): one clay plaque with a rail of tabs (levels, wardrobe, atmosphere,
+## settings, about). In play: a scene diorama sits on the table and its level runs on it; once
+## won, the stars it earned rise over it (by how quickly it was solved), the scene sinks into
+## the ground and the next level's rises out of it. Each level hides a gem somewhere in its
+## scene; point at it and press to take it. Stars and gems open the old man's clothes.
+## Weather drifts over some scenes (dust, sand gusts in the dunes, a shower on the farm), each
+## scene has its own quiet surroundings sound, and the last level ends with fireworks.
+##   Trigger: point and press (the pointer is smoothed, snaps onto things, and rings what it
+##   is on). Hold grip and move the hand: carry the diorama. Left stick x: turn it; y: resize it.
+##   Right stick: walk the old man (level 2). Tap grip: bring it back in front. Menu: the menu.
+## Desktop (no headset): click, drag on the sand to draw, WASD walk, right-drag look,
+##   arrows walk the old man, Q/E turn the diorama, Esc the menu.
+## Screenshot args: --screenshot=path [--start=play|menu] [--page=levels|wardrobe|world|settings|about]
+##   [--cam=x,y,z,yaw,pitch] [--level=N] [--k=size] [--turn=deg] [--demo=1] [--wait=frames]
 
-const ICONS := "res://assets/ui/icons/"
-# palette: light, warm, no green (owner's choice). The card itself is the owner's clay plaque
-# (assets/ui/menu_plaque.png: crenellated top, an emblem pressed in the lower left corner).
-const PLAQUE := "res://assets/ui/menu_plaque.png"
-const PLAQUE_ASPECT := 1024.0 / 541.0
-const ACCENT := Color("7a5a3a")      # brown buttons on the clay
-const ACCENT_DARK := Color("4f3826") # worn-item ring
-const DISC := Color("fbf3e4")
+const MUSIC := "res://audio/music/%s.ogg"   # calm loops from tools/audio/make_soft_audio.py
+const AMBIENCE := "res://audio/ambience/%s.ogg"
+const MUSIC_DB := -15.0
+const SFX_DB := -11.0
+const AMBIENCE_DB := -20.0
+const LAST_LEVEL := 10
+const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
+# How long a level may take for three stars (twice as long: two; any longer: one). Seconds.
+const PAR := {1: 45.0, 2: 150.0, 3: 90.0, 4: 200.0, 5: 90.0, 6: 110.0, 7: 70.0, 8: 100.0, 9: 120.0, 10: 100.0}
+# Where each level's gem hides (x, z in the scene's metres; it sits on whatever is there).
+const GEMS := {1: Vector2(-6.4, -5.2), 2: Vector2(5.8, -0.6), 3: Vector2(-9.2, 2.6), 4: Vector2(10.6, 5.6),
+	5: Vector2(6.6, -2.4), 6: Vector2(8.4, -6.6), 7: Vector2(-6.2, 5.4), 8: Vector2(7.4, 3.0),
+	9: Vector2(8.2, 5.4), 10: Vector2(-6.0, -1.8)}
+# The weather each scene has when the atmosphere is "as designed", and its surroundings sound.
+const WEATHER := {1: "dust", 2: "dust", 3: "dust", 4: "gusts", 5: "dust", 6: "dust", 7: "", 8: "dust", 9: "dust", 10: "dust"}
+const AMBIENT := {1: "birds", 2: "birds", 3: "wind", 4: "wind", 5: "fire", 6: "birds", 7: "night", 8: "market", 9: "water", 10: "fire"}
 
 var env: Environment
 var sun: DirectionalLight3D
 var _music: AudioStreamPlayer
 var _music_mood := ""
-const MUSIC := "res://audio/music/%s.ogg"   # calm loops from tools/audio/make_soft_audio.py
-const MUSIC_DB := -15.0
-const SFX_DB := -11.0
+var _ambience: AudioStreamPlayer
 var rig: XRRig
 var xr := false
 var desk_cam: Camera3D
-var card: Node3D
-var _buttons: Array = []  # {local, r, action}
+var card: TableMenu         # the menu, while it is open
 var _args := {}
 var diorama: Diorama
-var level: Node3D           # Table{Path,Steps,Falcon,Camp}Level: setup(d), pointer(held, p), demo(), level_won
+var level: Node3D           # Table*Level: setup(d), pointer(held, p), demo(), level_won; aim(), move(), hover_boxes() optional
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
-const LAST_LEVEL := 10
-const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
 var _yaw := 0.0
 var _pitch := -0.12
-var _mouse_draw := false
-var _preview: Node3D        # the old man on the wardrobe card
-var _preview_anim: AnimationPlayer
-var _card_kind := ""        # "start" | "wardrobe"
+var _mouse_down := false
 var _mr_on := false         # passthrough switched on (only possible once the session runs)
 var surfaces: SceneSurfaces # real tables from the headset's room setup (Meta Scene API)
 var _moved_by_hand := false # once the player carries the diorama, detected tables no longer move it
+# the pointer
+var _hand := "right"        # the hand that pressed last: the one that points
+var _down := {}             # hand -> trigger held last frame
+var _swallow := false       # a press went to the menu or the gem: the level does not see it
+var _hover_id := ""
+var _hover_mark: MeshInstance3D
+var _t := 0.0
+# this level's extras
+var _started_at := 0.0
+var _gem: Node3D
+var _weather: TableWeather
+var _turn := 0              # two players: whose turn
+var _session := [0, 0]      # two players: stars won this sitting
 
 
 func _ready() -> void:
-	_setup_audio()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--"):
 			var kv := a.substr(2).split("=", true, 1)
 			_args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	_setup_audio()
 	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color("8f8a82")  # stand-in for the room on desktop
@@ -100,8 +114,7 @@ func _ready() -> void:
 		rig.add_child(desk_cam)
 		desk_cam.position = Vector3(0, 1.62, 0)
 		desk_cam.current = true
-	rig.menu_pressed.connect(func(): _show_card("start"))
-	rig.trigger_pressed.connect(_on_trigger)
+	rig.menu_pressed.connect(_toggle_menu)
 	rig.grip_tapped.connect(_on_grip_tap)
 	if _args.has("cam"):
 		var c := str(_args.cam).split_floats(",")
@@ -112,174 +125,58 @@ func _ready() -> void:
 		desk_cam.rotation = Vector3(_pitch, _yaw, 0)
 	match str(_args.get("start", "")):
 		"play": _play(int(_args.get("level", "1")))
-		"wardrobe": _show_card("wardrobe")
-		_: _show_card("start")
+		_: _show_menu(str(_args.get("page", "levels")))
 	if _args.has("screenshot"):
 		_screenshot.call_deferred()
 
 
-# --- cards ------------------------------------------------------------------------------
+func _save() -> Node:
+	return get_node_or_null("/root/Save")
 
-func _new_card(size: Vector2) -> void:
+
+# --- the menu -----------------------------------------------------------------------------------
+
+func _show_menu(page := "levels") -> void:
+	_close_menu()
+	var m := TableMenu.new()
+	m.page = page
+	m.stage = stage if diorama else 0
+	m.turn = _turn
+	m.session = _session
+	card = m
+	add_child(m)
+	_place_card(true)
+	m.play_level.connect(func(n: int): _play(n if n > 0 else _next_level()))
+	m.closed.connect(_close_menu)
+	m.replace_table.connect(func():
+		if diorama:
+			_moved_by_hand = false
+			_place_table()
+			_close_menu())
+	m.settings_changed.connect(_apply_settings)
+
+
+func _close_menu() -> void:
 	if card:
 		card.queue_free()
-	_buttons.clear()
-	_preview = null
-	_preview_anim = null
-	card = Node3D.new()
-	add_child(card)
-	_place_card(true)
-	var bg := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = size
-	bg.mesh = q
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_texture = load(PLAQUE)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	bg.material_override = m
-	card.add_child(bg)
+		card = null
 
 
-func _show_card(kind: String) -> void:
-	_card_kind = kind
-	if kind == "wardrobe":
-		_wardrobe_card()
-		return
-	_new_card(Vector2(0.6, 0.6 / PLAQUE_ASPECT))
-	_icon_button("play", Vector3(-0.08, 0.05, 0.004), 0.05, _play)
-	_icon_button("wardrobe", Vector3(0.08, 0.05, 0.004), 0.05, func(): _show_card("wardrobe"))
-	# the levels in two rows of five, ١ at the top right (read right to left): tap one to go
-	# straight to it; the one on the table has a dark ring
-	for i in LAST_LEVEL:
-		var n := i + 1
-		var at := Vector3(0.14 - (i % 5) * 0.07, -0.04 - (i / 5) * 0.068, 0.004)
-		if diorama and stage == n:
-			_disc(at - Vector3(0, 0, 0.001), 0.031, ACCENT_DARK)
-		_icon_button("level_%d" % n, at, 0.026, func(): _play(n), 1.9)
-
-
-func _wardrobe_card() -> void:
-	_new_card(Vector2(0.66, 0.66 / PLAQUE_ASPECT))
-	# the old man on a small round stand, turning slowly
-	var stand := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.075
-	cm.bottom_radius = 0.08
-	cm.height = 0.012
-	stand.mesh = cm
-	stand.material_override = _flat(Color("c79b6c"))
-	stand.position = Vector3(-0.13, -0.112, 0.05)
-	card.add_child(stand)
-	var ps := load(Diorama.SHAIB) as PackedScene
-	if ps:
-		_preview = ps.instantiate()
-		card.add_child(_preview)
-		_preview.scale = Vector3.ONE * 0.16  # about 20 cm tall on the card
-		_preview.position = Vector3(-0.13, -0.106, 0.05)
-		var aps := _preview.find_children("*", "AnimationPlayer", true, false)
-		if not aps.is_empty():
-			_preview_anim = aps[0]
-			if _preview_anim.has_animation("idle"):
-				_preview_anim.get_animation("idle").loop_mode = Animation.LOOP_LINEAR
-				_preview_anim.play("idle")
-		for mi in _preview.find_children("*", "GeometryInstance3D", true, false):
-			(mi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		Wardrobe.apply(_preview, Save.wearing)
-	# the items, two rows, then back and play
-	var ids := Wardrobe.ITEMS.map(func(it): return it.id)
-	for i in ids.size():
-		var col := i % 4
-		var row := i / 4
-		var at := Vector3(0.04 + col * 0.07, 0.065 - row * 0.08, 0.004)
-		_item_button(ids[i], at, 0.03)
-	_icon_button("back", Vector3(0.08, -0.105, 0.004), 0.03, func(): _show_card("start"))
-	_icon_button("play", Vector3(0.21, -0.105, 0.004), 0.03, _play)
-
-
-func _icon_button(icon: String, at: Vector3, r: float, action: Callable, icon_k := 1.15) -> void:
-	_disc(at, r, ACCENT)
-	_icon(ICONS + icon + ".png", at + Vector3(0, 0, 0.004), r * icon_k)
-	_buttons.append({"local": at, "r": r, "action": action})
-
-
-func _item_button(id: String, at: Vector3, r: float) -> void:
-	var it := Wardrobe.item(id)
-	var worn: bool = Save.wearing.get(it.slot, "") == id
-	if worn:
-		_disc(at - Vector3(0, 0, 0.001), r * 1.18, ACCENT_DARK)
-	_disc(at, r, DISC)
-	_icon(ICONS + "w_" + id + ".png", at + Vector3(0, 0, 0.004), r * 1.5)
-	_buttons.append({"local": at, "r": r, "action": func(): _wear(id)})
-
-
-func _wear(id: String) -> void:
-	var it := Wardrobe.item(id)
-	if it.is_empty():
-		return
-	# the wardrobe is open in this version: everything can be tried on
-	if Save.wearing.get(it.slot, "") == id:
-		Save.wearing.erase(it.slot)
+func _toggle_menu() -> void:
+	if card and diorama:
+		_close_menu()
 	else:
-		Save.wearing[it.slot] = id
-	Save.save()
-	if diorama:
-		diorama.dress()
-	var keep := card.global_transform
-	_wardrobe_card()
-	card.global_transform = keep
-	if _preview_anim and _preview_anim.has_animation("excited"):
-		_preview_anim.play("excited", 0.2)
-		_preview_anim.queue("idle")
+		_show_menu()
 
 
-func _disc(at: Vector3, r: float, c: Color) -> void:
-	var disc := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = r
-	cm.bottom_radius = r
-	cm.height = 0.004
-	cm.radial_segments = 40
-	disc.mesh = cm
-	disc.rotation.x = PI / 2
-	disc.material_override = _flat(c)
-	disc.position = at
-	card.add_child(disc)
-
-
-func _icon(path: String, at: Vector3, size: float) -> void:
-	var ic := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(size, size)
-	ic.mesh = q
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_texture = load(path)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	ic.material_override = m
-	ic.position = at
-	card.add_child(ic)
-
-
-static func _flat(c: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = c
-	return m
-
-
-func _card_hit(origin: Vector3, dir: Vector3) -> Dictionary:
-	if card == null:
-		return {}
-	var plane := Plane(card.global_basis.z, card.global_position)
-	var p = plane.intersects_ray(origin, dir)
-	if p == null:
-		return {}
-	for b in _buttons:
-		if (p as Vector3).distance_to(card.to_global(b.local)) < b.r:
-			return b
-	return {}
+## The first level not yet won (from the one on the table), or the next one.
+func _next_level() -> int:
+	var save := _save()
+	for k in LAST_LEVEL:
+		var n := (stage - 1 + k) % LAST_LEVEL + 1 if diorama else k + 1
+		if save == null or not save.table_stars.has(n):
+			return n
+	return stage % LAST_LEVEL + 1 if diorama else 1
 
 
 func _place_card(instant: bool) -> void:
@@ -295,21 +192,27 @@ func _place_card(instant: bool) -> void:
 	card.look_at(look, Vector3.UP, true)
 
 
-func _on_trigger(_hand: String, origin: Vector3, dir: Vector3) -> void:
-	var b := _card_hit(origin, dir)
-	if not b.is_empty():
-		b.action.call()
+## Settings changed in the menu: volumes, the old man's clothes, the weather.
+func _apply_settings() -> void:
+	var save := _save()
+	if save == null:
+		return
+	for b in [["Music", MUSIC_DB, save.music_volume], ["SFX", SFX_DB, save.sfx_volume], ["Ambience", AMBIENCE_DB, save.ambience_volume]]:
+		var i := AudioServer.get_bus_index(b[0])
+		if i >= 0:
+			AudioServer.set_bus_volume_db(i, b[1] + linear_to_db(maxf(b[2], 0.0001)))
+			AudioServer.set_bus_mute(i, b[2] <= 0.001)
+	if diorama:
+		diorama.dress()
+	_set_weather()
 
 
 # --- play ---------------------------------------------------------------------------------
 
 func _play(n := 1, rising := false) -> void:
-	if card:
-		card.queue_free()
-		card = null
-	_card_kind = ""
+	_close_menu()
 	var keep := Transform3D()
-	var keep_spot := diorama != null and n > 1   # the next level goes where the last one was
+	var keep_spot := diorama != null
 	if diorama:
 		keep = diorama.global_transform
 		diorama.queue_free()
@@ -320,8 +223,10 @@ func _play(n := 1, rising := false) -> void:
 	diorama.birds_outside = false  # keep the ground the player works on clear
 	add_child(diorama)
 	diorama.setup(n)
-	_apply_mood(str(diorama.layout.get("mood", "day")))
-	_play_music(str(diorama.layout.get("mood", "day")))
+	var mood := str(diorama.layout.get("mood", "day"))
+	_apply_mood(mood)
+	_play_music(mood)
+	_play_ambience(AMBIENT.get(n, ""))
 	match n:
 		2: level = TableStepsLevel.new()
 		3: level = TableFalconLevel.new()
@@ -336,6 +241,19 @@ func _play(n := 1, rising := false) -> void:
 	diorama.stage.add_child(level)
 	level.setup(diorama)
 	level.level_won.connect(_on_level_won)
+	_hover_mark = TableKit.ring(diorama.stage, 1.0, Color("fff1d0"), 0.85, 0.1)
+	_hover_mark.visible = false
+	_hover_id = ""
+	_weather = TableWeather.new()
+	diorama.stage.add_child(_weather)
+	_weather.setup(diorama.model)
+	_set_weather()
+	_gem = null
+	var save := _save()
+	if GEMS.has(n) and not (save and save.table_gems.get(n, false)):
+		var g: Vector2 = GEMS[n]
+		_gem = TableFx.gem(diorama.stage, Vector3(g.x, _surface_y(g), g.y))
+	_started_at = _t
 	if keep_spot:
 		diorama.global_transform = keep
 	else:
@@ -344,16 +262,70 @@ func _play(n := 1, rising := false) -> void:
 	if rising:  # the new scene grows up out of the ground
 		diorama.set_rise(0.0)
 		create_tween().tween_method(diorama.set_rise, 0.0, 1.0, RISE_TIME).set_delay(0.15)
+	if save and save.players == 2:
+		_show_turn()
+
+
+## The height of the scene's top surface at (x, z): the ground, a roof, a dune.
+func _surface_y(at: Vector2) -> float:
+	var best := 0.0
+	var inv := diorama.model.global_transform.affine_inverse()
+	var from := Vector3(at.x, 40.0, at.y)
+	for n in diorama.model.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null or mi.get_parent() is Skeleton3D:
+			continue
+		var x := inv * mi.global_transform
+		var aabb := x * mi.get_aabb()
+		if at.x < aabb.position.x or at.x > aabb.end.x or at.y < aabb.position.z or at.y > aabb.end.z:
+			continue
+		var tm := TriangleMesh.new()
+		var f := mi.mesh.get_faces()
+		for i in f.size():
+			f[i] = x * f[i]
+		if f.size() < 3 or not tm.create_from_faces(f):
+			continue
+		var hit := tm.intersect_ray(from, Vector3.DOWN)
+		if not hit.is_empty():
+			best = maxf(best, hit.position.y)
+	return best
+
+
+func _set_weather() -> void:
+	if _weather == null or not is_instance_valid(_weather):
+		return
+	var save := _save()
+	var designed: bool = save == null or save.weather_pref != "clear"
+	var kind: String = WEATHER.get(stage, "")
+	var dust_on: bool = (save == null or save.dust) and kind != ""
+	_weather.dust(dust_on, str(diorama.layout.get("mood", "day")) == "evening")
+	_weather.gusts(designed and kind == "gusts")
 
 
 func _on_level_won() -> void:
 	var won := stage
 	var r := _round
-	get_tree().create_timer(4.0).timeout.connect(func():
+	var save := _save()
+	var took := _t - _started_at
+	var par: float = PAR.get(won, 90.0)
+	var earned := 3 if took <= par else (2 if took <= par * 2.0 else 1)
+	if save:
+		save.table_stars[won] = maxi(save.table_stars.get(won, 0), earned)
+		save.save()
+	if save and save.players == 2:
+		_session[_turn] += earned
+	TableFx.stars(diorama.stage, Vector3(0, 9.0, 0), earned)
+	if won == 9 and (save == null or save.weather_pref != "clear"):
+		_weather.shower(9.0)   # the farm is watered: a shower to go with it
+	if won >= LAST_LEVEL:
+		TableFx.fireworks(diorama.stage, Vector3(0, 0, -0.5), 10.0)
+	get_tree().create_timer(12.0 if won >= LAST_LEVEL else 4.5).timeout.connect(func():
 		if r != _round or diorama == null:
 			return  # the player already started again
+		if save and save.players == 2:
+			_turn = 1 - _turn
 		if won >= LAST_LEVEL:
-			_show_card("start")
+			_show_menu("about")   # the end: who made it
 			return
 		# the old scene sinks into the ground, which stays; the next one rises out of it
 		var tw := create_tween()
@@ -363,9 +335,42 @@ func _on_level_won() -> void:
 				_play(won + 1, true)))
 
 
-## Two quiet buses: the music, and every sound effect (the owner wants both soft).
+## Two players: whose turn this level is, shown over the scene for a moment.
+func _show_turn() -> void:
+	var c := Color("7a5a3a") if _turn == 0 else Color("c9a27a")
+	var disc := TableFx.badge(diorama.stage, "check", 3.4, c)
+	(disc.material_override as StandardMaterial3D).albedo_texture = null   # a plain disc behind the number
+	disc.mesh = _round_quad()
+	var num := TableFx.badge(diorama.stage, "level_%d" % (_turn + 1), 2.8, Color.WHITE)
+	for n in [disc, num]:
+		n.position = Vector3(0, 8.5, 0)
+		var tw: Tween = n.create_tween()
+		tw.tween_interval(2.5)
+		tw.tween_property(n, "transparency", 1.0, 0.8)
+		tw.tween_callback(n.queue_free)
+
+
+func _round_quad() -> Mesh:
+	var am := ArrayMesh.new()
+	# a flat disc facing +z (what a billboard shows)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 32:
+		var a0 := TAU * i / 32
+		var a1 := TAU * (i + 1) / 32
+		st.add_vertex(Vector3.ZERO)
+		st.add_vertex(Vector3(cos(a1), sin(a1), 0) * 1.7)
+		st.add_vertex(Vector3(cos(a0), sin(a0), 0) * 1.7)
+	st.commit(am)
+	return am
+
+
+# --- sound ----------------------------------------------------------------------------------------
+
+## Three quiet buses: the music, every sound effect, and the surroundings (the owner wants
+## all of it soft). Their levels follow the settings.
 func _setup_audio() -> void:
-	for b in [["Music", MUSIC_DB], ["SFX", SFX_DB]]:
+	for b in [["Music", MUSIC_DB], ["SFX", SFX_DB], ["Ambience", AMBIENCE_DB]]:
 		if AudioServer.get_bus_index(b[0]) < 0:
 			AudioServer.add_bus()
 			var i := AudioServer.bus_count - 1
@@ -375,6 +380,10 @@ func _setup_audio() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
 	add_child(_music)
+	_ambience = AudioStreamPlayer.new()
+	_ambience.bus = "Ambience"
+	add_child(_ambience)
+	_apply_settings()
 	_play_music("day")
 
 
@@ -386,18 +395,33 @@ func _play_music(mood: String) -> void:
 	if not ResourceLoader.exists(path):
 		return
 	_music_mood = mood
+	_crossfade(_music, path)
+
+
+## The scene's surroundings: birds, wind, a fire, the night, the market, running water.
+func _play_ambience(kind: String) -> void:
+	var path := AMBIENCE % kind
+	if kind == "" or not ResourceLoader.exists(path):
+		create_tween().tween_property(_ambience, "volume_db", -40.0, 1.2)
+		return
+	if _ambience.stream and _ambience.stream.resource_path == path and _ambience.playing:
+		return
+	_crossfade(_ambience, path)
+
+
+func _crossfade(player: AudioStreamPlayer, path: String) -> void:
 	var st := load(path) as AudioStreamOggVorbis
 	if st == null:
 		return
 	st.loop = true
 	var tw := create_tween()
-	if _music.playing:
-		tw.tween_property(_music, "volume_db", -40.0, 1.2)
+	if player.playing:
+		tw.tween_property(player, "volume_db", -40.0, 1.2)
 	tw.tween_callback(func():
-		_music.stream = st
-		_music.volume_db = -40.0
-		_music.play())
-	tw.tween_property(_music, "volume_db", 0.0, 2.0)
+		player.stream = st
+		player.volume_db = -40.0
+		player.play())
+	tw.tween_property(player, "volume_db", 0.0, 2.0)
 
 
 ## Light for the level's time of day: "day", "evening" (low warm sun) or "night" (dim and
@@ -416,6 +440,8 @@ func _apply_mood(mood: String) -> void:
 	tw.tween_property(env, "ambient_light_color", l[3], 0.8)
 	tw.tween_property(env, "ambient_light_energy", l[4], 0.8)
 
+
+# --- the table ------------------------------------------------------------------------------------
 
 ## Puts the diorama in front of the player at about table height, the gate facing them.
 func _place_table() -> void:
@@ -459,14 +485,14 @@ func _nearest_table(head: Transform3D, fwd: Vector3) -> Dictionary:
 	return best
 
 
-func _on_grip_tap(_hand: String) -> void:
+func _on_grip_tap(_h: String) -> void:
 	if diorama and card == null:
 		_moved_by_hand = false
 		_place_table()
 
 
 func _table_controls(dt: float) -> void:
-	var save := get_node_or_null("/root/Save")
+	var save := _save()
 	var st := rig.stick("right" if save and save.left_handed else "left")  # the other stick walks the old man
 	if absf(st.x) > 0.25:
 		diorama.rotate_y(-st.x * 1.4 * dt)
@@ -501,47 +527,145 @@ func _ensure_passthrough() -> void:
 		_mr_on = rig.set_mode("mr") == "mr"
 
 
+# --- every frame: the pointer -------------------------------------------------------------------
+
 func _process(dt: float) -> void:
+	_t += dt
 	if xr and not _mr_on:
 		_ensure_passthrough()
-	if card:
-		if xr:
-			_place_card(false)
-		if _preview:
-			_preview.rotation.y += dt * 0.5
+	if card and xr:
+		_place_card(false)
 	if not xr:
 		_desk_move(dt)
-	if diorama == null or level == null:
-		return
-	if level.has_method("move"):
+	if _gem:
+		TableFx.gem_tick(_gem, _t)
+	if xr and card == null and diorama:
+		_table_controls(dt)
+	if diorama and level and level.has_method("move"):
 		level.move(_hero_stick() if card == null else Vector2.ZERO)
-	var held := false
-	var hit = null
+	# the pointing hand's ray, and whether its trigger is down (the mouse on desktop)
+	var ray := []
+	var down := false
+	var pressed := false
 	if xr:
-		if card == null:
-			_table_controls(dt)
 		for hand in ["right", "left"]:
 			if not rig.tracked(hand):
+				rig.set_pointer(hand, null, false)
 				continue
 			var c: XRController3D = rig.hands[hand].aim
-			var down: bool = c.is_button_pressed("trigger_click") or c.get_float("trigger") > 0.6
-			var r := rig.ray(hand)
-			var p = diorama.model_point(r[0], r[1])
-			rig.set_pointer(hand, {"point": diorama.model.to_global(p), "interactive": down} if p != null and card == null else null, true)
-			if down and card == null:
-				held = true
-				hit = p
-				if level.has_method("aim"):
-					level.aim(r[0], r[1])
-				break
+			var d: bool = c.is_button_pressed("trigger_click") or c.get_float("trigger") > 0.6
+			if d and not _down.get(hand, false):
+				_hand = hand
+				pressed = true
+			_down[hand] = d
+		if rig.tracked(_hand):
+			down = _down.get(_hand, false)
+			ray = rig.press_ray(_hand) if pressed else rig.ray(_hand)
+			var other := "left" if _hand == "right" else "right"
+			if rig.tracked(other):
+				rig.set_pointer(other, null, false)   # only the pointing hand shows its ray
+	elif desk_cam:
+		var mp := get_viewport().get_mouse_position()
+		ray = [desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp)]
+		down = _mouse_down
+		pressed = down and not _down.get("mouse", false)
+		_down["mouse"] = down
+	if not down:
+		_swallow = false
+	if ray.is_empty():
+		if level and diorama:
+			level.pointer(false, null)
+		return
+	if card:
+		var h = card.hover(ray[0], ray[1])
+		if xr:
+			if h != null:
+				h["pressed"] = down
+			rig.set_pointer(_hand, h, true)
+		if pressed:
+			_swallow = true
+			card.press()
+		if level and diorama:
+			level.pointer(false, null)
+		_show_hover({})
+		return
+	if diorama == null or level == null:
+		return
+	var info := _level_hover(ray)
+	_show_hover(info)
+	if pressed and info.get("id", "") == "__gem":
+		_swallow = true
+		TableFx.collect(_gem)
+		_gem = null
+		var save := _save()
+		if save:
+			save.table_gems[stage] = true
+			save.save()
+		if xr:
+			rig.pulse(_hand, 0.5, 0.08)
+	if level.has_method("aim"):
+		level.aim(ray[0], ray[1])
+	var p = diorama.model_point(ray[0], ray[1])
+	level.pointer(down and not _swallow, p)
+	if xr:
+		var at = info.get("point", null)
+		var hit = null
+		if at != null:
+			hit = {"point": at, "normal": info.get("normal", diorama.model.global_basis.y.normalized()),
+				"interactive": info.has("id") or info.get("target", false), "pressed": down}
+		rig.set_pointer(_hand, hit, true)
+
+
+## What the ray is on: a level's target or the gem ({id, box, point, normal} with a world
+## point), else the ground ({point}), else {}.
+func _level_hover(ray: Array) -> Dictionary:
+	var boxes := {}
+	if level.has_method("hover_boxes"):
+		boxes = level.hover_boxes()
 	else:
-		held = _mouse_draw and card == null
-		if held:
-			var mp := get_viewport().get_mouse_position()
-			hit = diorama.model_point(desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp))
-			if level.has_method("aim"):
-				level.aim(desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp))
-	level.pointer(held, hit)
+		var b = level.get("_boxes")
+		if b is Dictionary:
+			boxes = b
+	var assist = level.get("assist")
+	if _gem:
+		boxes = boxes.duplicate()
+		boxes["__gem"] = AABB(_gem.position - Vector3(0.5, 0, 0.5), Vector3(1.0, 1.2, 1.0))
+	var h := TableKit.ray_hit(diorama.stage, ray, boxes, assist != false)
+	if h.is_empty() and _gem:
+		# the gem is small: it alone gets a wider snap
+		var g := TableKit.ray_hit(diorama.stage, ray, {"__gem": boxes["__gem"]}, true)
+		if not g.is_empty():
+			h = g
+	if not h.is_empty():
+		h.point = diorama.stage.to_global(h.point)
+		h.normal = (diorama.stage.global_basis * (h.normal as Vector3)).normalized()
+		return h
+	if level.has_method("hover_point"):   # a level with targets that are not boxes (the sky)
+		var hp = level.hover_point(ray)
+		if hp != null:
+			return {"point": hp, "normal": -(ray[1] as Vector3), "target": true}
+	var p = diorama.model_point(ray[0], ray[1])
+	if p != null:
+		return {"point": diorama.model.to_global(p)}
+	return {}
+
+
+## Rings the thing under the pointer (and a light tick in the hand when it changes).
+func _show_hover(info: Dictionary) -> void:
+	var id: String = info.get("id", "")
+	if _hover_mark == null or not is_instance_valid(_hover_mark):
+		return
+	if id != _hover_id:
+		_hover_id = id
+		if id != "" and xr:
+			rig.pulse(_hand, 0.12, 0.015)
+	_hover_mark.visible = id != ""
+	if id == "":
+		return
+	var b: AABB = info.box
+	var pulse := 1.0 + 0.05 * sin(_t * 6.0)
+	_hover_mark.position = Vector3(b.get_center().x, b.position.y + 0.05, b.get_center().z)
+	_hover_mark.scale = Vector3(maxf(b.size.x * 0.62, 0.45) * pulse, 1.0, maxf(b.size.z * 0.62, 0.45) * pulse)
 
 
 ## The stick that walks the old man (right; left when the player is left-handed), or the
@@ -550,7 +674,7 @@ func _hero_stick() -> Vector2:
 	var st := Vector2.ZERO
 	var basis := Basis()
 	if xr:
-		var save := get_node_or_null("/root/Save")
+		var save := _save()
 		st = rig.stick("left" if save and save.left_handed else "right")
 		if st.length() < 0.2:
 			return Vector2.ZERO
@@ -577,18 +701,13 @@ func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton:
 		var mb := e as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
-			if mb.pressed and card:
-				var b := _card_hit(desk_cam.project_ray_origin(mb.position), desk_cam.project_ray_normal(mb.position))
-				if not b.is_empty():
-					b.action.call()
-					return
-			_mouse_draw = mb.pressed
+			_mouse_down = mb.pressed
 	elif e is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		_yaw -= (e as InputEventMouseMotion).relative.x * 0.005
 		_pitch = clampf(_pitch - (e as InputEventMouseMotion).relative.y * 0.005, -1.4, 1.2)
 	elif e is InputEventKey and e.pressed:
 		match (e as InputEventKey).physical_keycode:
-			KEY_ESCAPE: _show_card("start")
+			KEY_ESCAPE: _toggle_menu()
 			KEY_Q: if diorama: diorama.rotate_y(0.2)
 			KEY_E: if diorama: diorama.rotate_y(-0.2)
 
@@ -618,6 +737,8 @@ func _screenshot() -> void:
 		_place_card(true)
 	if level and _args.has("demo"):
 		level.demo()
+	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, fireworks)
+		_on_level_won()
 	for i in int(_args.get("wait", "40")):
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

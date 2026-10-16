@@ -30,7 +30,10 @@ const ROOSTER := "res://assets/world/props/rooster.glb"
 const LAYOUTS := {
 	1: {
 		"scene": "res://assets/world/scene1/scene1.glb",
-		"pigeons": [Vector3(8.25, 8.05, 6.25), Vector3(0.8, 3.06, -3.0), Vector3(-8.25, 2.85, 2.0)],
+		"pigeons": [
+			[Vector3(8.25, 7.528, 6.25), Vector3(7.25, 7.529, 5.75), Vector3(7.75, 7.528, 7.25), Vector3(8.75, 7.529, 5.25), Vector3(9.25, 7.529, 6.75), Vector3(7.50, 7.528, 6.50), Vector3(8.00, 7.529, 5.50)],
+			[Vector3(0.80, 3.050, -3.00), Vector3(-0.20, 3.050, -3.50), Vector3(0.30, 3.050, -2.00), Vector3(1.30, 3.050, -4.00), Vector3(1.80, 3.050, -2.50), Vector3(0.05, 3.050, -2.75), Vector3(0.55, 3.050, -3.75)],
+		],
 		"cats": [[Vector3(5.6, 0.0, 1.0), 200.0, "sleep"]],   # asleep in a corner of the courtyard
 		"cat_walk": [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)],
 		"sparrows": [
@@ -45,7 +48,10 @@ const LAYOUTS := {
 	},
 	2: {
 		"scene": "res://assets/world/scene2/scene2.glb",
-		"pigeons": [Vector3(-3.5, 3.42, -3.0), Vector3(1.4, 2.78, -3.6)],
+		"pigeons": [
+			[Vector3(-3.50, 3.400, -3.00), Vector3(-4.50, 3.400, -3.50), Vector3(-4.00, 3.400, -2.00), Vector3(-3.00, 3.400, -4.00), Vector3(-2.50, 3.400, -2.50), Vector3(-4.25, 3.400, -2.75), Vector3(-3.75, 3.400, -3.75)],
+			[Vector3(1.40, 2.760, -3.60), Vector3(2.40, 2.760, -4.10), Vector3(0.40, 2.760, -4.10), Vector3(0.90, 2.760, -2.60), Vector3(2.15, 2.760, -2.85), Vector3(1.40, 2.760, -4.60), Vector3(0.65, 2.760, -3.35)],
+		],
 		"cats": [],
 		"cat_walk": [],
 		"sparrows": [
@@ -85,7 +91,10 @@ const LAYOUTS := {
 	},
 	5: {
 		"scene": "res://assets/world/scene5/scene5.glb",
-		"pigeons": [Vector3(-2.4, 3.43, -4.4), Vector3(2.8, 3.43, -4.6)],
+		"pigeons": [
+			[Vector3(-2.40, 3.425, -4.40), Vector3(-3.40, 3.425, -4.90), Vector3(-2.90, 3.425, -3.40), Vector3(-1.90, 3.425, -5.40), Vector3(-1.40, 3.425, -3.90), Vector3(-3.15, 3.425, -4.15), Vector3(-2.65, 3.425, -5.15)],
+			[Vector3(2.80, 3.425, -4.60), Vector3(1.80, 3.425, -5.10), Vector3(2.30, 3.425, -3.60), Vector3(3.30, 3.425, -5.60), Vector3(3.80, 3.425, -4.10), Vector3(2.05, 3.425, -4.35), Vector3(2.55, 3.425, -5.35)],
+		],
 		"mood": "evening",
 		"cats": [[Vector3(-5.0, 0.45, -3.6), 90.0, "sleep"]],   # asleep on the edge of the dakka
 		"cat_walk": [],
@@ -98,7 +107,11 @@ const LAYOUTS := {
 	},
 	6: {
 		"scene": "res://assets/world/scene6/scene6.glb",
-		"pigeons": [Vector3(8.4, 8.05, -6.6), Vector3(-2.0, 3.42, -9.0), Vector3(2.6, 3.42, -8.4)],
+		"pigeons": [
+			[Vector3(8.40, 7.528, -6.60), Vector3(7.40, 7.529, -7.10), Vector3(7.90, 7.528, -5.60), Vector3(8.90, 7.529, -7.60), Vector3(9.40, 7.529, -6.10), Vector3(7.65, 7.528, -6.35), Vector3(8.15, 7.529, -7.35)],
+			[Vector3(-2.00, 3.400, -9.00), Vector3(-3.00, 3.400, -9.50), Vector3(-2.50, 3.400, -8.00), Vector3(-1.50, 3.400, -10.00), Vector3(-1.00, 3.400, -8.50), Vector3(-2.75, 3.400, -8.75), Vector3(-2.25, 3.400, -9.75)],
+			[Vector3(2.60, 3.400, -8.40), Vector3(1.60, 3.400, -8.90), Vector3(2.10, 3.400, -7.40), Vector3(3.10, 3.400, -9.40), Vector3(3.60, 3.400, -7.90), Vector3(1.85, 3.400, -8.15), Vector3(2.35, 3.400, -9.15)],
+		],
 		"cats": [],
 		"cat_walk": [],
 		"sparrows": [Vector3(-5.6, 0, 5.0), Vector3(5.2, 0, 5.4), Vector3(-6.4, 0, -1.0), Vector3(6.2, 0, 0.0)],
@@ -122,7 +135,10 @@ const LAYOUTS := {
 	},
 	8: {
 		"scene": "res://assets/world/scene8/scene8.glb",
-		"pigeons": [Vector3(-3.4, 2.92, -7.2), Vector3(3.6, 2.92, -7.4)],
+		"pigeons": [
+			[Vector3(-3.40, 2.900, -7.20), Vector3(-4.40, 2.900, -7.70), Vector3(-3.90, 2.900, -6.20), Vector3(-2.90, 2.900, -8.20), Vector3(-2.40, 2.900, -6.70), Vector3(-4.15, 2.900, -6.95), Vector3(-3.65, 2.900, -7.95)],
+			[Vector3(3.60, 2.900, -7.40), Vector3(2.60, 2.900, -7.90), Vector3(3.10, 2.900, -6.40), Vector3(4.60, 2.900, -7.90), Vector3(4.35, 2.900, -6.65), Vector3(3.60, 2.900, -8.40), Vector3(2.85, 2.900, -7.15)],
+		],
 		"cats": [[Vector3(4.0, 0.0, -2.6), 160.0, "sleep"]],    # a market cat asleep by the sacks
 		"cat_walk": [],
 		"sparrows": [Vector3(-3.2, 0, 4.4), Vector3(3.6, 0, 4.0), Vector3(-0.6, 0, -1.2), Vector3(0.8, 0, 5.8)],
@@ -145,7 +161,10 @@ const LAYOUTS := {
 	},
 	10: {
 		"scene": "res://assets/world/scene10/scene10.glb",
-		"pigeons": [Vector3(-3.0, 3.27, -4.9), Vector3(3.2, 3.27, -5.0)],
+		"pigeons": [
+			[Vector3(-3.00, 3.250, -4.90), Vector3(-4.00, 3.250, -5.40), Vector3(-3.50, 3.250, -3.90), Vector3(-2.00, 3.250, -5.40), Vector3(-2.25, 3.250, -4.15), Vector3(-3.75, 3.250, -4.65), Vector3(-3.25, 3.250, -5.65)],
+			[Vector3(3.20, 3.250, -5.00), Vector3(2.20, 3.250, -5.50), Vector3(2.70, 3.250, -4.00), Vector3(4.20, 3.250, -5.50), Vector3(3.95, 3.250, -4.25), Vector3(2.45, 3.250, -4.75), Vector3(2.95, 3.250, -5.75)],
+		],
 		"mood": "evening",
 		"cats": [],
 		"cat_walk": [],
@@ -290,7 +309,8 @@ func _spots() -> Array:
 	return all if birds_outside else all.slice(0, layout.inside)
 
 
-## A flock of pigeons on the scene's high places (layout "pigeons"): it sits a while, then
+## A flock of pigeons on the scene's high places (layout "pigeons": per perch, a list of
+## spots on its top surface): it sits a while, then
 ## takes off together, wheels once round the scene and settles on another of them.
 func _add_pigeons() -> void:
 	var spots: Array = layout.get("pigeons", [])
@@ -311,12 +331,17 @@ func _add_pigeons() -> void:
 					mm.albedo_color = Color(PIGEON_COLOURS[key])
 					mm.roughness = 0.8
 					(mi as MeshInstance3D).set_surface_override_material(k, mm)
-		var off := Vector3(_rng.randf_range(-0.9, 0.9), 0, _rng.randf_range(-0.6, 0.6))
-		b.position = spots[0] + off
+		b.position = _perch_spot(spots[0], i)
 		b.rotation.y = _rng.randf() * TAU
 		CreatureSlot.play(b, "peck", 0.0, _rng.randf() * 2.0)
-		_flock.append({"node": b, "off": off})
+		_flock.append({"node": b})
 	_flock_wait = _rng.randf_range(6.0, 12.0)
+
+
+## Pigeon i's place on a perch: the perch's spots were measured on the real roof top
+## (each stands on the surface, none over an edge), one pigeon to a spot.
+func _perch_spot(perch: Array, i: int) -> Vector3:
+	return perch[i % perch.size()]
 
 
 func _update_flock(dt: float) -> void:
@@ -327,18 +352,18 @@ func _update_flock(dt: float) -> void:
 		return
 	var spots: Array = layout.pigeons
 	var to := (_flock_at + 1 + _rng.randi() % maxi(1, spots.size() - 1)) % spots.size() if spots.size() > 1 else _flock_at
-	var from: Vector3 = spots[_flock_at]
-	var dest: Vector3 = spots[to]
+	var from: Vector3 = spots[_flock_at][0]
+	var dest: Array = spots[to]
 	_flock_at = to
 	_flock_flying = true
 	var centre := Vector3(0, 0, 0)
 	var radius := 7.5
-	var height := maxf(from.y, dest.y) + 4.0
+	var height := maxf(from.y, dest[0].y) + 4.0
 	for i in _flock.size():
 		var bd: Dictionary = _flock[i]
 		var n: Node3D = bd.node
 		var start := n.position
-		var end: Vector3 = dest + bd.off
+		var end := _perch_spot(dest, i)
 		var a0 := atan2(start.z - centre.z, start.x - centre.x)
 		var lap := TAU * 0.85
 		var tw := create_tween()

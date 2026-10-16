@@ -149,24 +149,23 @@ func pointer(held: bool, p) -> void:
 	_fly(id)
 
 
+## The perches, the key and the old man (for the pointer's ring, and picking).
+var assist := false
+func hover_boxes() -> Dictionary:
+	var out := {}
+	for id in PERCHES.keys() + ["key", "man"]:
+		var s := spot(id)
+		out[id] = AABB(Vector3(s.x - 0.45, 0.0, s.z - 0.45), Vector3(0.9, s.y + 0.5, 0.9))
+		if id == "man":
+			out[id] = AABB(SEAT - Vector3(0.6, 0, 0.6), Vector3(1.2, 1.6, 1.2))
+	return out
+
+
 func _pick(p) -> String:
 	var ids: Array = PERCHES.keys() + ["key", "man"]
-	if _ray.size() == 2:
-		var o := to_local(_ray[0])
-		var d := to_local(_ray[0] + _ray[1]) - o
-		var best := ""
-		var best_t := INF
-		for id in ids:
-			var s := spot(id)
-			var box := AABB(Vector3(s.x - 0.45, 0.0, s.z - 0.45), Vector3(0.9, s.y + 0.5, 0.9))
-			if id == "man":
-				box = AABB(SEAT - Vector3(0.6, 0, 0.6), Vector3(1.2, 1.6, 1.2))
-			var hit = box.intersects_ray(o, d)
-			if hit != null and o.distance_to(hit) < best_t:
-				best_t = o.distance_to(hit)
-				best = id
-		if best != "":
-			return best
+	var best := TableKit.ray_pick(self, _ray, hover_boxes(), false)
+	if best != "":
+		return best
 	if p == null:
 		return ""
 	var q: Vector3 = p

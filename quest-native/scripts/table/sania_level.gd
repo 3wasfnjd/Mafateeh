@@ -5,7 +5,8 @@ extends Node3D
 ## the water runs into the basin. From the basin it should run through the field's stone
 ## channels to three palm plots, but the channel pieces lie turned every way. Tap a piece and
 ## it turns a quarter. Water follows every channel that joins up; when it reaches all three
-## plots the palms drink and the old man is glad.
+## plots the palms drink and the old man is glad. While he waits the plots dry out: the
+## palms not yet watered droop, little by little; water brings them back.
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
@@ -55,6 +56,8 @@ var _hint_ring: MeshInstance3D
 var _demo: Array = []
 var _camel: Node3D
 var _rope: MeshInstance3D
+const DRY_FROM := 25.0      # seconds before the palms begin to droop
+const DRY_TIME := 90.0      # and how long until they hang their heads
 
 
 func setup(d: Diorama) -> void:
@@ -281,6 +284,17 @@ func _process(dt: float) -> void:
 		_rope.position = (top + end) / 2
 		_rope.look_at(to_global(end), global_basis.y)
 		_rope.scale = Vector3(1, 1, top.distance_to(end))
+	# thirst: the palms with no water droop as time goes on
+	if not _won:
+		var thirst := clampf((_t - DRY_FROM) / DRY_TIME, 0.0, 1.0)
+		for pl in _plots:
+			var palm: Node3D = pl.palm
+			if palm == null:
+				continue
+			var wet: bool = (pl.water as Node3D).visible
+			var k := 0.0 if wet else thirst
+			palm.scale = palm.scale.lerp(Vector3(0.38, 0.38 * (1.0 - 0.22 * k), 0.38), clampf(dt * 2.0, 0, 1))
+			palm.rotation.z = lerpf(palm.rotation.z, 0.18 * k, clampf(dt * 2.0, 0, 1))
 	if _won or _busy:
 		return
 	if not _demo.is_empty():

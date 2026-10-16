@@ -109,17 +109,64 @@ static func model(parent: Node3D, path: String, pos := Vector3.ZERO, yaw := 0.0,
 	return n
 
 
+## Aim assist: a ray that misses every box by less than this angle still picks the one it
+## passes closest to (the pointer snaps to it), so small things on the table are easy to hit.
+const ASSIST := 0.035  # radians, 2 degrees: a couple of centimetres at arm's length
+
+
 ## The pick under a world ray among boxes {id: AABB} given in parent-local space; "" if none.
-static func ray_pick(parent: Node3D, ray: Array, boxes: Dictionary) -> String:
-	if ray.size() != 2:
-		return ""
+static func ray_pick(parent: Node3D, ray: Array, boxes: Dictionary, assist := true) -> String:
+	return ray_hit(parent, ray, boxes, assist).get("id", "")
+
+
+## The box under a world ray (or, failing that, the one it passes within ASSIST of):
+## {id, box, point, normal} in parent-local space, or {} if none.
+static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := true) -> Dictionary:
+	if ray.size() != 2 or boxes.is_empty():
+		return {}
 	var o := parent.to_local(ray[0])
-	var d := parent.to_local(ray[0] + ray[1]) - o
+	var d := (parent.to_local(ray[0] + ray[1]) - o).normalized()
 	var best := ""
 	var best_t := INF
+	var best_p := Vector3.ZERO
 	for id in boxes:
 		var hit = (boxes[id] as AABB).intersects_ray(o, d)
 		if hit != null and o.distance_to(hit) < best_t:
 			best_t = o.distance_to(hit)
 			best = id
+			best_p = hit
+	if best != "":
+		var b: AABB = boxes[best]
+		return {"id": best, "box": b, "point": best_p, "normal": _face_normal(b, best_p)}
+	if not assist:
+		return {}
+	var near := ""
+	var near_a := ASSIST
+	for id in boxes:
+		var b: AABB = boxes[id]
+		var v := b.get_center() - o
+		var t := v.dot(d)
+		if t <= 0.0:
+			continue
+		# the angle to the box, less its own half size seen from here
+		var a := atan2((v - d * t).length(), t) - atan2(b.size.length() * 0.25, t)
+		if a < near_a:
+			near_a = a
+			near = id
+	if near == "":
+		return {}
+	var nb: AABB = boxes[near]
+	var top := Vector3(nb.get_center().x, nb.end.y, nb.get_center().z)
+	return {"id": near, "box": nb, "point": top, "normal": Vector3.UP}
+
+
+static func _face_normal(b: AABB, p: Vector3) -> Vector3:
+	var best := Vector3.UP
+	var best_d := absf(p.y - b.end.y)
+	for f in [[absf(p.x - b.position.x), Vector3.LEFT], [absf(p.x - b.end.x), Vector3.RIGHT],
+			[absf(p.z - b.position.z), Vector3.FORWARD], [absf(p.z - b.end.z), Vector3.BACK],
+			[absf(p.y - b.position.y), Vector3.DOWN]]:
+		if f[0] < best_d:
+			best_d = f[0]
+			best = f[1]
 	return best

@@ -34,6 +34,13 @@ var _prev := {}
 var _grip_time := {"left": -1.0, "right": -1.0}
 var _dragging := ""
 var _environment: Environment
+# Aim smoothing (a one-euro filter): strong while the hand is nearly still, so tremor does not
+# shake the pointer, light when it moves fast, so it never lags. A few recent rays are kept,
+# because pulling the trigger dips the controller: a press uses the aim from just before it.
+const AIM_MIN_CUTOFF := 1.3   # Hz, at rest
+const AIM_BETA := 0.05        # extra Hz per degree a second of turning
+const PRESS_LOOKBACK := 3     # frames (about 40 ms at 72 Hz)
+var _aim := {}                # hand -> {o, d, hist: [[o, d], ...] newest first}
 
 
 func setup(environment: Environment) -> void:
@@ -70,8 +77,9 @@ func setup(environment: Environment) -> void:
 		cyl.rings = 1
 		ray.mesh = cyl
 		ray.material_override = _unshaded(Color(1.0, 0.92, 0.7, 0.55), true)
-		ray.rotation.x = -PI / 2
 		ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ray.top_level = true   # drawn along the smoothed aim, not the raw controller
+		ray.visible = false
 		aim.add_child(ray)
 		var dot := MeshInstance3D.new()
 		var torus := TorusMesh.new()
@@ -189,10 +197,42 @@ func stick(hand: String) -> Vector2:
 	return hands[hand].aim.get_vector2("primary")
 
 
+## The hand's smoothed aim ray [origin, direction] (world space).
 func ray(hand: String) -> Array:
+	var a: Dictionary = _aim.get(hand, {})
+	if a.is_empty():
+		return raw_ray(hand)
+	return [a.o, a.d]
+
+
+## The aim a moment before now: what the player pointed at as they began pulling the trigger.
+func press_ray(hand: String) -> Array:
+	var a: Dictionary = _aim.get(hand, {})
+	if a.is_empty() or a.hist.is_empty():
+		return ray(hand)
+	return a.hist[mini(PRESS_LOOKBACK, a.hist.size() - 1)]
+
+
+func raw_ray(hand: String) -> Array:
 	var c: XRController3D = hands[hand].aim
 	var t := c.global_transform
 	return [t.origin, -t.basis.z.normalized()]
+
+
+func _smooth_aim(hand: String, delta: float) -> void:
+	var r := raw_ray(hand)
+	var a: Dictionary = _aim.get(hand, {})
+	if a.is_empty() or delta <= 0.0:
+		_aim[hand] = {"o": r[0], "d": r[1], "hist": []}
+		return
+	var turn := rad_to_deg((a.d as Vector3).angle_to(r[1])) / delta
+	var cutoff := AIM_MIN_CUTOFF + AIM_BETA * turn
+	var k := 1.0 / (1.0 + 1.0 / (TAU * cutoff * delta))
+	a.d = (a.d as Vector3).slerp(r[1], k).normalized()
+	a.o = (a.o as Vector3).lerp(r[0], k)
+	a.hist.push_front([a.o, a.d])
+	if a.hist.size() > PRESS_LOOKBACK + 1:
+		a.hist.pop_back()
 
 
 ## Short controller vibration (OpenXR "haptic" output); off when disabled in settings.
@@ -209,19 +249,31 @@ func dragging_hand() -> String:
 	return _dragging
 
 
+## hit: null, or {point, normal (optional, default up), interactive (a target under it),
+## pressed}. The ray is drawn from the hand to the point, the ring lies on the surface there.
 func set_pointer(hand: String, hit, show_ray: bool) -> void:
 	var h: Dictionary = hands[hand]
+	var r := ray(hand)
 	var length := 0.6
 	h.dot.visible = false
 	if hit != null:
-		var origin: Vector3 = ray(hand)[0]
-		length = origin.distance_to(hit.point)
+		length = (r[0] as Vector3).distance_to(hit.point)
+		var n: Vector3 = hit.get("normal", Vector3.UP)
+		var b := Basis.looking_at(n.cross(Vector3.RIGHT if absf(n.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD), n)
+		var size := 1.0
+		if hit.get("interactive", false):
+			size = 1.7
+		if hit.get("pressed", false):
+			size *= 0.8
 		h.dot.visible = true
-		h.dot.global_position = hit.point + Vector3.UP * 0.002
-		h.dot.scale = Vector3.ONE * (1.6 if hit.get("interactive", false) else 1.0)
+		h.dot.global_transform = Transform3D(b.scaled(Vector3.ONE * size), hit.point + n * 0.002)
+		(h.dot.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.95, 0.8, 1.0) if hit.get("interactive", false) else Color(1.0, 0.86, 0.45, 0.95)
 	h.ray.visible = show_ray and tracked(hand)
-	h.ray.scale = Vector3(1, length, 1)
-	h.ray.position = Vector3(0, 0, -length / 2.0)
+	if h.ray.visible:
+		var d: Vector3 = r[1]
+		var up := Vector3.UP if absf(d.dot(Vector3.UP)) < 0.95 else Vector3.FORWARD
+		var along := Basis.looking_at(d, up) * Basis(Vector3.RIGHT, -PI / 2)   # the cylinder's y along d
+		h.ray.global_transform = Transform3D(along.scaled(Vector3(1, length, 1)), r[0] + d * length / 2.0)
 
 
 func _process(delta: float) -> void:
@@ -237,8 +289,10 @@ func _process(delta: float) -> void:
 		}
 		var was: Dictionary = _prev[hand]
 		var ok := tracked(hand)
+		if ok:
+			_smooth_aim(hand, delta)
 		if ok and now.trigger and not was.get("trigger", false):
-			var r := ray(hand)
+			var r := press_ray(hand)
 			trigger_pressed.emit(hand, r[0], r[1])
 		if now.menu and not was.get("menu", false) and focused:
 			menu_pressed.emit()
