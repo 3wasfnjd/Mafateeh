@@ -37,7 +37,7 @@ var diorama: Diorama
 var level: Node3D           # Table{Path,Steps,Falcon,Camp}Level: setup(d), pointer(held, p), demo(), level_won
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
-const LAST_LEVEL := 5
+const LAST_LEVEL := 6
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
@@ -141,14 +141,14 @@ func _show_card(kind: String) -> void:
 	if kind == "wardrobe":
 		_wardrobe_card()
 		return
-	_new_card(Vector2(0.48, 0.48 / PLAQUE_ASPECT))
-	_icon_button("play", Vector3(-0.07, 0.012, 0.004), 0.05, _play)
-	_icon_button("wardrobe", Vector3(0.09, 0.012, 0.004), 0.05, func(): _show_card("wardrobe"))
-	# the levels, ١ on the right (read right to left): tap one to go straight to it; the one
-	# on the table has a dark ring
+	_new_card(Vector2(0.6, 0.6 / PLAQUE_ASPECT))
+	_icon_button("play", Vector3(-0.08, 0.05, 0.004), 0.05, _play)
+	_icon_button("wardrobe", Vector3(0.08, 0.05, 0.004), 0.05, func(): _show_card("wardrobe"))
+	# the levels in two rows of five, ١ at the top right (read right to left): tap one to go
+	# straight to it; the one on the table has a dark ring
 	for i in LAST_LEVEL:
 		var n := i + 1
-		var at := Vector3(0.11 - i * 0.07, -0.075, 0.004)
+		var at := Vector3(0.14 - (i % 5) * 0.07, -0.04 - (i / 5) * 0.068, 0.004)
 		if diorama and stage == n:
 			_disc(at - Vector3(0, 0, 0.001), 0.031, ACCENT_DARK)
 		_icon_button("level_%d" % n, at, 0.026, func(): _play(n), 1.9)
@@ -320,6 +320,7 @@ func _play(n := 1, rising := false) -> void:
 		3: level = TableFalconLevel.new()
 		4: level = TableCampLevel.new()
 		5: level = TableLanternLevel.new()
+		6: level = TableDrumLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
 	level.setup(diorama)

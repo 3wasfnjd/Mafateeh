@@ -93,6 +93,17 @@ const LAYOUTS := {
 		"falcon": [],
 		"shaib": [Vector3(1.0, 0.0, 1.2), 0.0, "idle"],        # by the fire
 	},
+	6: {
+		"scene": "res://assets/world/scene6/scene6.glb",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [Vector3(-5.6, 0, 5.0), Vector3(5.2, 0, 5.4), Vector3(-6.4, 0, -1.0), Vector3(6.2, 0, 0.0)],
+		"inside": 4,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [Vector3(8.4, 0.0, -6.6), 4.0, 11.5],       # round the tower
+		"shaib": [Vector3(0.0, 0.0, -0.2), 0.0, "idle"],       # behind the drums
+	},
 }
 const SPARROWS := 7
 
