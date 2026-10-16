@@ -138,6 +138,18 @@ const LAYOUTS := {
 		"falcon": [Vector3(0.0, 0.0, 1.0), 6.5, 10.0],
 		"shaib": [Vector3(-5.4, 0.0, 1.4), 70.0, "idle"],      # by the basin
 	},
+	10: {
+		"scene": "res://assets/world/scene10/scene10.glb",
+		"mood": "evening",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [Vector3(-5.0, 0, 3.6), Vector3(5.2, 0, 4.0), Vector3(-5.6, 0, -1.0), Vector3(5.8, 0, -0.6)],
+		"inside": 4,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [],
+		"shaib": [Vector3(0.0, 0.0, -1.8), 0.0, "idle"],       # behind the chest
+	},
 }
 const SPARROWS := 7
 

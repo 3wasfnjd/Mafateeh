@@ -37,7 +37,7 @@ var diorama: Diorama
 var level: Node3D           # Table{Path,Steps,Falcon,Camp}Level: setup(d), pointer(held, p), demo(), level_won
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
-const LAST_LEVEL := 9
+const LAST_LEVEL := 10
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
@@ -324,6 +324,7 @@ func _play(n := 1, rising := false) -> void:
 		7: level = TableStarsLevel.new()
 		8: level = TableBarterLevel.new()
 		9: level = TableSaniaLevel.new()
+		10: level = TableChestLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
 	level.setup(diorama)
