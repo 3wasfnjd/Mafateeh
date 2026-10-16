@@ -104,6 +104,18 @@ const LAYOUTS := {
 		"falcon": [Vector3(8.4, 0.0, -6.6), 4.0, 11.5],       # round the tower
 		"shaib": [Vector3(0.0, 0.0, -0.2), 0.0, "idle"],       # behind the drums
 	},
+	7: {
+		"scene": "res://assets/world/scene7/scene7.glb",
+		"mood": "night",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [],
+		"inside": 0,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [],
+		"shaib": [Vector3(0.6, 0.0, 0.3), 0.0, "sit_idle"],    # by the fire
+	},
 }
 const SPARROWS := 7
 
@@ -236,7 +248,7 @@ func _add_life() -> void:
 	if pacing_cat and not layout.cat_walk.is_empty():
 		_walker = _creature("cat", layout.cat_walk[0], 0.0, "walk")
 	var spots := _spots()
-	for i in SPARROWS:
+	for i in (SPARROWS if not spots.is_empty() else 0):
 		var b := _creature("sparrow", spots[i % spots.size()], _rng.randf_range(0, 360), "peck")
 		if b:
 			_birds.append({"node": b, "from": b.position, "to": b.position, "t": 1.0,

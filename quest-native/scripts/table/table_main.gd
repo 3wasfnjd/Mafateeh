@@ -37,7 +37,7 @@ var diorama: Diorama
 var level: Node3D           # Table{Path,Steps,Falcon,Camp}Level: setup(d), pointer(held, p), demo(), level_won
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
-const LAST_LEVEL := 6
+const LAST_LEVEL := 7
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
@@ -321,6 +321,7 @@ func _play(n := 1, rising := false) -> void:
 		4: level = TableCampLevel.new()
 		5: level = TableLanternLevel.new()
 		6: level = TableDrumLevel.new()
+		7: level = TableStarsLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
 	level.setup(diorama)
@@ -358,7 +359,7 @@ func _apply_mood(mood: String) -> void:
 	var looks := {
 		"day": [Vector3(-48, 32, 0), Color("ffffff"), 0.95, Color("fff6ea"), 0.55],
 		"evening": [Vector3(-16, 60, 0), Color("ffb36b"), 0.75, Color("f2c9a0"), 0.42],
-		"night": [Vector3(-40, -30, 0), Color("8ea6d8"), 0.28, Color("6f7fa8"), 0.32],
+		"night": [Vector3(-40, -30, 0), Color("9fb4e0"), 0.38, Color("7f8fb8"), 0.45],
 	}
 	var l: Array = looks.get(mood, looks.day)
 	var tw := create_tween().set_parallel()
