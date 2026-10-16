@@ -60,6 +60,7 @@ const SPARROWS := 7
 
 var layout: Dictionary = LAYOUTS[1]
 var model: Node3D
+var stage: Node3D       # everything but the ground: it sinks into the ground and rises (set_rise)
 var shaib: Node3D
 var shaib_anim: AnimationPlayer
 var pacing_cat := true      # one cat walks the stone path outside the gate
@@ -82,6 +83,15 @@ func setup(scene := 1) -> void:
 	model = ps.instantiate()
 	add_child(model)
 	model.scale = Vector3.ONE * BASE_SCALE
+	# the ground and its plinth stay; the buildings, palms and life move to the stage
+	stage = Node3D.new()
+	stage.name = "Stage"
+	for c in model.get_children():
+		if not (str(c.name).begins_with("Ground") or str(c.name).begins_with("Plinth")):
+			model.remove_child(c)
+			c.owner = null   # (its own children keep the scene as owner, still an ancestor)
+			stage.add_child(c)
+	model.add_child(stage)
 	_rng.seed = 7
 	_add_shaib()
 	_add_life()
@@ -99,6 +109,17 @@ func model_point(origin: Vector3, dir: Vector3):
 	var p: Vector3 = model.to_local(hit)
 	p.y = 0.0
 	return p
+
+
+## Level change: 1 = the scene stands; 0 = sunk into the ground (squashed flat, a little below).
+## The ground itself stays.
+func set_rise(k: float) -> void:
+	if stage == null:
+		return
+	var e := smoothstep(0.0, 1.0, k)
+	stage.scale = Vector3(1.0, maxf(e, 0.01), 1.0)
+	stage.position.y = -0.6 * (1.0 - e)
+	stage.visible = e > 0.005
 
 
 ## Re-dress the old man (after the wardrobe changed).
@@ -129,7 +150,7 @@ func _add_shaib() -> void:
 	if ps == null:
 		return
 	shaib = ps.instantiate()
-	model.add_child(shaib)
+	stage.add_child(shaib)
 	shaib.scale = Vector3.ONE * LIFE_SCALE.shaib
 	shaib.position = layout.shaib[0]
 	shaib.rotation.y = deg_to_rad(layout.shaib[1])
@@ -145,7 +166,7 @@ func _add_shaib() -> void:
 
 
 func _creature(kind: String, at: Vector3, yaw_deg: float, role: String) -> Node3D:
-	var c := CreatureSlot.spawn(model, kind)
+	var c := CreatureSlot.spawn(stage, kind)
 	if c == null:
 		return null
 	c.scale = Vector3.ONE * LIFE_SCALE[kind]
@@ -177,7 +198,7 @@ func _add_life() -> void:
 		if ps == null:
 			continue
 		var n: Node3D = ps.instantiate()
-		model.add_child(n)
+		stage.add_child(n)
 		n.position = h[1]
 		n.scale = Vector3.ONE * LIFE_SCALE.hen
 		n.rotation.y = _rng.randf() * TAU

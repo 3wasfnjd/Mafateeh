@@ -8,7 +8,7 @@ extends Node3D
 ## follows the line. A thorn sends it hopping back. When it reaches him it sits at his knee
 ## and he strokes it; that ends the level.
 ##
-## Lives under Diorama.model, so every position here is in the diorama's own metres
+## Lives under Diorama.stage, so every position here is in the diorama's own metres
 ## (Godot axes, +Z = outside the gate).
 
 signal level_won

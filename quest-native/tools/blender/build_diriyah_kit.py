@@ -25,7 +25,7 @@ import bpy  # noqa: I001  (bpy before bmesh)
 import bmesh
 import numpy as np
 from mathutils import Vector as V
-from PIL import Image
+from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "art"))
@@ -60,6 +60,24 @@ def ref(name):
     return Image.open(os.path.join(REFS, name + ".png"))
 
 
+VENT_SHADE = (58, 38, 24)  # the dark inside of a vent hole
+
+
+def close_vents(a):
+    """Vent holes become dark, opaque recesses; only the cut-out round the wall's outline
+    stays transparent. On a table in mixed reality an open vent shows the real room through
+    the wall, which reads as a see-through, glitchy wall."""
+    clear = Image.fromarray(np.where(a[..., 3] < 128, 255, 0).astype(np.uint8))
+    pad = Image.new("L", (clear.width + 2, clear.height + 2), 255)
+    pad.paste(clear, (1, 1))
+    ImageDraw.floodfill(pad, (0, 0), 128)  # everything clear and joined to the outside
+    holes = np.asarray(pad)[1:-1, 1:-1] == 255
+    out = a.copy()
+    out[holes, :3] = VENT_SHADE
+    out[holes, 3] = 255
+    return out
+
+
 def make_textures():
     tex = {}
     for key, (quad, w, rh, th) in FACES.items():
@@ -69,6 +87,8 @@ def make_textures():
             rgb = a[..., :3].astype(int)
             bright = (rgb.mean(-1) > 200) & (a[..., 3] > 0)
             a[bright, 3] = 0
+        if key in ("p4", "p8"):
+            a = close_vents(a)
         # opaque, mud-coloured fill behind the alpha edge so mip levels don't go dark
         im = Image.fromarray(a)
         if key in ("p4", "p8"):  # these need their alpha (vent holes)

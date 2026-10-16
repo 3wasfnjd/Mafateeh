@@ -8,11 +8,11 @@ extends Node3D
 ## TablePathLevel: draw the cat's way home); once won, level 2 follows on the same spot
 ## (scene 2, TableStepsLevel: stand the mud blocks up as steps); then the card again.
 ##   Trigger: draw (or press a card button). Hold grip and move the hand: carry the diorama.
-##   Left stick x: turn it; y: resize it. Tap grip: bring it back in front. Menu: the card.
+##   Left stick x: turn it; y: resize it. Right stick: walk the old man (level 2). Tap grip: bring it back in front. Menu: the card.
 ## Desktop (no headset): click buttons, drag on the sand to draw, WASD walk, right-drag look,
 ##   Q/E turn the diorama, Esc the card.
 ## Screenshot args: --screenshot=path [--start=play|wardrobe] [--cam=x,y,z,yaw,pitch]
-##   [--level=N] [--k=size] [--demo=1] (play: solve the level by itself) [--wait=frames]
+##   [--level=N] [--k=size] [--turn=deg] [--demo=1] (play: solve the level by itself) [--wait=frames]
 
 const ICONS := "res://assets/ui/icons/"
 # palette: light, warm, no green (owner's choice). The card itself is the owner's clay plaque
@@ -35,6 +35,7 @@ var level: Node3D           # TablePathLevel | TableStepsLevel: setup(d), pointe
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
 const LAST_LEVEL := 2
+const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
 var _yaw := 0.0
@@ -285,7 +286,7 @@ func _on_trigger(_hand: String, origin: Vector3, dir: Vector3) -> void:
 
 # --- play ---------------------------------------------------------------------------------
 
-func _play(n := 1) -> void:
+func _play(n := 1, rising := false) -> void:
 	if card:
 		card.queue_free()
 		card = null
@@ -303,7 +304,7 @@ func _play(n := 1) -> void:
 	add_child(diorama)
 	diorama.setup(n)
 	level = TableStepsLevel.new() if n == 2 else TablePathLevel.new()
-	diorama.model.add_child(level)
+	diorama.stage.add_child(level)
 	level.setup(diorama)
 	level.level_won.connect(_on_level_won)
 	if keep_spot:
@@ -311,6 +312,9 @@ func _play(n := 1) -> void:
 	else:
 		table_k = 1.0
 		_place_table()
+	if rising:  # the new scene grows up out of the ground
+		diorama.set_rise(0.0)
+		create_tween().tween_method(diorama.set_rise, 0.0, 1.0, RISE_TIME).set_delay(0.15)
 
 
 func _on_level_won() -> void:
@@ -319,10 +323,15 @@ func _on_level_won() -> void:
 	get_tree().create_timer(4.0).timeout.connect(func():
 		if r != _round or diorama == null:
 			return  # the player already started again
-		if won < LAST_LEVEL:
-			_play(won + 1)
-		else:
-			_show_card("start"))
+		if won >= LAST_LEVEL:
+			_show_card("start")
+			return
+		# the old scene sinks into the ground, which stays; the next one rises out of it
+		var tw := create_tween()
+		tw.tween_method(diorama.set_rise, 1.0, 0.0, RISE_TIME)
+		tw.tween_callback(func():
+			if r == _round:
+				_play(won + 1, true)))
 
 
 ## Puts the diorama in front of the player at about table height, the gate facing them.
@@ -374,7 +383,8 @@ func _on_grip_tap(_hand: String) -> void:
 
 
 func _table_controls(dt: float) -> void:
-	var st := rig.stick("left")
+	var save := get_node_or_null("/root/Save")
+	var st := rig.stick("right" if save and save.left_handed else "left")  # the other stick walks the old man
 	if absf(st.x) > 0.25:
 		diorama.rotate_y(-st.x * 1.4 * dt)
 	if absf(st.y) > 0.25:
@@ -420,6 +430,8 @@ func _process(dt: float) -> void:
 		_desk_move(dt)
 	if diorama == null or level == null:
 		return
+	if level.has_method("move"):
+		level.move(_hero_stick() if card == null else Vector2.ZERO)
 	var held := false
 	var hit = null
 	if xr:
@@ -447,6 +459,33 @@ func _process(dt: float) -> void:
 			if level.has_method("aim"):
 				level.aim(desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp))
 	level.pointer(held, hit)
+
+
+## The stick that walks the old man (right; left when the player is left-handed), or the
+## arrow keys on desktop, turned into a direction on the diorama's ground (its x, z).
+func _hero_stick() -> Vector2:
+	var st := Vector2.ZERO
+	var basis := Basis()
+	if xr:
+		var save := get_node_or_null("/root/Save")
+		st = rig.stick("left" if save and save.left_handed else "right")
+		if st.length() < 0.2:
+			return Vector2.ZERO
+		basis = rig.head_transform().basis
+	else:
+		st = Vector2(float(Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_LEFT)),
+			float(Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_DOWN)))
+		if st == Vector2.ZERO or desk_cam == null:
+			return Vector2.ZERO
+		basis = desk_cam.global_basis
+	var fwd := -basis.z
+	fwd.y = 0
+	var right := basis.x
+	right.y = 0
+	var world := right.normalized() * st.x + fwd.normalized() * st.y
+	var local := diorama.model.global_basis.inverse() * world
+	var v := Vector2(local.x, local.z)
+	return v.normalized() * minf(st.length(), 1.0) if v.length() > 0.0001 else Vector2.ZERO
 
 
 func _unhandled_input(e: InputEvent) -> void:
@@ -491,6 +530,7 @@ func _screenshot() -> void:
 	if diorama:
 		table_k = float(_args.get("k", "1"))  # --k=N: the diorama N times its usual size
 		_place_table()
+		diorama.rotate_y(deg_to_rad(float(_args.get("turn", "0"))))  # --turn=deg: see another side
 	if card:
 		_place_card(true)
 	if level and _args.has("demo"):
