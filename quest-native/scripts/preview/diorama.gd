@@ -116,6 +116,17 @@ const LAYOUTS := {
 		"falcon": [],
 		"shaib": [Vector3(0.6, 0.0, 0.3), 0.0, "sit_idle"],    # by the fire
 	},
+	8: {
+		"scene": "res://assets/world/scene8/scene8.glb",
+		"cats": [[Vector3(4.0, 0.0, -2.6), 160.0, "sleep"]],    # a market cat asleep by the sacks
+		"cat_walk": [],
+		"sparrows": [Vector3(-3.2, 0, 4.4), Vector3(3.6, 0, 4.0), Vector3(-0.6, 0, -1.2), Vector3(0.8, 0, 5.8)],
+		"inside": 4,
+		"hens": [["hen", Vector3(-4.0, 0, 4.2)], ["rooster", Vector3(4.4, 0, 4.6)]],
+		"hen_area": Rect2(-5.0, 3.4, 10.0, 2.4),               # pecking about the front of the lane
+		"falcon": [],
+		"shaib": [Vector3(0.0, 0.0, 2.8), 180.0, "idle"],
+	},
 }
 const SPARROWS := 7
 
