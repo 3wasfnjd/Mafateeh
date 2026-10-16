@@ -136,7 +136,7 @@ func _add_shaib() -> void:
 	var aps := shaib.find_children("*", "AnimationPlayer", true, false)
 	if not aps.is_empty():
 		shaib_anim = aps[0]
-		for a in ["idle", "walk", "ardah", "idle_look", "think", "sit_idle", "sit_pet"]:
+		for a in ["idle", "walk", "push", "ardah", "idle_look", "sit_idle", "sit_pet"]:
 			if shaib_anim.has_animation(a):
 				shaib_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		var first: String = layout.shaib[2] if shaib_anim.has_animation(layout.shaib[2]) else "idle"

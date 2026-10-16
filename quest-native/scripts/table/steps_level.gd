@@ -3,11 +3,11 @@ extends Node3D
 ## Level 2 on the table, «درج من طين» (steps of mud). Wordless.
 ## Scene 2: a lane between a tall house and its low annex. The cat has climbed onto the annex
 ## roof and can't get down; the old man stands in the lane looking up at it. Three mud blocks,
-## tall, middle and short, lie about the lane. Tap a block and it hops to the next free place
-## along the annex wall (the first one under the cat); tap a placed block and it goes back.
-## With all three placed, if they make a stair (tallest under the cat, going down away from
-## it) the cat steps down them and runs to the old man,
-## who dances; otherwise they shake and tumble back to where they were.
+## tall, middle and short, lie about the lane. Tap a block and the old man walks over and
+## pushes it to the next free place along the annex wall (the first one under the cat); tap a
+## placed block and he pulls it out and pushes it back. With all three placed, if they make a
+## stair (tallest under the cat, going down away from it) the cat steps down them to him and
+## he dances; otherwise the blocks shake and he shakes his head (take the wrong ones out).
 ##
 ## Lives under Diorama.model: positions are in the diorama's own metres (Godot axes).
 
@@ -23,9 +23,12 @@ const BLOCK_W := 0.66
 # the blocks: height and where each lies at the start (not in stair order)
 const BLOCKS := [[1.4, Vector3(-4.4, 0, 3.6)], [0.7, Vector3(0.4, 0, 5.4)], [2.1, Vector3(4.6, 0, 2.2)]]
 const OLD_MAN := Vector3(-1.8, 0, 2.6)
-const CAT_GOAL := Vector3(-1.15, 0, 2.2)     # at the old man's feet
 const PICK_R := 0.8                          # ground-point fallback when the ray misses a block
 const HINT_AFTER := 14.0
+const STAGE_Z := 0.75          # blocks are lined up here, in front of their place, then pushed in
+const REACH := 0.78            # where the old man stands from a block's centre to push it
+const WALK_SPEED := 1.3        # his pace (model metres per second)
+const PUSH_SPEED := 0.55
 
 var diorama: Diorama
 var cat: Node3D
@@ -33,7 +36,8 @@ var blocks: Array = []   # {node, h, home, slot}
 var _slots: Array = [null, null, null]   # block dict in each slot, or null
 var _was_held := false
 var _ray := []           # last world ray from aim(): [origin, dir]
-var _busy := false       # a check or the ending is playing
+var _busy := false       # the old man is at work (taps wait)
+var _demo: Array = []    # blocks still to tap in demo()
 var _won := false
 var _idle_t := 0.0
 var _t := 0.0
@@ -100,24 +104,87 @@ func pointer(held: bool, p) -> void:
 	var b := _pick(p)
 	if b.is_empty():
 		return
+	_tap(b)
+
+
+## A block was chosen: the old man walks over and pushes it into the next free place by the
+## wall, or (a placed block) pulls it out and pushes it back where it lay.
+func _tap(b: Dictionary) -> void:
 	_idle_t = 0.0
 	_hint.visible = false
+	_busy = true
+	_sfx("tap", b.node.position, -8.0)
 	if b.slot >= 0:
+		var front: Vector3 = SLOTS[b.slot] + Vector3(0, 0, STAGE_Z - SLOTS[b.slot].z)
 		_slots[b.slot] = null
 		b.slot = -1
-		_hop(b, b.home, b.yaw)
-		_sfx("brick_lift", b.node.position)
+		await _push(b, front, true)
+		await _push(b, b.home)
+		_busy = false
 		return
 	var free := _slots.find(null)
 	if free < 0:
+		_busy = false
 		return
 	_slots[free] = b
 	b.slot = free
-	_sfx("brick_lift", b.node.position)
-	_hop(b, SLOTS[free], 0.0).finished.connect(func():
-		_sfx("brick_place", b.node.position)
-		if not _slots.has(null):
-			_check())
+	# first out in front of its place, then straight in against the wall
+	await _push(b, Vector3(SLOTS[free].x, 0, STAGE_Z))
+	await _push(b, SLOTS[free])
+	_sfx("brick_place", b.node.position)
+	if _slots.has(null):
+		_rest()
+		_busy = false
+	else:
+		_check()
+
+
+## The old man walks to the block's far side (or near side, pulling) and moves it to `to`.
+func _push(b: Dictionary, to: Vector3, pull := false) -> void:
+	var n: Node3D = b.node
+	var d := to - n.position
+	d.y = 0.0
+	if d.length() < 0.02:
+		return
+	var dir := d.normalized()
+	var stand := n.position + dir * REACH if pull else n.position - dir * REACH
+	await _walk(stand)
+	var sh := diorama.shaib
+	if sh == null:
+		n.position = to
+		return
+	_face(sh, -dir if pull else dir)
+	diorama.play_shaib("push", "")
+	_sfx("crate_scrape", n.position, -4.0)
+	var dur := d.length() / PUSH_SPEED
+	var tw := create_tween().set_parallel()
+	tw.tween_property(n, "position", to, dur)
+	tw.tween_property(n, "rotation:y", 0.0, minf(dur, 0.6))
+	tw.tween_property(sh, "position", sh.position + d, dur)
+	await tw.finished
+
+
+## The old man walks (straight) to p.
+func _walk(p: Vector3) -> void:
+	var sh := diorama.shaib
+	if sh == null:
+		return
+	var d := p - sh.position
+	d.y = 0.0
+	if d.length() < 0.05:
+		return
+	_face(sh, d)
+	diorama.play_shaib("walk", "")
+	var tw := create_tween()
+	tw.tween_property(sh, "position", p, d.length() / WALK_SPEED)
+	await tw.finished
+
+
+## Between jobs he stands where he is and looks up at the cat.
+func _rest() -> void:
+	if diorama.shaib:
+		_face(diorama.shaib, PERCH - diorama.shaib.position)
+		diorama.play_shaib("idle", "")
 
 
 ## The block under the ray (its box, a little enlarged), else the one nearest the ground point.
@@ -149,27 +216,15 @@ func _pick(p) -> Dictionary:
 	return best2
 
 
-func _hop(b: Dictionary, to: Vector3, yaw: float) -> Tween:
-	var n: Node3D = b.node
-	var from := n.position
-	var y0 := n.rotation.y
-	var up: float = 0.6 + b.h * 0.3
-	var tw := create_tween()
-	tw.tween_method(func(k: float):
-		n.position = from.lerp(to, k) + Vector3(0, sin(k * PI) * up, 0)
-		n.rotation.y = lerp_angle(y0, yaw, k), 0.0, 1.0, 0.45).set_trans(Tween.TRANS_SINE)
-	return tw
-
-
-## All three placed: a stair (tallest against the wall) lets the cat down; else they tumble back.
+## All three placed: a stair (tallest under the cat) lets the cat down. Otherwise the blocks
+## shake, the old man shakes his head, and the player takes out the wrong ones (tap them).
 func _check() -> void:
 	var ok := true
-	for i in 3:
-		if i > 0 and _slots[i].h >= _slots[i - 1].h:
+	for i in range(1, 3):
+		if _slots[i].h >= _slots[i - 1].h:
 			ok = false
 	if ok and _slots[0].h < ROOF_Y - 0.9:
 		ok = false
-	_busy = true
 	if ok:
 		_win()
 		return
@@ -181,14 +236,10 @@ func _check() -> void:
 		for k in 4:
 			tw.tween_property(n, "position:x", x0 + (0.08 if k % 2 == 0 else -0.08), 0.06)
 		tw.tween_property(n, "position:x", x0, 0.06)
-	get_tree().create_timer(0.8).timeout.connect(func():
-		for b in blocks:
-			if b.slot >= 0:
-				_slots[b.slot] = null
-				b.slot = -1
-				_hop(b, b.home, b.yaw)
-		_sfx("brick_drop", SLOTS[1])
-		_busy = false)
+	if diorama.shaib:
+		_face(diorama.shaib, PERCH - diorama.shaib.position)
+	diorama.play_shaib("reject", "idle")
+	_busy = false
 
 
 func _win() -> void:
@@ -196,56 +247,55 @@ func _win() -> void:
 	_sfx("success", PERCH, -2.0)
 	for m in _marks:
 		m.visible = false
-	# down the steps: roof edge, each block top, the ground, then along the lane to him
+	# he steps back from the stair to wait at its foot
+	var wait_at: Vector3 = SLOTS[2] + Vector3(-1.4, 0, 1.3)
+	await _walk(wait_at)
+	_face(diorama.shaib, PERCH - wait_at)
+	diorama.play_shaib("idle", "")
+	var goal: Vector3 = wait_at + Vector3(0.45, 0, -0.35)
+	# the cat comes down: roof edge, each block top, the ground, then to his feet
 	var steps: Array = [PERCH + Vector3(0, 0, 0.35)]
 	for i in 3:
 		steps.append(SLOTS[i] + Vector3(0, _slots[i].h, 0))
 	steps.append(SLOTS[2] + Vector3(-0.7, 0, 0.3))
 	var tw := create_tween()
-	tw.tween_interval(0.5)
+	tw.tween_interval(0.3)
 	var at: Vector3 = cat.position
 	for s in steps:
 		var a := at
 		var b: Vector3 = s
-		tw.tween_callback(func(): CreatureSlot.play(cat, "walk"))
+		tw.tween_callback(func():
+			_face(cat, b - a)
+			CreatureSlot.play(cat, "walk"))
 		tw.tween_method(func(k: float):
 			cat.position = a.lerp(b, k) + Vector3(0, sin(k * PI) * 0.35, 0), 0.0, 1.0, 0.38)
 		tw.tween_callback(func(): _sfx("tap", b, -10.0))
 		tw.tween_interval(0.12)
 		at = b
-	var walk: float = at.distance_to(CAT_GOAL) / 1.8
+	tw.tween_callback(func(): _face(cat, goal - cat.position))
+	tw.tween_property(cat, "position", goal, at.distance_to(goal) / 1.8)
 	tw.tween_callback(func():
-		_face(cat, CAT_GOAL - cat.position)
-		if diorama.shaib:
-			_face(diorama.shaib, CAT_GOAL - OLD_MAN))
-	tw.tween_property(cat, "position", CAT_GOAL, walk)
-	tw.tween_callback(func():
-		_face(cat, OLD_MAN - CAT_GOAL)
+		_face(cat, wait_at - goal)
 		CreatureSlot.play(cat, "sit")
 		diorama.play_shaib("ardah", "")
-		diorama.scare_birds(CAT_GOAL, 5.0))
+		diorama.scare_birds(goal, 5.0))
 	tw.tween_interval(4.0)
 	tw.tween_callback(func():
-		_sfx("level_complete", CAT_GOAL)
+		_sfx("level_complete", goal)
 		level_won.emit())
 
 
-## Screenshot/test helper: taps the blocks into a stair.
+## Screenshot/test helper: taps the blocks into a stair, one after another.
 func demo() -> void:
 	var order := blocks.duplicate()
 	order.sort_custom(func(a, b): return a.h > b.h)
-	var tw := create_tween()
-	for b in order:
-		tw.tween_callback(func():
-			_ray = []
-			pointer(false, null)
-			pointer(true, b.node.position))
-		tw.tween_interval(0.7)
-	tw.tween_callback(func(): pointer(false, null))
+	_demo = order
 
 
 func _process(dt: float) -> void:
 	_t += dt
+	if not _demo.is_empty() and not _busy and not _won:
+		_tap(_demo.pop_front())
 	if _won or _busy:
 		return
 	_idle_t += dt

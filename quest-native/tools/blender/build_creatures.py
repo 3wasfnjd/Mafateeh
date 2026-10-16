@@ -324,12 +324,17 @@ def build_falcon():
                 "Tail": (6 * max(0.0, math.sin(2 * math.pi * (ph - 0.3) * 2)) ** 8, 0, 0)}
 
     def fly(t, T):
+        # Wing rotations are in the Body's rest frame (bird standing). Body pitches 72 deg
+        # forward into flight, which turns rest +Y (tail side) almost straight up. So the up/down
+        # beat is a swing about rest Z (it moves the spread wing towards +-Y). The old clip beat
+        # about rest Y, which after the pitch swept the wings fore and aft, like rowing. A fixed
+        # turn about rest Y (forward, in flight) holds them out square instead of swept back.
         ph = t / T
-        flap = math.sin(2 * math.pi * ph)
-        lift = 18 + 42 * flap
-        return {"Body": (72, 0, 0), "Head": (-58, 0, 0), "Neck": (-10, 0, 0), "Tail": (-12, 0, 0),
-                "Wing1.L": (0, -lift, -85), "Wing2.L": (0, -18 * flap, -8),
-                "Wing1.R": (0, lift, 85), "Wing2.R": (0, 18 * flap, 8),
+        down = math.sin(2 * math.pi * ph)               # +1: wings fully down
+        bend = math.sin(2 * math.pi * ph - 0.9)         # wingtips trail the stroke
+        return {"Body": (72 + 3 * down, 0, 0), "Head": (-58, 0, 0), "Neck": (-10, 0, 0), "Tail": (-12, 0, 0),
+                "Wing1.L": (0, -32, -(78 + 42 * down)), "Wing2.L": (0, 0, -(4 + 22 * bend)),
+                "Wing1.R": (0, 32, 78 + 42 * down), "Wing2.R": (0, 0, 4 + 22 * bend),
                 "Leg.L": (-55, 0, 0), "Leg.R": (-55, 0, 0)}
 
     def land(t, T):
