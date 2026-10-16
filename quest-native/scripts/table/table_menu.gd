@@ -5,7 +5,7 @@ extends Node3D
 ## whatever the pointer is on shown above it). Read right to left: the rail is on the right.
 ##   levels    the ten levels with their stars and gems, the totals, play / carry on
 ##   wardrobe  the old man turning on his stand, the clothes (stars and gems open them)
-##   world     weather, drifting dust, put the diorama back in front
+##   world     weather, drifting dust, set the scene down elsewhere, the headset's room setup
 ##   settings  music, effects and surroundings volume; which hand walks; vibration; players;
 ##             the language (Arabic or English; at first the headset's own)
 ##   about     who made it, and whose work it uses
@@ -17,6 +17,7 @@ signal play_level(n: int)     # 0: the next level not yet won
 signal closed
 signal replace_table
 signal settings_changed
+signal capture_room           # open the headset's room setup (so it knows the tables)
 
 const W := 0.62
 const H := W * 541.0 / 1024.0
@@ -209,8 +210,10 @@ func _world() -> void:
 		save.weather_pref = "clear" if designed else "level")
 	_toggle(Vector3(0.03, 0.02, 0.004), "dust", dust_on, _say("الغبار", "Drifting dust"), func():
 		save.dust = not dust_on)
-	_button(Vector3(-0.08, 0.02, 0.004), 0.034, "board", ACCENT, Color.WHITE, _say("رجّع المجسم قدامك", "Bring the diorama back"),
+	_button(Vector3(-0.08, 0.02, 0.004), 0.034, "board", ACCENT, Color.WHITE, _say("ثبّت المشهد في مكان ثاني", "Set the scene down somewhere else"),
 		func(): replace_table.emit())
+	_button(Vector3(-0.08, -0.075, 0.004), 0.024, "mr", ACCENT, Color.WHITE, _say("إعداد الغرفة: خل النظارة تتعرف على طاولاتك", "Room setup: let the headset learn your tables"),
+		func(): capture_room.emit())
 
 
 func _settings() -> void:

@@ -9,13 +9,17 @@ extends Node3D
 ## scene; point at it and press to take it. Stars and gems open the old man's clothes.
 ## Weather drifts over some scenes (dust, sand gusts in the dunes, a shower on the farm), each
 ## scene has its own quiet surroundings sound, and the last level ends with fireworks.
+## Before the first scene appears the player sets it down (TablePlacer): a ring follows the
+## pointer over the real tables the headset knows (outlined; the room data needs the scene
+## permission, asked for at start), or the floor; the trigger fixes it there.
 ##   Trigger: point and press (the pointer is smoothed, snaps onto things, and rings what it
 ##   is on). Hold grip and move the hand: carry the diorama. Left stick x: turn it; y: resize it.
-##   Right stick: walk the old man (level 2). Tap grip: bring it back in front. Menu: the menu.
+##   Right stick: walk the old man (level 2). Tap grip: set it down somewhere else. Menu: the menu.
 ## Desktop (no headset): click, drag on the sand to draw, WASD walk, right-drag look,
 ##   arrows walk the old man, Q/E turn the diorama, Esc the menu.
 ## Screenshot args: --screenshot=path [--start=play|menu] [--page=levels|wardrobe|world|settings|about] [--lang=ar|en]
 ##   [--cam=x,y,z,yaw,pitch] [--level=N] [--k=size] [--turn=deg] [--demo=1] [--wait=frames]
+##   [--place=1] (show the placing ring instead of the scene)
 
 const MUSIC := "res://audio/music/%s.ogg"   # calm loops from tools/audio/make_soft_audio.py
 const AMBIENCE := "res://audio/ambience/%s.ogg"
@@ -67,6 +71,8 @@ var _t := 0.0
 var _started_at := 0.0
 var _gem: Node3D
 var _weather: TableWeather
+var _placer: TablePlacer   # finding the surface, before the scene appears
+var _placing := false
 var _turn := 0              # two players: whose turn
 var _session := [0, 0]      # two players: stars won this sitting
 
@@ -108,8 +114,8 @@ func _ready() -> void:
 		add_child(surfaces)
 		surfaces.attach(rig)
 		surfaces.surfaces_changed.connect(func():
-			if diorama and not _moved_by_hand:
-				_place_table())
+			if _placer:
+				_placer.rebuild())
 	else:
 		desk_cam = Camera3D.new()
 		desk_cam.fov = 70
@@ -152,10 +158,12 @@ func _show_menu(page := "levels") -> void:
 	m.closed.connect(_close_menu)
 	m.replace_table.connect(func():
 		if diorama:
-			_moved_by_hand = false
-			_place_table()
-			_close_menu())
+			_close_menu()
+			_begin_place())
 	m.settings_changed.connect(_apply_settings)
+	m.capture_room.connect(func():
+		if surfaces:
+			surfaces.capture_room())
 
 
 func _close_menu() -> void:
@@ -258,6 +266,8 @@ func _play(n := 1, rising := false) -> void:
 	_started_at = _t
 	if keep_spot:
 		diorama.global_transform = keep
+	elif xr:
+		_begin_place()   # find the surface first; the scene appears where it is set down
 	else:
 		table_k = 1.0
 		_place_table()
@@ -488,9 +498,41 @@ func _nearest_table(head: Transform3D, fwd: Vector3) -> Dictionary:
 
 
 func _on_grip_tap(_h: String) -> void:
-	if diorama and card == null:
-		_moved_by_hand = false
-		_place_table()
+	if diorama and card == null and not _placing:
+		_begin_place()
+
+
+## Placing (TablePlacer): the scene waits, hidden, while a ring follows the pointer over the
+## real surfaces; the trigger sets it down there and it rises out of the surface.
+func _begin_place() -> void:
+	if diorama == null:
+		return
+	if _placer:
+		_placer.queue_free()
+	_placing = true
+	diorama.visible = false
+	if _hover_mark:
+		_hover_mark.visible = false
+	_placer = TablePlacer.new()
+	_placer.surfaces = surfaces
+	_placer.k = table_k
+	add_child(_placer)
+
+
+func _finish_place() -> void:
+	table_k = _placer.fitted
+	diorama.global_transform = _placer.placement()
+	_placer.queue_free()
+	_placer = null
+	_placing = false
+	_moved_by_hand = true
+	diorama.visible = true
+	diorama.set_rise(0.0)
+	create_tween().tween_method(diorama.set_rise, 0.0, 1.0, RISE_TIME)
+	TableKit.sfx(diorama, "unlock", Vector3.ZERO, -6.0)
+	if xr:
+		rig.pulse(_hand, 0.4, 0.06)
+	_started_at = _t   # the level's clock starts when it is on the table
 
 
 func _table_controls(dt: float) -> void:
@@ -541,10 +583,10 @@ func _process(dt: float) -> void:
 		_desk_move(dt)
 	if _gem:
 		TableFx.gem_tick(_gem, _t)
-	if xr and card == null and diorama:
+	if xr and card == null and diorama and not _placing:
 		_table_controls(dt)
 	if diorama and level and level.has_method("move"):
-		level.move(_hero_stick() if card == null else Vector2.ZERO)
+		level.move(_hero_stick() if card == null and not _placing else Vector2.ZERO)
 	# the pointing hand's ray, and whether its trigger is down (the mouse on desktop)
 	var ray := []
 	var down := false
@@ -590,6 +632,18 @@ func _process(dt: float) -> void:
 		if level and diorama:
 			level.pointer(false, null)
 		_show_hover({})
+		return
+	if _placing and _placer:
+		var save := _save()
+		var st := rig.stick("right" if save and save.left_handed else "left") if xr else Vector2.ZERO
+		_placer.update(ray, _head(), st, dt)
+		if xr:
+			rig.set_pointer(_hand, {"point": _placer.spot(), "interactive": true, "pressed": down} if _placer.has_spot else null, true)
+		if pressed and _placer.has_spot:
+			_swallow = true
+			_finish_place()
+		if level:
+			level.pointer(false, null)
 		return
 	if diorama == null or level == null:
 		return
@@ -739,6 +793,8 @@ func _screenshot() -> void:
 		_place_card(true)
 	if level and _args.has("demo"):
 		level.demo()
+	if _args.has("place"):
+		_begin_place()
 	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, fireworks)
 		_on_level_won()
 	for i in int(_args.get("wait", "40")):
