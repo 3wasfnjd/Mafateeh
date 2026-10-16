@@ -14,7 +14,7 @@ extends Node3D
 ##   Right stick: walk the old man (level 2). Tap grip: bring it back in front. Menu: the menu.
 ## Desktop (no headset): click, drag on the sand to draw, WASD walk, right-drag look,
 ##   arrows walk the old man, Q/E turn the diorama, Esc the menu.
-## Screenshot args: --screenshot=path [--start=play|menu] [--page=levels|wardrobe|world|settings|about]
+## Screenshot args: --screenshot=path [--start=play|menu] [--page=levels|wardrobe|world|settings|about] [--lang=ar|en]
 ##   [--cam=x,y,z,yaw,pitch] [--level=N] [--k=size] [--turn=deg] [--demo=1] [--wait=frames]
 
 const MUSIC := "res://audio/music/%s.ogg"   # calm loops from tools/audio/make_soft_audio.py
@@ -76,6 +76,8 @@ func _ready() -> void:
 		if a.begins_with("--"):
 			var kv := a.substr(2).split("=", true, 1)
 			_args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	if _args.has("lang") and _save():   # screenshots: --lang=ar|en (not saved)
+		_save().language = str(_args.lang)
 	_setup_audio()
 	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR

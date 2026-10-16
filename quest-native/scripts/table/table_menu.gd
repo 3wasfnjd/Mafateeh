@@ -6,7 +6,8 @@ extends Node3D
 ##   levels    the ten levels with their stars and gems, the totals, play / carry on
 ##   wardrobe  the old man turning on his stand, the clothes (stars and gems open them)
 ##   world     weather, drifting dust, put the diorama back in front
-##   settings  music, effects and surroundings volume; which hand walks; vibration; players
+##   settings  music, effects and surroundings volume; which hand walks; vibration; players;
+##             the language (Arabic or English; at first the headset's own)
 ##   about     who made it, and whose work it uses
 ##   close     back to the game (only while a level is on the table)
 ## The owner of this node (table_main) places it, feeds it the pointer (hover / press) and
@@ -120,14 +121,19 @@ func _tab(id: String) -> void:
 
 func _levels() -> void:
 	var save := _save()
+	var en := not _arabic()
 	for i in LEVELS:
 		var n := i + 1
-		var at := Vector3(0.165 - (i % 5) * 0.077, 0.066 - (i / 5) * 0.094, 0.004)
+		# read right to left in Arabic (١ at the top right), left to right in English
+		var x := -0.143 + (i % 5) * 0.077 if en else 0.165 - (i % 5) * 0.077
+		var at := Vector3(x, 0.066 - (i / 5) * 0.094, 0.004)
 		if stage == n:
 			_disc(_content, at - Vector3(0, 0, 0.001), 0.031, ACCENT_DARK)
 		var stars: int = save.table_stars.get(n, 0) if save else 0
 		var label := _say("المرحلة %s" % _digits(n), "Level %d" % n)
-		_button(at, 0.026, "level_%d" % n, ACCENT, Color.WHITE, label, func(): play_level.emit(n), 1.9)
+		_button(at, 0.026, "none" if en else "level_%d" % n, ACCENT, Color.WHITE, label, func(): play_level.emit(n), 1.9)
+		if en:   # the level icons carry Arabic numerals; in English the number is written
+			_content.add_child(text(str(n), at + Vector3(0, 0.001, 0.004), 80, Color.WHITE))
 		for k in 3:
 			_icon(_content, "star", at + Vector3((1 - k) * 0.016, -0.038, 0.002), 0.015, GOLD if k < stars else Color(FADED, 0.8))
 		if save and save.table_gems.get(n, false):
@@ -145,9 +151,10 @@ func _levels() -> void:
 			tot += save.table_stars[k]
 		gems = save.table_gems.size()
 	_icon(_content, "star", Vector3(0.088, y, 0.004), 0.02, GOLD)
-	_content.add_child(text("%s/%s" % [_digits(tot), _digits(LEVELS * 3)], Vector3(0.054, y, 0.004), 46))
+	var side := 0.034 if en else -0.034   # the number after its icon, in reading order
+	_content.add_child(text("%s/%s" % [_digits(tot), _digits(LEVELS * 3)], Vector3(0.088 + side, y, 0.004), 46))
 	_icon(_content, "gem", Vector3(0.006, y, 0.004), 0.02, GEM)
-	_content.add_child(text("%s/%s" % [_digits(gems), _digits(LEVELS)], Vector3(-0.026, y, 0.004), 46))
+	_content.add_child(text("%s/%s" % [_digits(gems), _digits(LEVELS)], Vector3(0.006 + side, y, 0.004), 46))
 	if save and save.players == 2:
 		for pl in 2:
 			var x := -0.08 - pl * 0.06
@@ -235,6 +242,11 @@ func _settings() -> void:
 			_changed())
 	var buzz := func(): save.haptics = not save.haptics
 	_toggle(Vector3(0.085, y2, 0.004), "haptics", save.haptics, _say("الاهتزاز", "Vibration"), buzz, 0.024)
+	var english: bool = not save.arabic()
+	_button(Vector3(-0.045, y2, 0.004), 0.024, "language", ACCENT, Color.WHITE, "العربية" if english else "English",
+		func():
+			save.language = "ar" if english else "en"
+			_changed())
 	var two: bool = save.players == 2
 	_button(Vector3(0.02, y2, 0.004), 0.024, "players_2" if two else "players_1", ACCENT, Color.WHITE,
 		_say("لاعبين بالدور", "Two players, taking turns") if two else _say("لاعب واحد", "One player"),
@@ -458,6 +470,11 @@ static func _flat(c: Color) -> StandardMaterial3D:
 
 func _save() -> Node:
 	return get_node_or_null("/root/Save") if is_inside_tree() else null
+
+
+func _arabic() -> bool:
+	var save := _save()
+	return save == null or save.arabic()
 
 
 func _say(ar: String, en: String) -> String:
