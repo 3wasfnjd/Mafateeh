@@ -120,7 +120,13 @@ def mat(name, path, clip=False):
     t.image = bpy.data.images.load(path)
     nt.links.new(t.outputs["Color"], b.inputs["Base Color"])
     if clip:
-        nt.links.new(t.outputs["Alpha"], b.inputs["Alpha"])
+        # alpha through a Round node: the glTF exporter then writes alphaMode MASK (cut-out
+        # holes, drawn opaque). Linked straight in it writes BLEND, and blended walls are
+        # depth-sorted as glass: they flicker and show what's behind them.
+        rnd = nt.nodes.new("ShaderNodeMath")
+        rnd.operation = "ROUND"
+        nt.links.new(t.outputs["Alpha"], rnd.inputs[0])
+        nt.links.new(rnd.outputs[0], b.inputs["Alpha"])
         m.blend_method = "CLIP" if hasattr(m, "blend_method") else m.blend_method
         try:
             m.surface_render_method = "DITHERED"

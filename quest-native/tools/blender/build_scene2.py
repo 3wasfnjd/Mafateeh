@@ -95,7 +95,9 @@ def annex():
     place(k("wall"), (cx, y0, 0), 0)
     place(k("wall"), (cx, y1, 0), 180)
     place(k("wall"), (x1, cy, 0), 90)
-    block("AnnexRoof", (x1 - x0, y1 - y0, 0.2), (cx, cy, ANNEX_H - 0.1), b1.tile_mat())
+    # the roof fits inside the walls, a little below their tops: laid over them, its top
+    # would sit in the same plane as theirs and flicker (z-fighting)
+    block("AnnexRoof", (x1 - x0 - 0.25, y1 - y0 - 0.5, 0.2), (cx - 0.125, cy, ANNEX_H - 0.14), b1.tile_mat())
     b1.crenels_on(cx, y1, 180, z=ANNEX_H)
     b1.crenels_on(x1, cy, 90, z=ANNEX_H)
     # a small window, high on the lane side
