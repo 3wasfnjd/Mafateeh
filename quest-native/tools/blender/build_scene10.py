@@ -14,6 +14,7 @@ Layout (Godot x, z; Blender y = -z):
   courtyard   inside x -7 .. 7, z -6.0 .. 6.0; the gate in the front wall (z 6.25)
   house       facades at z -6.25; riwaq columns at z -3.6, roof over z -6.25 .. -3.4
   chest       (0, -0.4) on the carpets
+  doors       the house's at (1.75, -6.25); the side rooms' at (+-7.0, 1.2)
 """
 import os
 import sys
@@ -31,6 +32,7 @@ b1.OUT = OUT
 smooth, noise2, place, k, block = b1.smooth, b1.noise2, b1.place, b1.k, b1.block
 
 GX, GZ = 7.25, 6.25        # wall centrelines
+SIDE_DOOR_Z = 1.2          # the side rooms' doors (scripts/table/chest_level.gd uses the same)
 
 
 def g(x, z, h=0.0):
@@ -90,6 +92,10 @@ def house():
         place(k("facade_steps"), g(GX, z), -90)
     for x in (-GX, GX):
         block("SideWallEnd", (0.44, 0.8, 2.74), g(x, 5.95, 1.37), mud)   # a hair inside the faces round it
+    # a door into the room on each side (the men come out of them at the end)
+    for x, side in ((-GX + 0.27, "L"), (GX - 0.27, "R")):
+        block("SideDoor" + side, (0.06, 1.4, 2.2), g(x, SIDE_DOOR_Z, 1.1), door, uv_full=True)
+        block("SideLintel" + side, (0.3, 1.9, 0.16), g(x + (0.03 if side == "L" else -0.03), SIDE_DOOR_Z, 2.3), wood, uv_full=True)
     # the front wall and gate, with crenels
     for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
         place(k(name), g(x, GZ), 0, 1.0)

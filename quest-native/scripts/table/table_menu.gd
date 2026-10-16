@@ -4,11 +4,12 @@ extends Node3D
 ## quiet panel, a rail of section tabs on one side, the section on the other, the name of
 ## whatever the pointer is on shown above it). Read right to left: the rail is on the right.
 ##   levels    the ten levels with their stars and gems, the totals, play / carry on
-##   wardrobe  the old man turning on his stand, the clothes (stars and gems open them)
+##   wardrobe  the old man turning on his stand, and all his clothes to try on
 ##   world     weather, drifting dust, set the scene down elsewhere, the headset's room setup
 ##   settings  music, effects and surroundings volume; which hand walks; vibration; players;
 ##             the language (Arabic or English; at first the headset's own)
 ##   about     who made it, and whose work it uses
+##   thanks    (after the last level) thank you, the studio's site, play again
 ##   close     back to the game (only while a level is on the table)
 ## The owner of this node (table_main) places it, feeds it the pointer (hover / press) and
 ## listens to its signals.
@@ -34,9 +35,7 @@ const RAIL_X := 0.262
 const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
 const LEVELS := 10
-# What opens each piece of clothing in the table game: stars (of 30) or gems (of 10).
-const UNLOCK := {"ghutra": ["stars", 3], "thobe_beige": ["stars", 8], "agal_gold": ["gems", 3],
-	"misbaha": ["stars", 13], "glasses": ["stars", 18], "thobe_grey": ["stars", 23], "bisht": ["gems", 8]}
+const SITE := "https://abodengames.com"   # the studio's games
 const TABS := [["levels", "levels", "المراحل", "Levels"], ["wardrobe", "wardrobe", "خزانة الشايب", "Wardrobe"],
 	["world", "atmosphere", "الأجواء", "Atmosphere"], ["settings", "settings", "الإعدادات", "Settings"],
 	["about", "about", "عن اللعبة", "About"]]
@@ -108,6 +107,7 @@ func open(p: String) -> void:
 		"world": _world()
 		"settings": _settings()
 		"about": _about()
+		"thanks": _thanks()
 		_: _levels()
 
 
@@ -189,17 +189,11 @@ func _wardrobe() -> void:
 		var it: Dictionary = Wardrobe.ITEMS[i]
 		var id: String = it.id
 		var at := Vector3(0.17 - (i % 4) * 0.064, 0.055 - (i / 4) * 0.09, 0.004)
-		var open := unlocked(id)
 		var worn: bool = save != null and save.wearing.get(it.slot, "") == id
 		if worn:
 			_disc(_content, at - Vector3(0, 0, 0.001), 0.032, ACCENT_DARK)
-		var label: String = _say(it.ar, it.en)
-		if not open:
-			var need: Array = UNLOCK.get(id, ["stars", 0])
-			label += " · " + (_say("%s نجوم", "%s stars") if need[0] == "stars" else _say("%s جواهر", "%s gems")) % _digits(need[1])
-		_button(at, 0.027, "w_" + id, DISC if open else PALE, Color.WHITE, label, func(): _wear(id), 1.5)
-		if not open:
-			_icon(_content, "lock", at + Vector3(0.018, -0.018, 0.008), 0.016, ACCENT_DARK)
+		# all of it open to try on (the owner's choice: clothes are not prizes)
+		_button(at, 0.027, "w_" + id, DISC, Color.WHITE, _say(it.ar, it.en), func(): _wear(id), 1.5)
 
 
 func _world() -> void:
@@ -256,6 +250,21 @@ func _settings() -> void:
 		func():
 			save.players = 1 if two else 2
 			_changed())
+
+
+## After the last level: thank you for playing, and where to find the studio's other games.
+func _thanks() -> void:
+	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(CX + 0.01, 0.075, 0.004), 60))
+	_content.add_child(text(_say("نتمنى إن الرحلة مع الشايب عجبتك", "We hope you enjoyed the journey with the old man"), Vector3(CX + 0.01, 0.04, 0.004), 34))
+	_content.add_child(text(_say("اكتشف ألعاب جديدة من استوديو عبودين قيمز", "Discover more games from Aboden Games"), Vector3(CX + 0.01, 0.005, 0.004), 34))
+	# the site, on a brown band: press it and the headset's browser opens it
+	var at := Vector3(CX + 0.01, -0.04, 0.004)
+	_quad(_content, Vector2(0.17, 0.034), ACCENT, at - Vector3(0, 0, 0.001))
+	for x in [-0.085, 0.085]:
+		_disc(_content, at + Vector3(x, 0, -0.001), 0.017, ACCENT)
+	_content.add_child(text("abodengames.com", at + Vector3(0, 0, 0.003), 46, Color.WHITE))
+	_buttons.append({"at": at, "r": 0.09, "action": func(): OS.shell_open(SITE), "label": _say("افتح موقع الاستوديو", "Open the studio's site"), "no_ring": true})
+	_button(Vector3(CX + 0.01, -0.1, 0.004), 0.02, "restart", ACCENT, Color.WHITE, _say("العب من جديد", "Play again"), func(): play_level.emit(1))
 
 
 func _about() -> void:
@@ -315,7 +324,7 @@ func _set_hot(i: int) -> void:
 	if i == _hot:
 		return
 	_hot = i
-	_hover_ring.visible = i >= 0
+	_hover_ring.visible = i >= 0 and not _buttons[i].get("no_ring", false)
 	if i >= 0:
 		var b: Dictionary = _buttons[i]
 		_hover_ring.position = b.at - Vector3(0, 0, 0.002)
@@ -338,9 +347,6 @@ func _wear(id: String) -> void:
 	var it := Wardrobe.item(id)
 	if save == null or it.is_empty():
 		return
-	if not unlocked(id):
-		TableKit.sfx(self, "soft_reject", Vector3.ZERO, -6.0)
-		return
 	if save.wearing.get(it.slot, "") == id:
 		save.wearing.erase(it.slot)
 	else:
@@ -351,19 +357,6 @@ func _wear(id: String) -> void:
 	if _preview_anim and _preview_anim.has_animation("excited"):
 		_preview_anim.play("excited", 0.2)
 		_preview_anim.queue("idle")
-
-
-static func unlocked(id: String) -> bool:
-	var save = Engine.get_main_loop().root.get_node_or_null("/root/Save") if Engine.get_main_loop() else null
-	if save == null:
-		return true
-	var need: Array = UNLOCK.get(id, ["stars", 0])
-	if need[0] == "gems":
-		return save.table_gems.size() >= need[1]
-	var tot := 0
-	for k in save.table_stars:
-		tot += save.table_stars[k]
-	return tot >= need[1]
 
 
 ## A setting changed: saved, applied by the owner, and the section redrawn.

@@ -6,9 +6,10 @@ extends Node3D
 ## settings, about). In play: a scene diorama sits on the table and its level runs on it; once
 ## won, the stars it earned rise over it (by how quickly it was solved), the scene sinks into
 ## the ground and the next level's rises out of it. Each level hides a gem somewhere in its
-## scene; point at it and press to take it. Stars and gems open the old man's clothes.
+## scene; point at it and press to take it. The old man's clothes are all open to try on.
 ## Weather drifts over some scenes (dust, sand gusts in the dunes, a shower on the farm), each
-## scene has its own quiet surroundings sound, and the last level ends with fireworks.
+## scene has its own quiet surroundings sound, and the last level ends with the old men firing
+## for joy, then a thank-you with the studio's site.
 ## Before the first scene appears the player sets it down (TablePlacer): a ring follows the
 ## pointer over the real tables the headset knows (outlined; the room data needs the scene
 ## permission, asked for at start), or the floor; the trigger fixes it there.
@@ -329,15 +330,13 @@ func _on_level_won() -> void:
 	TableFx.stars(diorama.stage, Vector3(0, 9.0, 0), earned)
 	if won == 9 and (save == null or save.weather_pref != "clear"):
 		_weather.shower(9.0)   # the farm is watered: a shower to go with it
-	if won >= LAST_LEVEL:
-		TableFx.fireworks(diorama.stage, Vector3(0, 0, -0.5), 10.0)
 	get_tree().create_timer(12.0 if won >= LAST_LEVEL else 4.5).timeout.connect(func():
 		if r != _round or diorama == null:
 			return  # the player already started again
 		if save and save.players == 2:
 			_turn = 1 - _turn
 		if won >= LAST_LEVEL:
-			_show_menu("about")   # the end: who made it
+			_show_menu("thanks")   # the end: thank you, and where to find the studio's games
 			return
 		# the old scene sinks into the ground, which stays; the next one rises out of it
 		var tw := create_tween()
@@ -795,7 +794,7 @@ func _screenshot() -> void:
 		level.demo()
 	if _args.has("place"):
 		_begin_place()
-	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, fireworks)
+	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, the end)
 		_on_level_won()
 	for i in int(_args.get("wait", "40")):
 		await get_tree().process_frame

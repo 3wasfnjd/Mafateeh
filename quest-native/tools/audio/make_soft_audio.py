@@ -12,7 +12,7 @@ downloads). The owner asked for quiet music and gentle effects in place of the o
       market (a far murmur and the odd clink), water (a running channel), rain (a soft shower)
 
 Usage: python3 tools/audio/make_soft_audio.py [ambience]      (needs numpy and ffmpeg)
-       (with "ambience": only the surroundings)
+       (with "ambience": only the surroundings; with "shot": only the celebration shot)
 """
 import os
 import subprocess
@@ -211,6 +211,19 @@ def soft_no():
     return lowpass(out, 1200)
 
 
+def shot():
+    """A celebratory shot heard from across the courtyard: a short dull crack and a little
+    roll after it, kept soft like everything else."""
+    r = np.random.default_rng(77)
+    n = int(0.6 * SR)
+    t = np.arange(n) / SR
+    crack = r.standard_normal(n) * np.exp(-t * 60)
+    thump = np.sin(2 * np.pi * 90 * t * (1 + np.exp(-t * 40))) * np.exp(-t * 18) * 0.7
+    roll = lowpass(r.standard_normal(n), 500) * np.exp(-t * 7) * 0.5
+    x = lowpass(crack, 2600) * 0.9 + thump + roll
+    return reverb(x / (np.max(np.abs(x)) + 1e-9), 1.2, 0.35)[:n] * 0.3
+
+
 def effects():
     os.makedirs(SFX, exist_ok=True)
     D, A = SCALE[0], SCALE[4]
@@ -239,6 +252,7 @@ def effects():
     for i in range(1, 7):   # the drums (level 6) and other note sequences: soft frame drums
         d = drum(0.7, [62, 74, 88, 104, 118, 132][i - 1])
         fx["seq_%d" % i] = reverb(d, 0.8, 0.2)[:int(0.9 * SR)] * 0.45
+    fx["shot"] = shot()
     for name, x in fx.items():
         save_wav(os.path.join(SFX, name + ".wav"), x)
     print("effects", len(fx))
@@ -368,6 +382,9 @@ def ambience():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "ambience":
         ambience()
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "shot":
+        save_wav(os.path.join(SFX, "shot.wav"), shot())
         sys.exit(0)
     os.makedirs(MUSIC, exist_ok=True)
     effects()

@@ -7,7 +7,9 @@ extends Node3D
 ## a star, the coffee pot, a young palm. Tap them in the order the journey went (the order of
 ## the chapters) and each goes into the chest and lights a stud; a keepsake out of turn just
 ## shakes. With all nine in, the lid opens, the drums beat, the men dance, the falcon wheels
-## overhead and the cat sits at the old man's feet.
+## overhead and the cat sits at the old man's feet; and the old men of the house come out of
+## the rooms with their rifles and fire into the sky for joy, the tracers going up like
+## shooting stars.
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
@@ -21,6 +23,15 @@ const PLACES := [4, 7, 1, 8, 2, 5, 0, 6, 3]   # which arc place each keepsake st
 const DANCERS := [Vector3(-3.6, 0, -4.6), Vector3(-1.2, 0, -4.8), Vector3(1.2, 0, -4.8), Vector3(3.6, 0, -4.6)]  # in the riwaq
 const DANCER_DRESS := [{"bisht": "bisht", "head": "ghutra"}, {"thobe": "thobe_grey"}, {"agal": "agal_gold"}, {"thobe": "thobe_beige", "glasses": "glasses"}]
 const HINT_AFTER := 20.0
+# the old men who come out to fire for joy: the door they come out of, where they stand, dress
+const SHOOTERS := [
+	[Vector3(-6.8, 0, 1.2), Vector3(-5.0, 0, 0.3), {"head": "ghutra"}],
+	[Vector3(-6.8, 0, 1.2), Vector3(-5.3, 0, 3.4), {"thobe": "thobe_grey", "agal": "agal_gold"}],
+	[Vector3(6.8, 0, 1.2), Vector3(5.0, 0, 0.3), {"bisht": "bisht"}],
+	[Vector3(6.8, 0, 1.2), Vector3(5.3, 0, 3.4), {"thobe": "thobe_beige", "head": "ghutra"}],
+	[Vector3(1.75, 0, -5.8), Vector3(4.6, 0, -2.6), {"glasses": "glasses"}],
+]
+const TRACER := Color("ffb347")
 const GOLD := Color("e6b85a")
 
 var diorama: Diorama
@@ -40,6 +51,7 @@ var _hint_ring: MeshInstance3D
 var _demo := false
 var _falcon: Node3D
 var _falcon_a := 0.0
+var _guns: Array = []         # {gun, man}: kept pointing at the sky, whatever the arm does
 
 
 func setup(d: Diorama) -> void:
@@ -87,7 +99,8 @@ func _chest() -> void:
 	TableKit.box(_lid, Vector3(1.64, 0.14, 0.94), wood, Vector3(0, 0.07, 0.45))
 	for x in [-0.6, 0.0, 0.6]:
 		TableKit.box(_lid, Vector3(0.06, 0.16, 0.96), brass, Vector3(x, 0.07, 0.45))
-	_glow = TableKit.box(n, Vector3(1.4, 0.04, 0.7), TableKit.lit_mat(Color("ffd27a"), 2.5), Vector3(0, 0.83, 0))
+	# the light inside, a little above the chest's top (level with it, the two surfaces flickered)
+	_glow = TableKit.box(n, Vector3(1.4, 0.02, 0.7), TableKit.lit_mat(Color("ffd27a"), 2.5), Vector3(0, 0.866, 0))
 	_glow.visible = false
 	_boxes["chest"] = AABB(CHEST - Vector3(0.9, 0, 0.6), Vector3(1.8, 1.2, 1.2))
 
@@ -203,7 +216,7 @@ func _win() -> void:
 		_glow.visible = true
 		TableKit.sfx(self, "success", CHEST, -2.0)
 		_celebrate())
-	tw.tween_interval(9.0)
+	tw.tween_interval(11.0)
 	tw.tween_callback(func():
 		TableKit.sfx(self, "level_complete", CHEST)
 		level_won.emit())
@@ -229,6 +242,8 @@ func _celebrate() -> void:
 		var voice: int = v
 		beat.tween_callback(func(): TableKit.sfx(self, "seq_%d" % voice, CHEST + Vector3(2.5, 0.5, -1.5), -8.0))
 		beat.tween_interval(0.45)
+	for k in SHOOTERS.size():
+		_shooter(k)
 	_falcon = CreatureSlot.spawn(self, "falcon")
 	if _falcon:
 		_falcon.scale = Vector3.ONE * Diorama.LIFE_SCALE.falcon
@@ -247,6 +262,97 @@ func _celebrate() -> void:
 			CreatureSlot.play(cat, "sit"))
 
 
+## One of the old men: out of his door, across to his place, then rifle up and short bursts
+## into the sky, each round a glowing tracer.
+func _shooter(k: int) -> void:
+	var s: Array = SHOOTERS[k]
+	var m := TableKit.model(self, Diorama.SHAIB, s[0], 0.0, Diorama.LIFE_SCALE.shaib)
+	if m == null:
+		return
+	Wardrobe.apply(m, s[2])
+	var cane := m.find_child("Cane", true, false)
+	if cane:
+		(cane as Node3D).visible = false   # the rifle instead of the cane
+	var ap: AnimationPlayer = m.find_children("*", "AnimationPlayer", true, false)[0]
+	for a in ["walk", "celebrate"]:
+		if ap.has_animation(a):
+			ap.get_animation(a).loop_mode = Animation.LOOP_LINEAR
+	var sk: Skeleton3D = m.find_children("*", "Skeleton3D", true, false)[0]
+	var hold := BoneAttachment3D.new()
+	hold.bone_name = "Hand.R"
+	sk.add_child(hold)
+	var gun := rifle()
+	hold.add_child(gun)
+	gun.top_level = true   # it follows the hand (below) but not the hand's turning
+	gun.visible = false
+	_guns.append({"gun": gun, "man": m, "hand": hold})
+	m.visible = false
+	var to: Vector3 = s[1]
+	var tw := create_tween()
+	tw.tween_interval(0.6 + k * 0.5)
+	tw.tween_callback(func():
+		m.visible = true
+		TableKit.face(m, to - m.position)
+		ap.play("walk"))
+	tw.tween_property(m, "position", to, (to - (s[0] as Vector3)).length() / 1.5)
+	tw.tween_callback(func():
+		TableKit.face(m, Vector3(CHEST.x, 0, CHEST.z) - to)
+		gun.visible = true
+		ap.play("celebrate", 0.3)
+		ap.seek(randf() * 0.3))
+	tw.tween_interval(0.8)
+	for b in 4:   # bursts
+		tw.tween_callback(func(): _burst(gun, 3 + randi() % 3))
+		tw.tween_interval(randf_range(0.9, 1.6))
+
+
+## A short burst from the gun's muzzle: a flash and a tracer per round.
+func _burst(gun: Node3D, rounds: int) -> void:
+	var tw := create_tween()
+	for r in rounds:
+		tw.tween_callback(func():
+			var muzzle := gun.global_transform * Vector3(0, 0.6, 0)
+			var up := (gun.global_basis.y).normalized()
+			# mostly up, never towards the ground or the player
+			var dir := (up.lerp(Vector3.UP, 0.5) + Vector3(randf_range(-0.08, 0.08), 0, randf_range(-0.08, 0.08))).normalized()
+			_tracer(to_local(muzzle), (global_basis.inverse() * dir).normalized())
+			TableKit.sfx(self, "shot", to_local(muzzle), -8.0, randf_range(0.92, 1.08)))
+		tw.tween_interval(0.11)
+
+
+func _tracer(at: Vector3, dir: Vector3) -> void:
+	var flash := TableKit.sphere(self, 0.14, TableKit.lit_mat(Color("ffe08a"), 4.0), at, 6)
+	var tf := create_tween()
+	tf.tween_interval(0.05)
+	tf.tween_callback(flash.queue_free)
+	var t := TableKit.cyl(self, 0.035, 0.035, 0.9, TableKit.lit_mat(TRACER, 4.0), at, 6)
+	t.basis = Basis(Quaternion(Vector3.UP, dir))   # its length along the way it flies
+	var to := at + dir * 22.0
+	var tw := create_tween().set_parallel()
+	tw.tween_property(t, "position", to, 0.75)
+	tw.tween_property(t, "scale", Vector3(0.4, 1.0, 0.4), 0.75)
+	tw.chain().tween_callback(t.queue_free)
+
+
+## A Kalashnikov, held in the hand: its length along +y (as the cane is), the muzzle at the
+## top (0, 0.6, 0). About 0.9 m long.
+static func rifle() -> Node3D:
+	var n := Node3D.new()
+	var steel := TableKit.mat(Color("2b2b2e"), 0.45)
+	steel.metallic = 0.6
+	var wood := TableKit.mat(Color("8a4a24"), 0.6)
+	TableKit.box(n, Vector3(0.05, 0.3, 0.07), steel, Vector3(0, 0.04, 0))             # receiver
+	TableKit.cyl(n, 0.012, 0.012, 0.36, steel, Vector3(0, 0.4, 0.0), 6)              # barrel
+	TableKit.cyl(n, 0.01, 0.01, 0.2, steel, Vector3(0, 0.3, 0.03), 6)                # gas tube
+	TableKit.box(n, Vector3(0.055, 0.18, 0.065), wood, Vector3(0, 0.27, 0.005))       # handguard
+	TableKit.box(n, Vector3(0.012, 0.03, 0.02), steel, Vector3(0, 0.56, 0.02))        # front sight
+	TableKit.box(n, Vector3(0.045, 0.3, 0.075), wood, Vector3(0, -0.24, -0.02), Vector3(0.12, 0, 0))   # stock
+	TableKit.box(n, Vector3(0.04, 0.05, 0.1), wood, Vector3(0, -0.06, -0.06), Vector3(0.6, 0, 0))     # grip
+	for i in 3:   # the curved magazine
+		TableKit.box(n, Vector3(0.035, 0.06, 0.07), steel, Vector3(0, 0.12 - i * 0.045, -0.06 - i * 0.025 - i * i * 0.008), Vector3(0.25 + i * 0.2, 0, 0))
+	return n
+
+
 func demo() -> void:
 	_demo = true
 
@@ -257,6 +363,17 @@ func _process(dt: float) -> void:
 		var n: Node3D = it.node
 		if n.visible and not _busy:
 			n.position.y = 0.5 + 0.05 * sin(_t * 2.0 + it.at.x)
+	# the rifles stay in the hand but point up, leaning a little away from the middle
+	for g in _guns:
+		var gun: Node3D = g.gun
+		if not gun.visible:
+			continue
+		var man: Node3D = g.man
+		var hand: Node3D = g.hand
+		var out := Vector3(man.position.x - CHEST.x, 0, man.position.z - CHEST.z).normalized()
+		var up := (global_basis * (Vector3.UP + out * 0.3)).normalized()
+		var sc := hand.global_basis.get_scale()
+		gun.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, up)).scaled(sc), hand.global_position)
 	if _falcon:
 		_falcon_a += dt * 0.5
 		_falcon.position = CHEST + Vector3(cos(_falcon_a) * 4.5, 6.0 + sin(_falcon_a * 2.0) * 0.5, sin(_falcon_a) * 4.5)

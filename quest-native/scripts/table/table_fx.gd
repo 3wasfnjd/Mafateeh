@@ -1,7 +1,7 @@
 class_name TableFx
 extends RefCounted
 ## Little moments of joy on the table: the hidden gem of each level, the stars that rise over
-## the diorama when a level is won, and the fireworks over the courtyard at the very end.
+## the diorama when a level is won.
 ## All in the diorama's own metres (they live under Diorama.stage).
 
 const GEM_COLOUR := Color("8fd0e8")
@@ -148,30 +148,3 @@ static func burst(parent: Node3D, p: Vector3, colours: Array, speed := 1.0, amou
 	cp.emitting = true
 	# (freed after its sparks have died; its "finished" signal can come before they have)
 	cp.get_tree().create_timer(cp.lifetime + 0.4).timeout.connect(cp.queue_free)
-
-
-## Fireworks over the scene for about `seconds`: bursts high up in warm colours, each with
-## a soft thump, and a little crackle after.
-static func fireworks(parent: Node3D, centre: Vector3, seconds := 9.0) -> void:
-	var palette := [[Color("ffd27a"), Color("ff9a3c")], [Color("fff3d6"), Color("e3a83a")],
-		[Color("ff8a6a"), Color("c8442f")], [Color("bfe6f2"), Color("8fd0e8")], [Color("f7c6e0"), Color("d07aa8")]]
-	var tw := parent.create_tween()
-	var t := 0.0
-	var i := 0
-	while t < seconds:
-		var k := i
-		tw.tween_callback(func():
-			var p := centre + Vector3(randf_range(-6, 6), randf_range(9, 13), randf_range(-5, 3))
-			# the rocket's trail up, then the burst
-			var trail := TableKit.sphere(parent, 0.12, TableKit.glow_mat(Color("fff3d6"), 0.9), Vector3(p.x, 1.0, p.z), 6)
-			var up := parent.create_tween()
-			up.tween_property(trail, "position:y", p.y, 0.7).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-			up.tween_callback(func():
-				trail.queue_free()
-				burst(parent, p, palette[k % palette.size()], 1.4, 80)
-				TableKit.sfx(parent, "brick_drop", p, -6.0, 0.7)
-				TableKit.sfx(parent, "crate_scrape", p, -10.0, 1.6)))
-		var gap := randf_range(0.5, 1.1)
-		tw.tween_interval(gap)
-		t += gap
-		i += 1
