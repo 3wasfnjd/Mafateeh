@@ -2,7 +2,7 @@ extends Node3D
 ## Mafateeh: the tabletop game in mixed reality (the owner's direction: AR only, a small
 ## diorama on the table, few words, light simple menus in beige / light brown).
 ##
-## Start card: play, and the wardrobe. The wardrobe shows the old man himself, turning slowly,
+## Start card: play, the wardrobe, and a row of level numbers to jump to any level. The wardrobe shows the old man himself, turning slowly,
 ## dressed in what he wears; tap an item to put it on or take it off.
 ## In play: a scene diorama sits on the table and its level runs on it. Level 1 (scene 1,
 ## TablePathLevel: draw the cat's way home); once won, level 2 follows on the same spot
@@ -141,8 +141,16 @@ func _show_card(kind: String) -> void:
 		_wardrobe_card()
 		return
 	_new_card(Vector2(0.48, 0.48 / PLAQUE_ASPECT))
-	_icon_button("play", Vector3(-0.07, -0.005, 0.004), 0.06, _play)
-	_icon_button("wardrobe", Vector3(0.09, -0.005, 0.004), 0.06, func(): _show_card("wardrobe"))
+	_icon_button("play", Vector3(-0.07, 0.012, 0.004), 0.05, _play)
+	_icon_button("wardrobe", Vector3(0.09, 0.012, 0.004), 0.05, func(): _show_card("wardrobe"))
+	# the levels, ١ on the right (read right to left): tap one to go straight to it; the one
+	# on the table has a dark ring
+	for i in LAST_LEVEL:
+		var n := i + 1
+		var at := Vector3(0.11 - i * 0.07, -0.075, 0.004)
+		if diorama and stage == n:
+			_disc(at - Vector3(0, 0, 0.001), 0.031, ACCENT_DARK)
+		_icon_button("level_%d" % n, at, 0.026, func(): _play(n), 1.9)
 
 
 func _wardrobe_card() -> void:
@@ -183,9 +191,9 @@ func _wardrobe_card() -> void:
 	_icon_button("play", Vector3(0.21, -0.105, 0.004), 0.03, _play)
 
 
-func _icon_button(icon: String, at: Vector3, r: float, action: Callable) -> void:
+func _icon_button(icon: String, at: Vector3, r: float, action: Callable, icon_k := 1.15) -> void:
 	_disc(at, r, ACCENT)
-	_icon(ICONS + icon + ".png", at + Vector3(0, 0, 0.004), r * 1.15)
+	_icon(ICONS + icon + ".png", at + Vector3(0, 0, 0.004), r * icon_k)
 	_buttons.append({"local": at, "r": r, "action": action})
 
 
