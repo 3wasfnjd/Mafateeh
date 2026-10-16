@@ -35,3 +35,39 @@ static func requirement(it: Dictionary, arabic: bool) -> String:
 	if it.has("secrets"):
 		return ("%d جوهرة سرية" if arabic else "%d secret gems") % int(it.secrets)
 	return ("%d نجمة" if arabic else "%d stars") % int(it.stars)
+
+
+## Dress any instance of the old man's model from a wearing dict (slot -> item id): shows the
+## bisht, glasses or beads, swaps the shemagh for a white ghutra, the agal for a
+## gold-threaded one, and tints the thobe. Used by the game, the menu preview and HeroView.
+static func apply(model: Node, w: Dictionary) -> void:
+	if model == null:
+		return
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var n := String(mi.name)
+		if n.begins_with("Bisht"):
+			mi.visible = w.get("bisht", "") == "bisht"
+		elif n.begins_with("Glasses"):
+			mi.visible = w.get("glasses", "") == "glasses"
+		elif n.begins_with("Misbaha"):
+			mi.visible = w.get("misbaha", "") == "misbaha"
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var base := mi.mesh.surface_get_material(i) as StandardMaterial3D
+			if base == null:
+				continue
+			var mat_name := base.resource_name
+			var over: StandardMaterial3D = null
+			if mat_name.begins_with("shemagh") and w.get("head", "") == "ghutra":
+				over = base.duplicate()
+				over.albedo_texture = load("res://assets/character/wardrobe/%s.png" % ("ghutra_border" if mat_name == "shemagh_border" else "ghutra"))
+				over.normal_enabled = false
+			elif mat_name == "agal" and w.get("agal", "") == "agal_gold":
+				over = base.duplicate()
+				over.albedo_texture = load("res://assets/character/wardrobe/agal_gold.png")
+				over.metallic = 0.35
+			elif mat_name.begins_with("thobe") and THOBE_TINTS.has(w.get("thobe", "")):
+				over = base.duplicate()
+				over.albedo_color = THOBE_TINTS[w.thobe]
+			mi.set_surface_override_material(i, over)

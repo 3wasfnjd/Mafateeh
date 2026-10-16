@@ -372,8 +372,9 @@ def life():
     palm = os.path.join(ROOT, "assets", "world", "palm.glb")
     for x, y, s, yaw in ((-5.6, 3.4, 0.75, 10), (-6.0, -11.6, 1.0, 30), (11.0, 7.5, 1.0, 200), (-11.5, 2.0, 0.95, 120)):
         place(palm, (x, y, 0), yaw, s)
-    # the old man just inside the gate (cats, birds and the falcon are added live in the game: scripts/preview/diorama.gd)
-    rigged(os.path.join(ROOT, "assets", "character", "shaib.glb"), (0.9, -4.4, 0), 0, "Shaib")
+    # the old man, cats, birds and the falcon are added live in the game (scripts/preview/diorama.gd)
+    if "--with-shaib" in A:  # only for stills / the phone viewer
+        rigged(os.path.join(ROOT, "assets", "character", "shaib.glb"), (0.9, -4.4, 0), 0, "Shaib")
 
 
 def rigged(path, at, yaw_deg, name, height=None):
