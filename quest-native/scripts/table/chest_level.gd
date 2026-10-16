@@ -335,22 +335,14 @@ func _tracer(at: Vector3, dir: Vector3) -> void:
 	tw.chain().tween_callback(t.queue_free)
 
 
-## A Kalashnikov, held in the hand: its length along +y (as the cane is), the muzzle at the
-## top (0, 0.6, 0). About 0.9 m long.
+## A Kalashnikov, held in the hand (tools/blender/build_rifle.py, from the owner's reference
+## picture): its length along +y as the cane is, the pistol grip at the origin, the muzzle at
+## the top (0, 0.6, 0). 0.88 m long.
 static func rifle() -> Node3D:
-	var n := Node3D.new()
-	var steel := TableKit.mat(Color("2b2b2e"), 0.45)
-	steel.metallic = 0.6
-	var wood := TableKit.mat(Color("8a4a24"), 0.6)
-	TableKit.box(n, Vector3(0.05, 0.3, 0.07), steel, Vector3(0, 0.04, 0))             # receiver
-	TableKit.cyl(n, 0.012, 0.012, 0.36, steel, Vector3(0, 0.4, 0.0), 6)              # barrel
-	TableKit.cyl(n, 0.01, 0.01, 0.2, steel, Vector3(0, 0.3, 0.03), 6)                # gas tube
-	TableKit.box(n, Vector3(0.055, 0.18, 0.065), wood, Vector3(0, 0.27, 0.005))       # handguard
-	TableKit.box(n, Vector3(0.012, 0.03, 0.02), steel, Vector3(0, 0.56, 0.02))        # front sight
-	TableKit.box(n, Vector3(0.045, 0.3, 0.075), wood, Vector3(0, -0.24, -0.02), Vector3(0.12, 0, 0))   # stock
-	TableKit.box(n, Vector3(0.04, 0.05, 0.1), wood, Vector3(0, -0.06, -0.06), Vector3(0.6, 0, 0))     # grip
-	for i in 3:   # the curved magazine
-		TableKit.box(n, Vector3(0.035, 0.06, 0.07), steel, Vector3(0, 0.12 - i * 0.045, -0.06 - i * 0.025 - i * i * 0.008), Vector3(0.25 + i * 0.2, 0, 0))
+	var ps := load("res://assets/world/props/rifle.glb") as PackedScene
+	var n: Node3D = ps.instantiate() if ps else Node3D.new()
+	for g in n.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n
 
 
