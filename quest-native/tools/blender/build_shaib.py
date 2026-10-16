@@ -389,12 +389,32 @@ def build_thobe():
 
 
 # ---- Wardrobe pieces (hidden unless worn; HeroView shows them) -------------------------
-def build_bisht():
-    """Bisht: a dark wool cloak worn open over the thobe, gold zari along the front
-    edges, loose half-sleeves over the upper arms."""
+def build_bisht(shemagh_pts=()):
+    """Bisht: a dark wool cloak worn open over the thobe, gold zari along the front edges
+    and hem. It is worn OVER the shemagh (the owner's choice): wherever the shemagh's drape
+    lies on the shoulders and back, the cloak rises just clear of it. Full length, down to
+    the feet like the thobe."""
     pt = Part("Bisht")
-    zs = [0.30, 0.34, 0.40, 0.47, 0.54, 0.61, 0.68, 0.735, 0.775, 0.805, 0.828, 0.846, 0.862, 0.876]
+    zs = [0.075, 0.12, 0.18, 0.24, 0.30, 0.34, 0.40, 0.47, 0.54, 0.61, 0.68, 0.735, 0.775, 0.805,
+          0.828, 0.846, 0.862, 0.876]
     n = 34
+    # how far out the shemagh reaches, binned by height (1 cm) and angle (10 deg)
+    reach = {}
+    for q in shemagh_pts:
+        if q.z < 0.6:
+            continue
+        th = math.atan2(q.y, q.x) % (2 * math.pi)
+        key = (int(q.z * 100), int(math.degrees(th) // 10))
+        reach[key] = max(reach.get(key, 0.0), math.hypot(q.x, q.y))
+
+    def shemagh_r(th, z):
+        best = 0.0
+        a = int(math.degrees(th % (2 * math.pi)) // 10)
+        for dz in (-1, 0, 1):
+            for da in (-1, 0, 1):
+                best = max(best, reach.get((int(z * 100) + dz, (a + da) % 36), 0.0))
+        return best
+
     rows = []
     for z in reversed(zs):
         # the front opening narrows toward the neck
@@ -404,23 +424,30 @@ def build_bisht():
             th = lerp(open_half, 2 * math.pi - open_half, j / n)
             p = thobe_point(th, z, folds=False)
             out = V((p.x, p.y, 0)).normalized()
-            # Under the shemagh (upper back and shoulders) the cloak lies close to the thobe
-            # so the shemagh's flap and drape stay on top of it.
-            under = smooth(0.66, 0.74, z) * (0.6 + 0.4 * smooth(1.2, 0.4, abs(th - math.pi)))
-            flare = lerp(0.012, 0.0035, under) + 0.03 * smooth(0.62, 0.30, z) + 0.004 * math.sin(th * 7) * smooth(0.6, 0.3, z)
-            row.append(p + out * flare + V((0, 0, 0.004 * smooth(0.8, 0.88, z))))
+            flare = 0.012 + 0.03 * smooth(0.62, 0.30, z) + 0.012 * smooth(0.30, 0.08, z) \
+                + 0.004 * math.sin(th * 7) * smooth(0.6, 0.3, z)
+            r = math.hypot(p.x, p.y) + flare
+            # th here is measured from the front (-y); convert to the plain atan2 angle
+            ang = math.atan2(p.y, p.x)
+            r = max(r, shemagh_r(ang, z) + 0.008)
+            row.append(V((0, 0, p.z)) + out * r + V((0, 0, 0.004 * smooth(0.8, 0.88, z))))
         rows.append(row)
-    pt.grid(rows, "bisht", uvf=lambda u, v: (u * 3.0, v * 3.0), flip=True)
+    pt.grid(rows, "bisht", uvf=lambda u, v: (u * 3.0, v * 6.0), flip=True)
     # Gold zari trim down both front edges and along the hem.
     for edge in (0, n):
         pt.tube([rows[i][edge] for i in range(len(rows))], lambda t, a: 0.0055, "zari", segs=8, cap0=False, cap1=False)
     pt.tube(rows[-1], lambda t, a: 0.004, "zari", segs=6, cap0=False, cap1=False)
-    # Loose half-sleeves over the upper arms.
+    return pt
+
+
+def build_bisht_sleeves():
+    """Wide bisht sleeves from the shoulder down to the hand, zari at the cuff."""
+    pt = Part("BishtSleeves")
     for s in (1, -1):
         pts = sleeve_path(s)
-        path = [catmull(pts, i / 10 * 0.62) for i in range(11)]
-        pt.tube(path, lambda t, a: lerp(0.052, 0.068, t), "bisht", segs=14, cap0=False, cap1=False)
-        pt.tube([catmull(pts, 0.62 - 0.002), catmull(pts, 0.62)], lambda t, a: 0.069, "zari", segs=14, cap0=False, cap1=False)
+        path = [catmull(pts, i / 16 * 0.97) for i in range(17)]
+        pt.tube(path, lambda t, a: lerp(0.056, 0.078, t), "bisht", segs=14, cap0=False, cap1=False)
+        pt.tube([catmull(pts, 0.97 - 0.003), catmull(pts, 0.97)], lambda t, a: 0.079, "zari", segs=14, cap0=False, cap1=False)
     return pt
 
 
@@ -1514,7 +1541,9 @@ def main():
     ch, _ = bone_pts("CaneArm")
     xf = Matrix.Translation(ch + V((0.0, 0.0, -0.0)) - HAND_GRIP + V((0, 0.006, -0.002)))
     cane_arm = mk(build_cane("CaneArm", HAND_GRIP, xform=xf), ["wood", "brass"], w_cane_arm, sub=1)
-    bisht = join([mk(build_bisht(), ["bisht", "zari"], lambda q: w_sleeve(q) if abs(q.x) > 0.105 and q.z > 0.6 and q.z < 0.84 else w_torso(q), sub=1, solid=0.004)], "Bisht")
+    shemagh_pts = [shemagh.matrix_world @ v.co for v in shemagh.data.vertices]
+    bisht = join([mk(build_bisht(shemagh_pts), ["bisht", "zari"], w_torso, sub=1, solid=0.004),
+                  mk(build_bisht_sleeves(), ["bisht", "zari"], w_sleeve, sub=1, solid=0.003)], "Bisht")
     glasses = mk(build_glasses(), ["glasses"], w_head, sub=0, head=True)
     glasses.name = "Glasses"
     misbaha = mk(build_misbaha(), ["misbaha", "zari"], lambda q: {"Hand.L": 1.0}, sub=0)

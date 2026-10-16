@@ -36,6 +36,9 @@ var _mouse_draw := false
 var _preview: Node3D        # the old man on the wardrobe card
 var _preview_anim: AnimationPlayer
 var _card_kind := ""        # "start" | "wardrobe"
+var _mr_on := false         # passthrough switched on (only possible once the session runs)
+var surfaces: SceneSurfaces # real tables from the headset's room setup (Meta Scene API)
+var _moved_by_hand := false # once the player carries the diorama, detected tables no longer move it
 
 
 func _ready() -> void:
@@ -65,7 +68,15 @@ func _ready() -> void:
 	rig.setup(env)
 	xr = not _args.has("screenshot") and rig.start()
 	if xr:
-		rig.set_mode("mr")
+		# Passthrough can only be switched on once the session runs (before that the runtime
+		# reports no alpha-blend mode and the rig would fall back to a black VR void), so
+		# _process keeps trying until it takes.
+		surfaces = SceneSurfaces.new()
+		add_child(surfaces)
+		surfaces.attach(rig)
+		surfaces.surfaces_changed.connect(func():
+			if diorama and not _moved_by_hand:
+				_place_table())
 	else:
 		desk_cam = Camera3D.new()
 		desk_cam.fov = 70
@@ -299,13 +310,45 @@ func _place_table() -> void:
 	var fwd := -head.basis.z
 	fwd.y = 0
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var table := _nearest_table(head, fwd)
+	if not table.is_empty():
+		# on the real table: centred on its top, sized to fit it (the island is 0.66 m across at 1x)
+		var fit: float = minf(table.size.x, table.size.y) * 0.95 / 0.66
+		table_k = clampf(minf(table_k, fit), 0.4, 3.0)
+		var c: Vector3 = table.center
+		var to := Vector3(head.origin.x - c.x, 0, head.origin.z - c.z)
+		var face := -to.normalized() if to.length() > 0.05 else fwd
+		diorama.global_transform = Transform3D(Basis.looking_at(face, Vector3.UP).scaled(Vector3.ONE * table_k), c + Vector3(0, 0.005, 0))
+		return
 	var y := maxf(0.55, head.origin.y - 0.55) if head.origin.y > 0.3 else 0.75
 	diorama.global_transform = Transform3D(Basis.looking_at(fwd, Vector3.UP).scaled(Vector3.ONE * table_k),
 		Vector3(head.origin.x, y, head.origin.z) + fwd * 0.7)
 
 
+## The detected table closest in front of the player (within 3 m), or {}.
+func _nearest_table(head: Transform3D, fwd: Vector3) -> Dictionary:
+	if surfaces == null:
+		return {}
+	var best := {}
+	var best_score := INF
+	for s in surfaces.surfaces():
+		if s.label != "table":
+			continue
+		var to: Vector3 = s.center - head.origin
+		var flat := Vector3(to.x, 0, to.z)
+		var d := flat.length()
+		if d > 3.0 or d < 0.15:
+			continue
+		var score := d - flat.normalized().dot(fwd)
+		if score < best_score:
+			best_score = score
+			best = s
+	return best
+
+
 func _on_grip_tap(_hand: String) -> void:
 	if diorama and card == null:
+		_moved_by_hand = false
 		_place_table()
 
 
@@ -323,6 +366,7 @@ func _table_controls(dt: float) -> void:
 		var c: Vector3 = rig.hands[dh].grip.global_position
 		if _drag.get("hand", "") != dh:
 			_drag = {"hand": dh, "ctrl": c, "pos": diorama.global_position}
+			_moved_by_hand = true
 		diorama.global_position = _drag.pos + (c - _drag.ctrl)
 	else:
 		_drag = {}
@@ -334,7 +378,18 @@ func _head() -> Transform3D:
 	return desk_cam.global_transform if desk_cam else Transform3D()
 
 
+func _ensure_passthrough() -> void:
+	var xi := rig.xr_interface
+	if xi == null:
+		return
+	if xi.get_supported_environment_blend_modes().has(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND):
+		rig.passthrough_supported = true
+		_mr_on = rig.set_mode("mr") == "mr"
+
+
 func _process(dt: float) -> void:
+	if xr and not _mr_on:
+		_ensure_passthrough()
 	if card:
 		if xr:
 			_place_card(false)
