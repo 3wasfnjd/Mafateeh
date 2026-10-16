@@ -55,6 +55,19 @@ const LAYOUTS := {
 		"falcon": [Vector3(-3.5, 0.0, -3.0), 5.5, 9.5],       # round the tall house
 		"shaib": [Vector3(-1.8, 0.0, 2.6), 40.0, "idle"],      # standing in the lane
 	},
+	3: {
+		"scene": "res://assets/world/scene3/scene3.glb",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [
+			Vector3(-2.6, 0, 0.6), Vector3(-3.4, 0, -2.0), Vector3(2.2, 0, 0.8), Vector3(1.6, 0, -5.2),
+			Vector3(-1.2, 0, -5.0), Vector3(3.6, 0, -3.0)],
+		"inside": 6,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [],                                          # the level's own falcon is the hero
+		"shaib": [Vector3(0.0, 0.0, -2.0), 0.0, "sit_idle"],   # seated at the front of the arish, facing the gate
+	},
 }
 const SPARROWS := 7
 
@@ -192,7 +205,8 @@ func _add_life() -> void:
 		if b:
 			_birds.append({"node": b, "from": b.position, "to": b.position, "t": 1.0,
 				"wait": _rng.randf_range(2.0, 9.0)})
-	_falcon = _creature("falcon", layout.falcon[0] + Vector3(layout.falcon[1], layout.falcon[2], 0), 0.0, "fly")
+	if not layout.falcon.is_empty():
+		_falcon = _creature("falcon", layout.falcon[0] + Vector3(layout.falcon[1], layout.falcon[2], 0), 0.0, "fly")
 	for h in layout.hens:
 		var ps := load(HEN if h[0] == "hen" else ROOSTER) as PackedScene
 		if ps == null:

@@ -69,7 +69,7 @@ var _bump_t := 0.0
 
 func setup(d: Diorama) -> void:
 	diorama = d
-	_add_mat()
+	add_mat(self, SEAT)
 	if diorama.shaib:
 		diorama.shaib.position = SEAT
 		diorama.shaib.rotation.y = 0.0
@@ -103,33 +103,34 @@ func setup(d: Diorama) -> void:
 
 
 ## The mat and cushion he sits on: the owner's model when it exists, else a simple stand-in.
-func _add_mat() -> void:
+## (static: level 3 seats him on the same mat)
+static func add_mat(parent: Node3D, seat: Vector3) -> void:
 	if ResourceLoader.exists(MAT):
 		var m: Node3D = (load(MAT) as PackedScene).instantiate()
-		add_child(m)
-		m.position = SEAT
+		parent.add_child(m)
+		m.position = seat
 		return
 	var rug := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(1.9, 0.05, 1.4)
 	rug.mesh = bm
 	rug.material_override = _mat(Color("8e3b2e"))
-	rug.position = SEAT + Vector3(0, 0.025, 0.05)
-	add_child(rug)
+	rug.position = seat + Vector3(0, 0.025, 0.05)
+	parent.add_child(rug)
 	var band := MeshInstance3D.new()
 	var bb := BoxMesh.new()
 	bb.size = Vector3(1.94, 0.052, 0.16)
 	band.mesh = bb
 	band.material_override = _mat(Color("d9b36a"))
-	band.position = SEAT + Vector3(0, 0.027, 0.55)
-	add_child(band)
+	band.position = seat + Vector3(0, 0.027, 0.55)
+	parent.add_child(band)
 	var cushion := MeshInstance3D.new()
 	var cb := BoxMesh.new()
 	cb.size = Vector3(1.7, 0.42, 0.3)
 	cushion.mesh = cb
 	cushion.material_override = _mat(Color("5d3a2a"))
-	cushion.position = SEAT + Vector3(0, 0.26, -0.55)
-	add_child(cushion)
+	cushion.position = seat + Vector3(0, 0.26, -0.55)
+	parent.add_child(cushion)
 
 
 # --- drawing ---------------------------------------------------------------------------

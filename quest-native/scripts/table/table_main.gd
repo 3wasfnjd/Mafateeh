@@ -6,7 +6,8 @@ extends Node3D
 ## dressed in what he wears; tap an item to put it on or take it off.
 ## In play: a scene diorama sits on the table and its level runs on it. Level 1 (scene 1,
 ## TablePathLevel: draw the cat's way home); once won, level 2 follows on the same spot
-## (scene 2, TableStepsLevel: stand the mud blocks up as steps); then the card again.
+## (scene 2, TableStepsLevel: push the mud blocks into a stair), then level 3 (scene 3,
+## TableFalconLevel: fly the falcon perch to perch to fetch a key); then the card again.
 ##   Trigger: draw (or press a card button). Hold grip and move the hand: carry the diorama.
 ##   Left stick x: turn it; y: resize it. Right stick: walk the old man (level 2). Tap grip: bring it back in front. Menu: the card.
 ## Desktop (no headset): click buttons, drag on the sand to draw, WASD walk, right-drag look,
@@ -31,10 +32,10 @@ var card: Node3D
 var _buttons: Array = []  # {local, r, action}
 var _args := {}
 var diorama: Diorama
-var level: Node3D           # TablePathLevel | TableStepsLevel: setup(d), pointer(held, p), demo(), level_won
+var level: Node3D           # TablePathLevel | TableStepsLevel | TableFalconLevel: setup(d), pointer(held, p), demo(), level_won
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
-const LAST_LEVEL := 2
+const LAST_LEVEL := 3
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
@@ -303,7 +304,10 @@ func _play(n := 1, rising := false) -> void:
 	diorama.birds_outside = false  # keep the ground the player works on clear
 	add_child(diorama)
 	diorama.setup(n)
-	level = TableStepsLevel.new() if n == 2 else TablePathLevel.new()
+	match n:
+		2: level = TableStepsLevel.new()
+		3: level = TableFalconLevel.new()
+		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
 	level.setup(diorama)
 	level.level_won.connect(_on_level_won)
