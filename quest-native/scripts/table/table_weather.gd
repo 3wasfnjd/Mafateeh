@@ -7,11 +7,12 @@ extends Node3D
 ## sinks with it. Everything moves in vertex shaders: no work per frame on the CPU.
 ##   dust(on)        the drifting motes
 ##   gusts(on)       now and then a gust of sand streaks across, every 20 to 35 s
+##   showers(on)     now and then a passing shower
 ##   shower(seconds) rain for a while, easing in and out
 
 const HALF := Vector2(11.5, 9.5)   # the area it covers (x, z half sizes)
-const MOTES := 300
-const STREAKS := 220
+const MOTES := 420
+const STREAKS := 360
 const DROPS := 700
 const TOP := 11.0
 
@@ -19,16 +20,22 @@ var _dust: MultiMeshInstance3D
 var _sand: MultiMeshInstance3D
 var _rain: MultiMeshInstance3D
 var _gusts := false
-var _gust_wait := 12.0
+var _gust_wait := 8.0         # the first gust soon, so it is seen
+var _showers := false
+var _shower_wait := 25.0
 var _model: Node3D
 
+# The shaders build each mote, streak and drop in view space: it moves in the scene's metres
+# (so it wraps round the island and stops on the roofs) but is drawn at a size in real
+# metres; the diorama's 1/50 scale would otherwise shrink it to a millimetre or two.
 const DUST_SHADER := """
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled, fog_disabled;
 uniform float amount = 1.0;
 uniform float wind = 0.4;
+uniform float size = 0.0045;   // real metres, half across
 uniform vec2 half_size = vec2(11.5, 9.5);
-uniform vec4 tint : source_color = vec4(1.0, 0.87, 0.62, 1.0);
+uniform vec4 tint : source_color = vec4(1.0, 0.95, 0.85, 1.0);
 varying float fade;
 void vertex() {
 	vec4 c = INSTANCE_CUSTOM;   // x, z: start; y: height; w: seed
@@ -36,17 +43,17 @@ void vertex() {
 	vec3 p = vec3(c.x + wind * t, c.y + sin(t * 1.1 + c.w * 9.0) * 0.25, c.z + wind * 0.35 * t);
 	p.x = mod(p.x + half_size.x, 2.0 * half_size.x) - half_size.x;
 	p.z = mod(p.z + half_size.y, 2.0 * half_size.y) - half_size.y;
-	vec3 right = normalize((inverse(MODEL_MATRIX) * vec4(INV_VIEW_MATRIX[0].xyz, 0.0)).xyz) * 0.07;
-	vec3 up = normalize((inverse(MODEL_MATRIX) * vec4(INV_VIEW_MATRIX[1].xyz, 0.0)).xyz) * 0.07;
-	VERTEX = p + right * VERTEX.x + up * VERTEX.y;
+	vec4 v = MODELVIEW_MATRIX * vec4(p, 1.0);
+	v.xy += VERTEX.xy * size * (0.7 + 0.6 * c.w);
+	POSITION = PROJECTION_MATRIX * v;
 	// thin out towards the edges of the island, twinkle, and follow amount
 	float edge = 1.0 - smoothstep(0.75, 1.0, max(abs(p.x) / half_size.x, abs(p.z) / half_size.y));
-	fade = step(c.w, amount) * edge * (0.45 + 0.55 * sin(t * 0.7 + c.w * 20.0));
+	fade = step(c.w, amount) * edge * (0.5 + 0.5 * sin(t * 0.7 + c.w * 20.0));
 }
 void fragment() {
 	float d = length(UV - vec2(0.5)) * 2.0;
 	ALBEDO = tint.rgb;
-	ALPHA = clamp((1.0 - smoothstep(0.15, 1.0, d)) * fade * 0.6, 0.0, 1.0);
+	ALPHA = clamp((1.0 - smoothstep(0.1, 1.0, d)) * fade * 0.9, 0.0, 1.0);
 }
 """
 
@@ -54,8 +61,9 @@ const SAND_SHADER := """
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled, fog_disabled;
 uniform float amount = 0.0;
+uniform float width = 0.007;   // real metres, half across: soft bands of blown sand
 uniform vec2 half_size = vec2(11.5, 9.5);
-uniform vec4 tint : source_color = vec4(0.86, 0.66, 0.42, 1.0);
+uniform vec4 tint : source_color = vec4(0.98, 0.92, 0.8, 1.0);
 varying float fade;
 varying vec2 uv;
 void vertex() {
@@ -64,11 +72,15 @@ void vertex() {
 	vec3 p = vec3(c.x + t, c.y + sin(t * 0.3 + c.w * 7.0) * 0.2, c.z + t * 0.28);
 	p.x = mod(p.x + half_size.x, 2.0 * half_size.x) - half_size.x;
 	p.z = mod(p.z + half_size.y, 2.0 * half_size.y) - half_size.y;
-	// a streak along the wind, turned to face up and to the camera as well as it can
-	vec3 along = normalize(vec3(1.0, 0.0, 0.28)) * (0.9 + c.w * 0.8);
-	vec3 cam = (inverse(MODEL_MATRIX) * vec4(INV_VIEW_MATRIX[3].xyz, 1.0)).xyz;
-	vec3 side = normalize(cross(along, cam - p)) * 0.035;
-	VERTEX = p + along * VERTEX.x + side * VERTEX.y;
+	// a streak along the wind: from p to p + along, as wide as `width` on the screen
+	vec3 along = normalize(vec3(1.0, 0.0, 0.28)) * (1.8 + c.w * 1.6);
+	vec4 a = MODELVIEW_MATRIX * vec4(p, 1.0);
+	vec4 b = MODELVIEW_MATRIX * vec4(p + along, 1.0);
+	vec2 d = b.xy - a.xy;
+	vec2 side = length(d) > 1e-6 ? normalize(vec2(-d.y, d.x)) : vec2(0.0, 1.0);
+	vec4 v = mix(a, b, VERTEX.x + 0.5);
+	v.xy += side * VERTEX.y * 2.0 * width;
+	POSITION = PROJECTION_MATRIX * v;
 	float edge = 1.0 - smoothstep(0.7, 1.0, max(abs(p.x) / half_size.x, abs(p.z) / half_size.y));
 	fade = step(c.w, amount) * edge;
 	uv = UV;
@@ -76,7 +88,7 @@ void vertex() {
 void fragment() {
 	float a = sin(uv.x * 3.14159) * (1.0 - abs(uv.y - 0.5) * 2.0);
 	ALBEDO = tint.rgb;
-	ALPHA = clamp(a * fade * 0.5, 0.0, 1.0);
+	ALPHA = clamp(a * fade * 0.55, 0.0, 1.0);
 }
 """
 
@@ -85,6 +97,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled, fog_disabled;
 uniform float amount = 0.0;
 uniform float speed = 14.0;
+uniform float width = 0.0009;  // real metres, half across
 varying float fade;
 void vertex() {
 	vec4 c = INSTANCE_CUSTOM;   // x, z: where; y: the surface under it; w: seed
@@ -92,14 +105,18 @@ void vertex() {
 	float span = max(top - c.y, 0.5);
 	float k = fract(TIME * speed / span + c.w * 7.0);
 	vec3 p = vec3(c.x, mix(top, c.y, k), c.z);
-	vec3 cam = (inverse(MODEL_MATRIX) * vec4(INV_VIEW_MATRIX[3].xyz, 1.0)).xyz;
-	vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), cam - p)) * 0.025;
-	VERTEX = p + side * VERTEX.x + vec3(0.0, 0.55, 0.0) * VERTEX.y;
+	vec4 a = MODELVIEW_MATRIX * vec4(p, 1.0);
+	vec4 b = MODELVIEW_MATRIX * vec4(p + vec3(0.0, 0.9, 0.0), 1.0);
+	vec2 d = b.xy - a.xy;
+	vec2 side = length(d) > 1e-6 ? normalize(vec2(-d.y, d.x)) : vec2(1.0, 0.0);
+	vec4 v = mix(a, b, VERTEX.y + 0.5);
+	v.xy += side * VERTEX.x * 2.0 * width;
+	POSITION = PROJECTION_MATRIX * v;
 	fade = step(c.w, amount) * smoothstep(0.0, 0.1, k) * (1.0 - smoothstep(0.95, 1.0, k));
 }
 void fragment() {
 	ALBEDO = vec3(0.86, 0.9, 0.95);
-	ALPHA = 0.42 * fade;
+	ALPHA = 0.55 * fade;
 }
 """
 
@@ -120,6 +137,11 @@ func setup(model: Node3D) -> void:
 func dust(on: bool, evening := false) -> void:
 	(_dust.material_override as ShaderMaterial).set_shader_parameter("tint", Color(1.0, 0.8, 0.55) if evening else Color(1.0, 0.87, 0.62))
 	_fade(_dust, 0.75 if on else 0.0, 1.5)
+
+
+## Now and then a passing shower (12 s, about every minute and a half; the first soon).
+func showers(on: bool) -> void:
+	_showers = on
 
 
 func gusts(on: bool) -> void:
@@ -153,11 +175,21 @@ func shower(seconds := 8.0) -> void:
 
 
 func _process(dt: float) -> void:
+	if _showers:
+		_shower_wait -= dt
+		if _shower_wait <= 0.0:
+			_shower_wait = randf_range(80.0, 110.0)
+			shower(12.0)
 	if not _gusts:
 		return
 	_gust_wait -= dt
 	if _gust_wait > 0.0:
 		return
+	gust_now()
+
+
+## A gust of blown sand, now.
+func gust_now() -> void:
 	_gust_wait = randf_range(20.0, 35.0)
 	var tw := create_tween()
 	tw.tween_method(func(v: float): _amount(_sand, v), 0.0, 1.0, 1.4).set_trans(Tween.TRANS_SINE)

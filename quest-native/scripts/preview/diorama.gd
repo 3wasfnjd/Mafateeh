@@ -165,7 +165,7 @@ const LAYOUTS := {
 			[Vector3(-3.00, 3.250, -4.90), Vector3(-4.00, 3.250, -5.40), Vector3(-3.50, 3.250, -3.90), Vector3(-2.00, 3.250, -5.40), Vector3(-2.25, 3.250, -4.15), Vector3(-3.75, 3.250, -4.65), Vector3(-3.25, 3.250, -5.65)],
 			[Vector3(3.20, 3.250, -5.00), Vector3(2.20, 3.250, -5.50), Vector3(2.70, 3.250, -4.00), Vector3(4.20, 3.250, -5.50), Vector3(3.95, 3.250, -4.25), Vector3(2.45, 3.250, -4.75), Vector3(2.95, 3.250, -5.75)],
 		],
-		"mood": "evening",
+		"mood": "night",   # the old men's tracers show best against the night sky
 		"cats": [],
 		"cat_walk": [],
 		"sparrows": [Vector3(-5.0, 0, 3.6), Vector3(5.2, 0, 4.0), Vector3(-5.6, 0, -1.0), Vector3(5.8, 0, -0.6)],

@@ -1,6 +1,6 @@
 class_name TableChestLevel
 extends Node3D
-## Level 10 on the table, «صندوق الجد» (the grandfather's chest). Wordless. Evening.
+## Level 10 on the table, «صندوق الجد» (the grandfather's chest). Wordless. Night.
 ## Scene 10: the family house's inner courtyard. In the middle stands the grandfather's Najdi
 ## chest, nine brass studs across its front. Round it, each on a little mud stand, lies a
 ## keepsake of the journey: the cat, a mud block, the key, the water truck, a lantern, a drum,
@@ -71,10 +71,11 @@ func setup(d: Diorama) -> void:
 		TableKit.face(n, CHEST - at)
 		_items.append({"node": n, "stand": stand, "at": at})
 		_boxes[str(i)] = AABB(at - Vector3(0.6, 0, 0.6), Vector3(1.2, 1.6, 1.2))
-	for x in [-6.2, 6.2]:   # two lit lanterns in the riwaq
-		var lamp := TableKit.model(self, "res://assets/world/props/lantern.glb", Vector3(x, 0, -3.2), 0.0, 1.0)
+	# lit lanterns in the riwaq and by the side rooms' doors (it is night)
+	for at in [Vector3(-6.2, 0, -3.2), Vector3(6.2, 0, -3.2), Vector3(-6.4, 0, 2.4), Vector3(6.4, 0, 2.4)]:
+		var lamp := TableKit.model(self, "res://assets/world/props/lantern.glb", at, 0.0, 1.0)
 		if lamp:
-			TableKit.sphere(self, 0.12, TableKit.lit_mat(Color("ffc46b"), 2.4), Vector3(x, 0.3, -3.2), 8)
+			TableKit.sphere(self, 0.12, TableKit.lit_mat(Color("ffc46b"), 2.4), at + Vector3(0, 0.3, 0), 8)
 	_hint_ring = TableKit.ring(self, 0.6, GOLD, 0.9)
 	_hint_ring.visible = false
 

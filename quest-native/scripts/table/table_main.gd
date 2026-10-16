@@ -20,7 +20,7 @@ extends Node3D
 ##   arrows walk the old man, Q/E turn the diorama, Esc the menu.
 ## Screenshot args: --screenshot=path [--start=play|menu] [--page=levels|wardrobe|world|settings|about] [--lang=ar|en]
 ##   [--cam=x,y,z,yaw,pitch] [--level=N] [--k=size] [--turn=deg] [--demo=1] [--wait=frames]
-##   [--place=1] (show the placing ring instead of the scene)
+##   [--place=1] (show the placing ring instead of the scene) [--weather=rain|gust|dust]
 
 const MUSIC := "res://audio/music/%s.ogg"   # calm loops from tools/audio/make_soft_audio.py
 const AMBIENCE := "res://audio/ambience/%s.ogg"
@@ -36,8 +36,9 @@ const GEMS := {1: Vector2(-6.4, -5.2), 2: Vector2(5.8, -0.6), 3: Vector2(-9.2, 2
 	5: Vector2(6.6, -2.4), 6: Vector2(8.4, -6.6), 7: Vector2(-6.2, 5.4), 8: Vector2(7.4, 3.0),
 	9: Vector2(8.2, 5.4), 10: Vector2(-6.0, -1.8)}
 # The weather each scene has when the atmosphere is "as designed", and its surroundings sound.
-const WEATHER := {1: "dust", 2: "dust", 3: "dust", 4: "gusts", 5: "dust", 6: "dust", 7: "", 8: "dust", 9: "dust", 10: "dust"}
-const AMBIENT := {1: "birds", 2: "birds", 3: "wind", 4: "wind", 5: "fire", 6: "birds", 7: "night", 8: "market", 9: "water", 10: "fire"}
+# dust: drifting motes; gusts: blown sand now and then; rain: a passing shower now and then
+const WEATHER := {1: "dust", 2: "dust rain", 3: "dust", 4: "dust gusts", 5: "dust", 6: "dust rain", 7: "", 8: "dust rain", 9: "dust", 10: ""}
+const AMBIENT := {1: "birds", 2: "birds", 3: "wind", 4: "wind", 5: "fire", 6: "birds", 7: "night", 8: "market", 9: "water", 10: "night"}
 
 var env: Environment
 var sun: DirectionalLight3D
@@ -310,9 +311,10 @@ func _set_weather() -> void:
 	var save := _save()
 	var designed: bool = save == null or save.weather_pref != "clear"
 	var kind: String = WEATHER.get(stage, "")
-	var dust_on: bool = (save == null or save.dust) and kind != ""
+	var dust_on: bool = (save == null or save.dust) and kind.contains("dust")
 	_weather.dust(dust_on, str(diorama.layout.get("mood", "day")) == "evening")
-	_weather.gusts(designed and kind == "gusts")
+	_weather.gusts(designed and kind.contains("gusts"))
+	_weather.showers(designed and kind.contains("rain"))
 
 
 func _on_level_won() -> void:
@@ -794,6 +796,11 @@ func _screenshot() -> void:
 		level.demo()
 	if _args.has("place"):
 		_begin_place()
+	if _weather and _args.has("weather"):   # --weather=rain|gust|dust: show it now
+		match str(_args.weather):
+			"rain": _weather.shower(30.0)
+			"gust": _weather.gust_now()
+			"dust": _weather.dust(true)
 	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, the end)
 		_on_level_won()
 	for i in int(_args.get("wait", "40")):
