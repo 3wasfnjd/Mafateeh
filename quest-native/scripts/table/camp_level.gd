@@ -3,7 +3,7 @@ extends Node3D
 ## Level 4 on the table, «الوايت» (the water truck). Wordless. No buildings: a desert camp.
 ## Scene 4: dunes, the goat-hair tent, the sheep in their wire pen, camels waiting by an empty
 ## trough. On the packed sand in front of the tent the camp's cars are parked every which way
-## (shases and datsuns), and the water truck is boxed in among them. Its way out is to the
+## (shases and datsuns, Motri's), and the water truck is boxed in among them. Its way out is to the
 ## right, towards the trough. Tap a car to pick it (the cells it can drive to light up), then
 ## tap one of them and it drives there, forwards or in reverse, never sideways. Get the truck
 ## out and it drives to the trough; the camels drink and the old man dances.
@@ -25,18 +25,19 @@ const MODELS := {"shas": "res://assets/world/props/shas.glb", "datsun": "res://a
 # [kind, colour, row, col, horizontal, facing forward (+x or +z)]; the first is the truck
 const START := [
 	["wayit", "", 2, 0, true, true],
-	["shas", "f1f0ea", 0, 2, true, false],
-	["datsun", "3f6fa8", 5, 2, true, true],
-	["shas", "d9c7a3", 5, 0, true, false],
-	["datsun", "b5452f", 3, 4, false, true],
-	["shas", "b8b2a6", 3, 2, false, false],
-	["datsun", "d9a63a", 0, 4, false, true],
-	["shas", "f1f0ea", 4, 5, false, false],
-	["shas", "e6dfd0", 1, 2, false, true],
-	["datsun", "7a4a2e", 0, 0, false, false],
+	["shas", "", 0, 2, true, false],          # Motri's own beige
+	["datsun", "", 5, 2, true, true],         # Motri's own white, hay in the bed
+	["shas", "eeeeea", 5, 0, true, false],
+	["datsun", "8fb3c9", 3, 4, false, true],
+	["shas", "a9ada6", 3, 2, false, false],
+	["datsun", "c96f5a", 0, 4, false, true],
+	["shas", "", 4, 5, false, false],
+	["shas", "eeeeea", 1, 2, false, true],
+	["datsun", "d9b25a", 0, 0, false, false],
 ]
 const BARRELS := [Vector2i(3, 3)]   # (row, col): water drums, they don't move
 const DRIVE_SPEED := 4.5
+const CAR_LEN := 2 * CELL * 0.93
 const HINT_AFTER := 20.0
 const BEIGE := Color("f1dcae")
 const GOLD := Color("e6b85a")
@@ -94,6 +95,10 @@ func _car(s: Array) -> Dictionary:
 	if ps:
 		var m: Node3D = ps.instantiate()
 		n.add_child(m)
+		# Motri's vehicles are 5-6 m long; each fills its two cells
+		var length := _length(m)
+		if length > 0.01:
+			m.scale = Vector3.ONE * (CAR_LEN / length)
 		if s[1] != "":
 			_paint(m, Color(s[1]))
 	var car := {"node": n, "kind": s[0], "r": s[2], "c": s[3], "h": s[4], "len": 2}
@@ -103,7 +108,15 @@ func _car(s: Array) -> Dictionary:
 	return car
 
 
-## Recolours the body (materials named paint_*), keeping glass, lamps and tyres.
+static func _length(root: Node3D) -> float:
+	var zmax := 0.0
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var a: AABB = (mi as MeshInstance3D).get_aabb()
+		zmax = maxf(zmax, maxf(absf(a.position.z), absf(a.end.z)))
+	return zmax * 2.0
+
+
+## Recolours the body (faces on the paint_* material), keeping glass, lamps, tyres and the load.
 static func _paint(root: Node, c: Color) -> void:
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		var mesh: Mesh = (mi as MeshInstance3D).mesh
@@ -111,6 +124,7 @@ static func _paint(root: Node, c: Color) -> void:
 			var mat := mesh.surface_get_material(i)
 			if mat and mat.resource_name.begins_with("paint") and mat is StandardMaterial3D:
 				var m2: StandardMaterial3D = mat.duplicate()
+				m2.vertex_color_use_as_albedo = false   # one flat body colour instead of Motri's
 				m2.albedo_color = c
 				(mi as MeshInstance3D).set_surface_override_material(i, m2)
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

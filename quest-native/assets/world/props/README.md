@@ -1,7 +1,8 @@
 # Props from Motri
 
-`camel_standing`, `camel_kneeling`, `camel_calf`, `tent`, `sheep`, `hen`, `rooster`, `crate` and
-`lantern` come from the owner's Motri repository (github.com/3wasfnjd/Motri), whose base is
+`camel_standing`, `camel_kneeling`, `camel_calf`, `tent`, `sheep`, `hen`, `rooster`, `crate`,
+`lantern`, and for the desert camp (level 4) `shas`, `datsun`, `wayit`, `trough` and `sheep_pen`
+come from the owner's Motri repository (github.com/3wasfnjd/Motri), whose base is
 **Folio 2025 by Bruno Simon**, MIT licence:
 
 > Copyright (c) 2025 Bruno Simon. Permission is hereby granted, free of charge, to any person
@@ -15,8 +16,13 @@
 How they were made:
 1. `tools/motri/export_models.mjs` runs Motri's own model code (CamelCampModel, SheepPenModel,
    RestHousePoultryModel) in Node and writes the geometry with its vertex colours to GLB.
-2. `tools/blender/import_motri.py` splits out single animals and the tent (no water tanker),
-   recolours the crate and lantern to wood, and writes the files here.
+2. `tools/blender/import_motri.py` splits out single animals and the tent, recolours the crate
+   and lantern to wood, and writes the files here.
+3. `tools/motri/export_vehicles.mjs` writes Motri's parked 2026 Shas (CamelCampPickup); then
+   `tools/blender/import_motri_camp.py` takes that, the Datsun feed pickup and the sheep pen
+   (fence, shade, feeders, flock; without its sand pad) from the sheep pen export, and the
+   water tanker and trough from the camel camp. Body-coloured faces of each vehicle are on a
+   `paint_<name>` material so the game can repaint parked cars.
 
 The floor textures `art_source/world/motri/slabs.png` and `stone-paving.png` are from the same
 repository and licence; `tools/blender/build_scene1.py` uses them for the courtyard and paths.

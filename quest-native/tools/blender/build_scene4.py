@@ -1,8 +1,8 @@
 """Scene 4 of the tabletop diorama: a desert camp, no buildings.
 
-Open dunes, the black goat-hair tent (بيت الشعر), a sheep pen fenced with wire mesh (الشبك)
-with the flock inside, camels by a metal trough, and the hard sand in front of the tent where
-the camp's cars park. Level 4 is played on that parking ground: the cars (shas, datsun) and
+Open dunes, the goat-hair tent, the sheep pen with the flock inside, camels by a trough (all
+from the owner's Motri repository), and the hard sand in front of the tent where the camp's
+cars park. Level 4 is played on that parking ground: the cars (Motri's shas and datsun) and
 the water truck are live (scripts/table/camp_level.gd), so they are not baked here.
 
 Reuses the helpers of build_scene1.py. Real metres; writes assets/world/scene4/scene4.glb.
@@ -11,7 +11,7 @@ Usage: python3 tools/blender/build_scene4.py [-- --render out_dir]
 Layout (Godot x, z; Blender y = -z):
   parking grid  6 x 6 cells of 2.2 m, x -6.6 .. 6.6, z -5.6 .. 7.6 (camp_level.gd: GRID)
   tent          behind the grid, centred (-2.5, -9.2)
-  sheep pen     left, centred (-9.3, 1.5)
+  sheep pen     left, centred (-10.3, 3.0), scaled 0.42
   trough        right, beside the way out of the grid (row 2, z -0.1): x 8.4 .. 10.6, z -1.7
 """
 import math
@@ -31,7 +31,8 @@ b1.OUT = OUT
 smooth, noise2, place, p, block = b1.smooth, b1.noise2, b1.place, b1.p, b1.block
 
 GRID = (-6.6, 6.6, -5.6, 7.6)      # Godot x0, x1, z0, z1
-PEN = (-9.3, 1.5, 4.2, 3.6)        # Godot centre x, z, size x, z
+PEN = (-10.3, 3.0)                 # Godot centre x, z of the sheep pen
+PEN_SCALE = 0.42                   # Motri's pen is 17 x 11 m with its gate rails
 TROUGH = (9.5, -1.7)               # Godot centre x, z
 
 
@@ -60,7 +61,7 @@ def bake_ground(n=1024):
     packed = np.array([0xcf, 0xa2, 0x6a], float) * (0.94 + 0.12 * grain)[..., None] * tracks[..., None]
     col = col * (1 - park[..., None] * 0.8) + packed * park[..., None] * 0.8
     # trodden sand round the pen and the trough
-    for cx, cz, r in ((PEN[0], PEN[1], 3.4), (TROUGH[0], TROUGH[1] - 1.0, 2.8), (-2.5, -6.2, 2.6)):
+    for cx, cz, r in ((PEN[0], PEN[1], 4.4), (TROUGH[0], TROUGH[1] - 1.0, 2.8), (-2.5, -6.2, 2.6)):
         d = np.hypot(X - cx, Z - cz)
         w = smooth(r, r * 0.6, d)[..., None] * 0.35
         col = col * (1 - w) + np.array([0xc4, 0x96, 0x60], float) * w
@@ -75,64 +76,12 @@ def g(x, z, h=0.0):
     return (x, -z, h)
 
 
-def pen():
-    """Posts round the pen with wire mesh between them: a fine grid of thin bars."""
-    cx, cz, sx, sz = PEN
-    post = b1.img_mat("scene4_wood", os.path.join(b1.TEX, "kit_lintel.jpg"), 0.85)
-    wire = bpy.data.materials.new("scene4_wire")
-    wire.use_nodes = True
-    wire.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.42, 0.42, 0.4, 1)
-    wire.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = 0.6
-    wire.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.5
-    H, step, t = 1.15, 0.22, 0.025
-    sides = [((cx - sx / 2, cz - sz / 2), (cx + sx / 2, cz - sz / 2)),
-             ((cx + sx / 2, cz - sz / 2), (cx + sx / 2, cz + sz / 2)),
-             ((cx + sx / 2, cz + sz / 2), (cx - sx / 2, cz + sz / 2)),
-             ((cx - sx / 2, cz + sz / 2), (cx - sx / 2, cz - sz / 2))]
-    for i, ((ax, az), (bx, bz)) in enumerate(sides):
-        length = math.hypot(bx - ax, bz - az)
-        ux, uz = (bx - ax) / length, (bz - az) / length
-        along_x = abs(ux) > 0.5
-        n_posts = int(round(length / 1.05))
-        for k in range(n_posts + 1):
-            px, pz = ax + ux * length * k / n_posts, az + uz * length * k / n_posts
-            block("PenPost", (0.1, 0.1, H + 0.1), g(px, pz, (H + 0.1) / 2), post, uv_full=True)
-        gate = i == 1   # the right side has a gate: a gap with no mesh in its middle
-        for k in range(1, int(length / step)):
-            s = k * step
-            if gate and abs(s - length / 2) < 0.6:
-                continue
-            px, pz = ax + ux * s, az + uz * s
-            block("Wire", (t, t, H), g(px, pz, H / 2), wire)
-        for z in np.arange(0.12, H + 0.01, step):
-            if gate:
-                for s0, s1 in ((0.0, length / 2 - 0.6), (length / 2 + 0.6, length)):
-                    mx, mz = ax + ux * (s0 + s1) / 2, az + uz * (s0 + s1) / 2
-                    size = (s1 - s0, t, t) if along_x else (t, s1 - s0, t)
-                    block("Wire", size, g(mx, mz, z), wire)
-                continue
-            mx, mz = (ax + bx) / 2, (az + bz) / 2
-            size = (length, t, t) if along_x else (t, length, t)
-            block("Wire", size, g(mx, mz, z), wire)
-    # the flock, a trough of feed
-    for x, z, yaw in ((-10.4, 0.6, 30), (-9.0, 0.3, 200), (-8.2, 1.6, 120), (-10.0, 2.4, 300), (-8.8, 2.6, 70)):
-        place(p("sheep"), g(x, z), yaw, 0.68)
-    block("FeedTrough", (1.4, 0.4, 0.3), g(cx, cz - 1.2, 0.15), post, uv_full=True)
-
-
-def trough():
-    metal = bpy.data.materials.new("scene4_metal")
-    metal.use_nodes = True
-    metal.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.5, 0.52, 0.53, 1)
-    metal.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = 0.7
-    metal.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.45
-    x, z = TROUGH
-    block("Trough", (2.4, 0.7, 0.55), g(x, z, 0.275), metal)
-    water = bpy.data.materials.new("scene4_water")
-    water.use_nodes = True
-    water.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.25, 0.42, 0.5, 1)
-    water.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.15
-    block("TroughWater", (2.3, 0.6, 0.02), g(x, z, 0.5), water)
+def pen_and_trough():
+    """Motri's sheep pen (fence, shade, feeders and flock, tools/blender/import_motri_camp.py),
+    scaled down to fit beside the parking ground, its gate towards the cars; and Motri's
+    drinking trough beside the truck's way out."""
+    place(p("sheep_pen"), g(PEN[0], PEN[1]), 0, PEN_SCALE)
+    place(p("trough"), g(*TROUGH), 90, 1.4)
 
 
 def camp():
@@ -162,8 +111,7 @@ def main():
     tex = bake_ground()
     b1.ground_mesh(tex)
     camp()
-    pen()
-    trough()
+    pen_and_trough()
     if b1.RENDER:
         b1.render(b1.RENDER)
     b1.export()
