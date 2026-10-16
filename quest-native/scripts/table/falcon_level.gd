@@ -3,7 +3,7 @@ extends Node3D
 ## Level 3 on the table, «مفتاح الشاهين» (the falcon's key). Wordless. The falcon is the hero.
 ## Scene 3: a walled palm garden with an arish. The old man sits at the front of the arish
 ## with his falcon on his glove. Outside the wall, out on the sand, lies a key. The falcon
-## flies only from perch to perch (wooden posts, some on the wall top), and only as far as the
+## flies only from perch to perch (wooden posts, two tall ones by the wall), and only as far as the
 ## ring on the ground round it shows. Tap a perch inside the ring and it flies there; tap the
 ## key when it is in reach and it swoops down and takes it. Carrying the key its ring is
 ## smaller, so the way back is not always the way out. Bring the key to the old man's glove.
@@ -15,16 +15,15 @@ signal level_won
 const SFX := "res://audio/sfx/"
 const SEAT := Vector3(0.0, 0.0, -2.0)         # the old man (scene 3 layout), facing the gate
 const GLOVE := Vector3(-0.32, 1.02, -1.75)    # his raised right hand
-const WALL_TOP := 2.8
 # perches: id -> [x, z, base height, post height]
 const PERCHES := {
 	"a": [3.0, -0.5, 0.0, 2.4],    # in the garden, right of the arish
-	"b": [5.6, -4.6, 0.0, 2.4],    # in the garden, back right
-	"h": [6.0, -0.4, WALL_TOP, 0.9],  # on the right wall
+	"b": [4.9, -4.6, 0.0, 2.4],    # in the garden, back right
+	"h": [5.1, -0.4, 0.0, 3.6],    # a tall perch inside the right wall, over its top
 	"e": [8.8, -1.6, 0.0, 2.6],    # outside, right
 	"d": [9.2, -8.2, 0.0, 2.6],    # outside, far back right (a dead end)
 	"l1": [-3.0, -0.8, 0.0, 2.4],  # in the garden, left
-	"l2": [-6.0, -3.2, WALL_TOP, 0.9],  # on the left wall
+	"l2": [-5.1, -3.2, 0.0, 3.6],  # a tall perch inside the left wall
 	"l3": [-9.0, -4.0, 0.0, 2.6],  # outside, left (nothing out there)
 }
 const KEY_AT := Vector3(10.2, 0.0, -4.6)      # on a stone out on the sand

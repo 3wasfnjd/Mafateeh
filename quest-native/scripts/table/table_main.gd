@@ -26,6 +26,7 @@ const ACCENT_DARK := Color("4f3826") # worn-item ring
 const DISC := Color("fbf3e4")
 
 var env: Environment
+var sun: DirectionalLight3D
 var rig: XRRig
 var xr := false
 var desk_cam: Camera3D
@@ -36,7 +37,7 @@ var diorama: Diorama
 var level: Node3D           # Table{Path,Steps,Falcon,Camp}Level: setup(d), pointer(held, p), demo(), level_won
 var stage := 1              # which level is on the table
 var _round := 0             # bumped on every _play, so a stale "level won" timer does nothing
-const LAST_LEVEL := 4
+const LAST_LEVEL := 5
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 var table_k := 1.0
 var _drag := {}
@@ -67,7 +68,7 @@ func _ready() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, 32, 0)
 	sun.light_energy = 0.95
 	sun.shadow_enabled = false  # no shadows (owner's choice; also cheaper on Quest)
@@ -313,10 +314,12 @@ func _play(n := 1, rising := false) -> void:
 	diorama.birds_outside = false  # keep the ground the player works on clear
 	add_child(diorama)
 	diorama.setup(n)
+	_apply_mood(str(diorama.layout.get("mood", "day")))
 	match n:
 		2: level = TableStepsLevel.new()
 		3: level = TableFalconLevel.new()
 		4: level = TableCampLevel.new()
+		5: level = TableLanternLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
 	level.setup(diorama)
@@ -346,6 +349,23 @@ func _on_level_won() -> void:
 		tw.tween_callback(func():
 			if r == _round:
 				_play(won + 1, true)))
+
+
+## Light for the level's time of day: "day", "evening" (low warm sun) or "night" (dim and
+## blue, so lamps and fires carry the scene). Only the diorama is lit; the room is passthrough.
+func _apply_mood(mood: String) -> void:
+	var looks := {
+		"day": [Vector3(-48, 32, 0), Color("ffffff"), 0.95, Color("fff6ea"), 0.55],
+		"evening": [Vector3(-16, 60, 0), Color("ffb36b"), 0.75, Color("f2c9a0"), 0.42],
+		"night": [Vector3(-40, -30, 0), Color("8ea6d8"), 0.28, Color("6f7fa8"), 0.32],
+	}
+	var l: Array = looks.get(mood, looks.day)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(sun, "rotation_degrees", l[0], 0.8)
+	tw.tween_property(sun, "light_color", l[1], 0.8)
+	tw.tween_property(sun, "light_energy", l[2], 0.8)
+	tw.tween_property(env, "ambient_light_color", l[3], 0.8)
+	tw.tween_property(env, "ambient_light_energy", l[4], 0.8)
 
 
 ## Puts the diorama in front of the player at about table height, the gate facing them.

@@ -81,6 +81,18 @@ const LAYOUTS := {
 		"falcon": [Vector3(0.0, 0.0, -1.0), 7.0, 11.0],       # high over the camp
 		"shaib": [Vector3(1.8, 0.0, -7.0), 0.0, "idle"],       # by the tent
 	},
+	5: {
+		"scene": "res://assets/world/scene5/scene5.glb",
+		"mood": "evening",
+		"cats": [[Vector3(-5.0, 0.45, -3.6), 90.0, "sleep"]],   # asleep on the edge of the dakka
+		"cat_walk": [],
+		"sparrows": [Vector3(-2.6, 0, 5.8), Vector3(3.2, 0, 6.2), Vector3(-5.6, 0, 3.0), Vector3(5.4, 0, 4.0)],
+		"inside": 4,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [],
+		"shaib": [Vector3(1.0, 0.0, 1.2), 0.0, "idle"],        # by the fire
+	},
 }
 const SPARROWS := 7
 
