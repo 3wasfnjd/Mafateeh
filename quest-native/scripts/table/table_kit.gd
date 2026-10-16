@@ -87,6 +87,7 @@ static func sfx(parent: Node3D, name: String, at: Vector3, db := 0.0, pitch := 1
 	p.stream = load(path)
 	p.volume_db = db
 	p.pitch_scale = pitch
+	p.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"   # quiet, see table_main
 	parent.add_child(p)
 	p.position = at
 	p.play()

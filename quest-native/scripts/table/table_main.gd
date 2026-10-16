@@ -27,6 +27,11 @@ const DISC := Color("fbf3e4")
 
 var env: Environment
 var sun: DirectionalLight3D
+var _music: AudioStreamPlayer
+var _music_mood := ""
+const MUSIC := "res://audio/music/%s.ogg"   # calm loops from tools/audio/make_soft_audio.py
+const MUSIC_DB := -15.0
+const SFX_DB := -11.0
 var rig: XRRig
 var xr := false
 var desk_cam: Camera3D
@@ -53,6 +58,7 @@ var _moved_by_hand := false # once the player carries the diorama, detected tabl
 
 
 func _ready() -> void:
+	_setup_audio()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--"):
 			var kv := a.substr(2).split("=", true, 1)
@@ -315,6 +321,7 @@ func _play(n := 1, rising := false) -> void:
 	add_child(diorama)
 	diorama.setup(n)
 	_apply_mood(str(diorama.layout.get("mood", "day")))
+	_play_music(str(diorama.layout.get("mood", "day")))
 	match n:
 		2: level = TableStepsLevel.new()
 		3: level = TableFalconLevel.new()
@@ -354,6 +361,43 @@ func _on_level_won() -> void:
 		tw.tween_callback(func():
 			if r == _round:
 				_play(won + 1, true)))
+
+
+## Two quiet buses: the music, and every sound effect (the owner wants both soft).
+func _setup_audio() -> void:
+	for b in [["Music", MUSIC_DB], ["SFX", SFX_DB]]:
+		if AudioServer.get_bus_index(b[0]) < 0:
+			AudioServer.add_bus()
+			var i := AudioServer.bus_count - 1
+			AudioServer.set_bus_name(i, b[0])
+			AudioServer.set_bus_send(i, "Master")
+		AudioServer.set_bus_volume_db(AudioServer.get_bus_index(b[0]), b[1])
+	_music = AudioStreamPlayer.new()
+	_music.bus = "Music"
+	add_child(_music)
+	_play_music("day")
+
+
+## The level's loop (day, evening or night), faded across when it changes.
+func _play_music(mood: String) -> void:
+	if mood == _music_mood or _music == null:
+		return
+	var path := MUSIC % mood
+	if not ResourceLoader.exists(path):
+		return
+	_music_mood = mood
+	var st := load(path) as AudioStreamOggVorbis
+	if st == null:
+		return
+	st.loop = true
+	var tw := create_tween()
+	if _music.playing:
+		tw.tween_property(_music, "volume_db", -40.0, 1.2)
+	tw.tween_callback(func():
+		_music.stream = st
+		_music.volume_db = -40.0
+		_music.play())
+	tw.tween_property(_music, "volume_db", 0.0, 2.0)
 
 
 ## Light for the level's time of day: "day", "evening" (low warm sun) or "night" (dim and

@@ -30,6 +30,7 @@ const ROOSTER := "res://assets/world/props/rooster.glb"
 const LAYOUTS := {
 	1: {
 		"scene": "res://assets/world/scene1/scene1.glb",
+		"pigeons": [Vector3(8.25, 8.05, 6.25), Vector3(0.8, 3.06, -3.0), Vector3(-8.25, 2.85, 2.0)],
 		"cats": [[Vector3(5.6, 0.0, 1.0), 200.0, "sleep"]],   # asleep in a corner of the courtyard
 		"cat_walk": [Vector3(0.35, 0.0, 7.6), Vector3(0.35, 0.0, 12.4)],
 		"sparrows": [
@@ -44,6 +45,7 @@ const LAYOUTS := {
 	},
 	2: {
 		"scene": "res://assets/world/scene2/scene2.glb",
+		"pigeons": [Vector3(-3.5, 3.42, -3.0), Vector3(1.4, 2.78, -3.6)],
 		"cats": [],
 		"cat_walk": [],
 		"sparrows": [
@@ -83,6 +85,7 @@ const LAYOUTS := {
 	},
 	5: {
 		"scene": "res://assets/world/scene5/scene5.glb",
+		"pigeons": [Vector3(-2.4, 3.43, -4.4), Vector3(2.8, 3.43, -4.6)],
 		"mood": "evening",
 		"cats": [[Vector3(-5.0, 0.45, -3.6), 90.0, "sleep"]],   # asleep on the edge of the dakka
 		"cat_walk": [],
@@ -95,6 +98,7 @@ const LAYOUTS := {
 	},
 	6: {
 		"scene": "res://assets/world/scene6/scene6.glb",
+		"pigeons": [Vector3(8.4, 8.05, -6.6), Vector3(-2.0, 3.42, -9.0), Vector3(2.6, 3.42, -8.4)],
 		"cats": [],
 		"cat_walk": [],
 		"sparrows": [Vector3(-5.6, 0, 5.0), Vector3(5.2, 0, 5.4), Vector3(-6.4, 0, -1.0), Vector3(6.2, 0, 0.0)],
@@ -118,6 +122,7 @@ const LAYOUTS := {
 	},
 	8: {
 		"scene": "res://assets/world/scene8/scene8.glb",
+		"pigeons": [Vector3(-3.4, 2.92, -7.2), Vector3(3.6, 2.92, -7.4)],
 		"cats": [[Vector3(4.0, 0.0, -2.6), 160.0, "sleep"]],    # a market cat asleep by the sacks
 		"cat_walk": [],
 		"sparrows": [Vector3(-3.2, 0, 4.4), Vector3(3.6, 0, 4.0), Vector3(-0.6, 0, -1.2), Vector3(0.8, 0, 5.8)],
@@ -140,6 +145,7 @@ const LAYOUTS := {
 	},
 	10: {
 		"scene": "res://assets/world/scene10/scene10.glb",
+		"pigeons": [Vector3(-3.0, 3.27, -4.9), Vector3(3.2, 3.27, -5.0)],
 		"mood": "evening",
 		"cats": [],
 		"cat_walk": [],
@@ -167,6 +173,13 @@ var _falcon_a := 0.0
 var _birds: Array = []  # {node, from, to, t, wait}
 var _hens: Array = []   # {node, target, wait, peck, speed}
 var _rng := RandomNumberGenerator.new()
+const PIGEONS := 7
+const PIGEON_SCALE := 2.1   # the sparrow model, grown to a pigeon (about 0.3 m) and recoloured
+const PIGEON_COLOURS := {"s_brown": "8b929c", "s_cream": "d6d8dc", "s_grey": "5f6b78", "s_dark": "2a2c30"}
+var _flock: Array = []      # {node, off}
+var _flock_at := 0          # the perch they are on
+var _flock_wait := 8.0
+var _flock_flying := false
 
 
 func setup(scene := 1) -> void:
@@ -190,6 +203,7 @@ func setup(scene := 1) -> void:
 	_rng.seed = 7
 	_add_shaib()
 	_add_life()
+	_add_pigeons()
 	_no_shadows(self)
 
 
@@ -276,6 +290,83 @@ func _spots() -> Array:
 	return all if birds_outside else all.slice(0, layout.inside)
 
 
+## A flock of pigeons on the scene's high places (layout "pigeons"): it sits a while, then
+## takes off together, wheels once round the scene and settles on another of them.
+func _add_pigeons() -> void:
+	var spots: Array = layout.get("pigeons", [])
+	if spots.is_empty():
+		return
+	for i in PIGEONS:
+		var b := CreatureSlot.spawn(stage, "sparrow")
+		if b == null:
+			return
+		b.scale = Vector3.ONE * PIGEON_SCALE
+		for mi in b.find_children("*", "MeshInstance3D", true, false):
+			var mesh: Mesh = (mi as MeshInstance3D).mesh
+			for k in mesh.get_surface_count():
+				var m := mesh.surface_get_material(k)
+				var key := m.resource_name.get_slice(".", 0) if m else ""
+				if PIGEON_COLOURS.has(key):
+					var mm := StandardMaterial3D.new()
+					mm.albedo_color = Color(PIGEON_COLOURS[key])
+					mm.roughness = 0.8
+					(mi as MeshInstance3D).set_surface_override_material(k, mm)
+		var off := Vector3(_rng.randf_range(-0.9, 0.9), 0, _rng.randf_range(-0.6, 0.6))
+		b.position = spots[0] + off
+		b.rotation.y = _rng.randf() * TAU
+		CreatureSlot.play(b, "peck", 0.0, _rng.randf() * 2.0)
+		_flock.append({"node": b, "off": off})
+	_flock_wait = _rng.randf_range(6.0, 12.0)
+
+
+func _update_flock(dt: float) -> void:
+	if _flock.is_empty() or _flock_flying:
+		return
+	_flock_wait -= dt
+	if _flock_wait > 0.0:
+		return
+	var spots: Array = layout.pigeons
+	var to := (_flock_at + 1 + _rng.randi() % maxi(1, spots.size() - 1)) % spots.size() if spots.size() > 1 else _flock_at
+	var from: Vector3 = spots[_flock_at]
+	var dest: Vector3 = spots[to]
+	_flock_at = to
+	_flock_flying = true
+	var centre := Vector3(0, 0, 0)
+	var radius := 7.5
+	var height := maxf(from.y, dest.y) + 4.0
+	for i in _flock.size():
+		var bd: Dictionary = _flock[i]
+		var n: Node3D = bd.node
+		var start := n.position
+		var end: Vector3 = dest + bd.off
+		var a0 := atan2(start.z - centre.z, start.x - centre.x)
+		var lap := TAU * 0.85
+		var tw := create_tween()
+		tw.tween_interval(i * 0.12)
+		tw.tween_callback(func(): CreatureSlot.play(n, "fly"))
+		tw.tween_method(func(k: float):
+			# rise, wheel round the scene, come down onto the new perch
+			var a := a0 + lap * k
+			var ring := centre + Vector3(cos(a), 0, sin(a)) * (radius + sin(i * 1.3) * 0.8)
+			ring.y = height + sin(k * TAU * 2 + i) * 0.5
+			var p: Vector3
+			if k < 0.15:
+				p = start.lerp(ring, smoothstep(0.0, 0.15, k))
+			elif k > 0.8:
+				p = ring.lerp(end, smoothstep(0.8, 1.0, k))
+			else:
+				p = ring
+			var d := p - n.position
+			if Vector2(d.x, d.z).length() > 0.001:
+				n.rotation.y = atan2(d.x, d.z)
+			n.position = p, 0.0, 1.0, 11.0)
+		tw.tween_callback(func():
+			CreatureSlot.play(n, "peck")
+			if i == _flock.size() - 1:
+				_flock_flying = false
+				_flock_wait = _rng.randf_range(10.0, 22.0))
+
+
 func _add_life() -> void:
 	for cat in layout.cats:
 		_creature("cat", cat[0], cat[1], cat[2])
@@ -348,6 +439,7 @@ func _update_hens(dt: float) -> void:
 func _process(dt: float) -> void:
 	if model == null:
 		return
+	_update_flock(dt)
 	_update_hens(dt)
 	# the pacing cat walks the path: out, turn, back
 	if _walker:

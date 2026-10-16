@@ -92,14 +92,14 @@ def majlis():
     cushion.use_nodes = True
     cushion.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.2, 0.09, 0.06, 1)
     for x in (-3.6, 0.0, 3.6):
-        block("Carpet", (3.3, 2.6, 0.03), g(x, -4.4, FLOOR_H + 0.015), carpet)
-        block("CarpetBand", (3.34, 0.18, 0.032), g(x, -3.25, FLOOR_H + 0.016), band)
+        block("Carpet", (3.3, 2.6, 0.03), g(x, -4.4, FLOOR_H + 0.025), carpet)
+        block("CarpetBand", (3.34, 0.18, 0.06), g(x, -3.25, FLOOR_H + 0.03), band)
     for x in np.arange(-5.0, 5.1, 1.0):
         block("Cushion", (0.9, 0.3, 0.45), g(x, -5.75, FLOOR_H + 0.23), cushion)
     # four columns, a beam and the roof
     for x in (-4.5, -1.5, 1.5, 4.5):
         place(k("column"), g(x, FRONT_Z, FLOOR_H), 0)
-    block("Beam", (12.4, 0.35, 0.3), g(0, FRONT_Z, 3.05), wood, uv_full=True)
+    block("Beam", (11.4, 0.35, 0.3), g(0, FRONT_Z, 3.05), wood, uv_full=True)
     block("Roof", (12.6, 3.9, 0.25), g(0, (BACK_Z + FRONT_Z) / 2 - 0.1, 3.3), mud)
     for i in range(12):  # beam ends along the front of the roof
         block("RoofBeamEnd%d" % i, (0.1, 0.3, 0.1), g(-5.6 + i * 1.02, FRONT_Z + 0.25, 3.25), wood, uv_full=True)

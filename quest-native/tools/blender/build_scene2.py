@@ -77,8 +77,8 @@ def house():
     place(k("facade_steps"), (x1, cy, 0), -90)
     place(k("facade_steps"), (cx, y1, 0), 180)
     mud = b1.tile_mat()
-    w = x1 - x0 - 0.5
-    block("HouseRoof", (w, y1 - y0 - 0.5, 0.2), (cx, cy, 3.3), mud)  # flat roof inside the parapets
+    w = x1 - x0 - 0.56   # inset a little from the facades' inner faces (no shared planes)
+    block("HouseRoof", (w, y1 - y0 - 0.56, 0.2), (cx, cy, 3.3), mud)  # flat roof inside the parapets
     wood = b1.img_mat("scene2_wood", os.path.join(b1.TEX, "kit_lintel.jpg"), 0.85)
     for i in range(9):  # beam ends of the upper floor poking out of the facade
         block("BeamEnd%d" % i, (0.12, 0.35, 0.12), (x0 + 0.5 + i * (w / 8), y0 - 0.2, 3.3), wood, uv_full=True)
@@ -94,10 +94,11 @@ def annex():
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     place(k("wall"), (cx, y0, 0), 0)
     place(k("wall"), (cx, y1, 0), 180)
-    place(k("wall"), (x1, cy, 0), 90)
+    side = place(k("wall"), (x1, cy, 0), 90)
+    side.scale = (0.875, 1.0, 1.0)   # between the front and back walls, not through them
     # the roof fits inside the walls, a little below their tops: laid over them, its top
     # would sit in the same plane as theirs and flicker (z-fighting)
-    block("AnnexRoof", (x1 - x0 - 0.25, y1 - y0 - 0.5, 0.2), (cx - 0.125, cy, ANNEX_H - 0.14), b1.tile_mat())
+    block("AnnexRoof", (x1 - x0 - 0.31, y1 - y0 - 0.56, 0.2), (cx - 0.155, cy, ANNEX_H - 0.14), b1.tile_mat())
     b1.crenels_on(cx, y1, 180, z=ANNEX_H)
     b1.crenels_on(x1, cy, 90, z=ANNEX_H)
     # a small window, high on the lane side

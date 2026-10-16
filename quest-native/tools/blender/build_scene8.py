@@ -97,7 +97,7 @@ def shops():
         awning(x, SHOP_Z, 0, i, wood)
     block("ShopRoof", (16.4, 4.0, 0.2), g(0, SHOP_Z - 2.25, 2.8), mud)   # the shops behind their fronts
     for x in (-8.25, 8.25):
-        block("ShopEnd", (0.5, 4.2, 2.8), g(x, SHOP_Z - 2.25, 1.4), mud)
+        block("ShopEnd", (0.44, 4.1, 2.74), g(x, SHOP_Z - 2.25, 1.37), mud)
     block("ShopBack", (16.4, 0.5, 2.8), g(0, SHOP_Z - 4.25, 1.4), mud)
     awning(-8.4, 0.0, 90, 4, wood)     # open stalls on the sides, facing the lane
     awning(8.4, 0.0, -90, 5, wood)

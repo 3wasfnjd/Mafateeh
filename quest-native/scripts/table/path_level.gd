@@ -463,13 +463,4 @@ func _thorn_bush(at: Vector3) -> Node3D:
 
 
 func _sfx(name: String, at: Vector3, db := 0.0) -> void:
-	var path := SFX + name + ".wav"
-	if not ResourceLoader.exists(path):
-		return
-	var p := AudioStreamPlayer3D.new()
-	p.stream = load(path)
-	p.volume_db = db
-	add_child(p)
-	p.position = at
-	p.play()
-	p.finished.connect(p.queue_free)
+	TableKit.sfx(self, name, at, db)

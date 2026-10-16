@@ -36,6 +36,19 @@ PEN_SCALE = 0.42                   # Motri's pen is 17 x 11 m with its gate rail
 TROUGH = (9.5, -1.7)               # Godot centre x, z
 
 
+_dunes = b1.dune_height
+
+
+def flat_dunes(x, y):
+    """The island's dunes, flattened under the sheep pen so its fence stands on level sand
+    (both the ground and every placed piece read the height from here)."""
+    d = np.hypot(x - PEN[0], -y - PEN[1])
+    return _dunes(x, y) * smooth(4.2, 6.5, d)
+
+
+b1.dune_height = flat_dunes
+
+
 def bake_ground(n=1024):
     S = b1.SIZE
     xs = (np.arange(n) + 0.5) / n * S - S / 2

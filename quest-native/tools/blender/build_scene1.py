@@ -252,7 +252,7 @@ def compound():
         place(k("crenel_corner"), (x, y, WALL_H), yaw)
         a = math.radians(yaw)
         for ax in (V((math.cos(a), math.sin(a), 0)), V((-math.sin(a), math.cos(a), 0))):
-            for t in (0.95, 1.75):
+            for t in (1.15, 1.95):   # clear of the corner crenel's band
                 place(k("crenel"), V((x, y, WALL_H)) + ax * t, math.degrees(math.atan2(ax.y, ax.x)))
     # front (-Y): wall, door, wall; tower on the right corner
     for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
@@ -329,7 +329,7 @@ def house():
     place(k("facade_gable"), (0, 0.25, 0), 0)
     place(k("facade_steps"), (-3.0, 3.25, 0), -90)
     place(k("facade_steps"), (3.0, 3.25, 0), -90)
-    block("Roof", (5.5, 5.75, 0.2), (0, 3.375, 2.95), tile_mat())
+    block("Roof", (5.44, 5.7, 0.2), (0, 3.375, 2.95), tile_mat())   # inset: its edges off the parapets' faces
     door = img_mat("scene1_door", os.path.join(TEX, "house_door.png"), 0.8)
     block("HouseDoor", (1.0, 0.06, 1.9), (0, -0.02, 0.95), door, uv_full=True)
     wood = img_mat("scene1_wood", os.path.join(TEX, "kit_lintel.jpg"), 0.85)
@@ -339,7 +339,7 @@ def house():
         place(k("column"), (x, -1.7, 0), 0)
     block("PorchBeam", (5.2, 0.28, 0.2), (0, -1.7, 2.92), wood, uv_full=True)
     for i in range(7):  # rafters from the beam to the facade
-        block("Rafter%d" % i, (0.12, 1.9, 0.1), (-2.4 + i * 0.8, -0.8, 3.07), wood, uv_full=True)
+        block("Rafter%d" % i, (0.12, 1.9, 0.1), (-2.4 + i * 0.8, -0.8, 3.06), wood, uv_full=True)
     straw = bpy.data.materials.new("scene1_straw")
     straw.use_nodes = True
     straw.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.36, 0.25, 0.13, 1)
@@ -468,7 +468,31 @@ def shrink_images(limit=1024, small=512):
             img.scale(max(1, int(w * k)), max(1, int(h * k)))
 
 
+def drop_undersides(limit=1.2):
+    """Down-facing faces low in the scene (props, carpets and walls standing on the ground or
+    a floor) are never seen, but materials are double-sided, so they fight the surface they
+    stand on and flicker. Roofs and awnings sit higher and keep their undersides."""
+    done = set()
+    for o in sc.collection.all_objects:
+        if o.type != "MESH" or o.name.startswith(("Ground", "Plinth")) or o.data.name in done:
+            continue
+        lib = bpy.data.collections.get("lib")
+        if lib and o.name in lib.objects:
+            continue
+        done.add(o.data.name)
+        mw = o.matrix_world
+        nm = mw.to_3x3().inverted().transposed()
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        dead = [f for f in bm.faces if (nm @ f.normal).normalized().z < -0.9 and (mw @ f.calc_center_median()).z < limit]
+        if dead:
+            bmesh.ops.delete(bm, geom=dead, context="FACES")
+            bm.to_mesh(o.data)
+        bm.free()
+
+
 def export():
+    drop_undersides()
     shrink_images()
     lib = bpy.data.collections.get("lib")
     bpy.ops.object.select_all(action="DESELECT")

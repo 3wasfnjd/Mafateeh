@@ -75,7 +75,7 @@ def palace():
         place(k("facade_steps"), g(x, FRONT_Z - 3.0), -90)
     for x in (-3.0, 3.0):
         place(k("facade_steps"), g(x, FRONT_Z - 6.0), 180)
-    block("PalaceRoof", (11.5, 5.5, 0.2), g(0, FRONT_Z - 3.0, 3.3), mud)
+    block("PalaceRoof", (11.44, 5.44, 0.2), g(0, FRONT_Z - 3.0, 3.3), mud)
     block("PalaceDoor", (1.6, 0.06, 2.4), g(3.0, FRONT_Z + 0.27, 1.2), door, uv_full=True)
     block("PalaceLintel", (2.1, 0.3, 0.18), g(3.0, FRONT_Z + 0.3, 2.5), wood, uv_full=True)
     for i in range(13):

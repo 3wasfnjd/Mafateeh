@@ -456,13 +456,4 @@ func _ring(r: float, c: Color, alpha: float) -> MeshInstance3D:
 
 
 func _sfx(name: String, pos: Vector3, db := 0.0) -> void:
-	var path := SFX + name + ".wav"
-	if not ResourceLoader.exists(path) or not is_inside_tree():
-		return
-	var p := AudioStreamPlayer3D.new()
-	p.stream = load(path)
-	p.volume_db = db
-	add_child(p)
-	p.position = pos
-	p.play()
-	p.finished.connect(p.queue_free)
+	TableKit.sfx(self, name, pos, db)

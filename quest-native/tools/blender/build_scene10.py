@@ -73,7 +73,7 @@ def house():
     # (the 6 m facades and a plain stretch of wall fill the 14.5 m back without gaps)
     place(k("facade_steps"), g(-4.25, -GZ), 0)
     place(k("facade_gable"), g(1.75, -GZ), 0)
-    block("BackWallEnd", (2.6, 0.5, 3.4), g(6.05, -GZ, 1.7), mud)
+    block("BackWallEnd", (2.6, 0.46, 3.4), g(6.05, -GZ, 1.7), mud)
     block("HouseDoor", (1.4, 0.06, 2.2), g(1.75, -GZ + 0.27, 1.1), door, uv_full=True)
     block("HouseLintel", (1.9, 0.3, 0.16), g(1.75, -GZ + 0.3, 2.3), wood, uv_full=True)
     for x in (-5.4, -1.8, 1.8, 5.4):
@@ -83,26 +83,26 @@ def house():
     carpet = bpy.data.materials.new("scene10_carpet")
     carpet.use_nodes = True
     carpet.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.42, 0.07, 0.05, 1)
-    block("RiwaqCarpet", (12.0, 2.2, 0.03), g(0, -4.9, 0.015), carpet)
+    block("RiwaqCarpet", (12.0, 2.1, 0.03), g(0, -4.85, 0.025), carpet)
     # stepped facades along the sides (their fronts to the courtyard)
     for z in (-3.25, 2.75):
         place(k("facade_steps"), g(-GX, z), 90)
         place(k("facade_steps"), g(GX, z), -90)
     for x in (-GX, GX):
-        block("SideWallEnd", (0.5, 0.8, 2.8), g(x, 5.95, 1.4), mud)
+        block("SideWallEnd", (0.44, 0.8, 2.74), g(x, 5.95, 1.37), mud)   # a hair inside the faces round it
     # the front wall and gate, with crenels
     for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
         place(k(name), g(x, GZ), 0, 1.0)
         b1.crenels_on(x, -GZ, 0)
     for x in (-6.7, 6.7):
-        block("FrontWallEnd", (1.5, 0.5, 2.8), g(x, GZ, 1.4), mud)
+        block("FrontWallEnd", (1.5, 0.44, 2.8), g(x, GZ, 1.4), mud)
     # carpets in the middle of the courtyard
     band = bpy.data.materials.new("scene10_band")
     band.use_nodes = True
     band.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.75, 0.52, 0.18, 1)
-    block("Carpet", (5.0, 3.6, 0.03), g(0, -0.4, 0.015), carpet)
-    for z in (-2.1, 1.3):
-        block("CarpetBand", (5.04, 0.2, 0.032), g(0, z, 0.016), band)
+    block("Carpet", (5.0, 3.6, 0.03), g(0, -0.4, 0.025), carpet)
+    for z in (-1.95, 1.15):
+        block("CarpetBand", (5.04, 0.2, 0.06), g(0, z, 0.03), band)
 
 
 def life():

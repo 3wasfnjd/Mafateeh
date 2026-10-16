@@ -71,26 +71,28 @@ def garden_wall():
     # the kit's corner piece is textured outside on one handedness only; the front right
     # corner (which would need it mirrored) is a plain block of mud instead
     corners = [((-GX, Y0), 0), ((-GX, Y1), -90), ((GX, Y1), 180)]
-    block("CornerFill", (0.5, 0.5, b1.WALL_H), (GX, Y0, b1.WALL_H / 2), b1.tile_mat())
+    block("CornerFill", (0.56, 0.56, b1.WALL_H + 0.04), (GX, Y0, b1.WALL_H / 2 + 0.02), b1.tile_mat())
     import math
     for (x, y), yaw in corners:
         place(k("wall_corner"), (x, y, 0), yaw)
         place(k("crenel_corner"), (x, y, b1.WALL_H), yaw)
         a = math.radians(yaw)
         for ax in (V((math.cos(a), math.sin(a), 0)), V((-math.sin(a), math.cos(a), 0))):
-            for t in (0.95, 1.75):
+            for t in (1.15, 1.95):   # clear of the corner crenel's band
                 place(k("crenel"), V((x, y, b1.WALL_H)) + ax * t, math.degrees(math.atan2(ax.y, ax.x)))
-    for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
-        place(k(name), (x, Y0, 0), 0)
-        b1.crenels_on(x, Y0, 0)
-    for y in (0.0, 4.0):
-        place(k("wall"), (-GX, y, 0), -90)
-        b1.crenels_on(-GX, y, -90)
-        place(k("wall"), (GX, y, 0), 90)
-        b1.crenels_on(GX, y, 90)
-    for x in (-4.0, 0.0, 4.0):
-        place(k("wall"), (x, Y1, 0), 180)
-        b1.crenels_on(x, Y1, 180)
+    # straight runs fill exactly the gaps the corner arms (2.25 m) leave: overlapping walls
+    # share planes and flicker on the headset
+    runs = [  # (x, y, yaw, length): front with its gate, back, left, right
+        (-2.875, Y0, 0, 1.75), (3.875, Y0, 0, 3.75),
+        (-1.875, Y1, 180, 3.75), (1.875, Y1, 180, 3.75),
+        (-GX, 2.0, -90, 3.5),
+        (GX, -0.375, 90, 2.75), (GX, 2.375, 90, 2.75)]
+    place(k("wall_door"), (0.0, Y0, 0), 0)
+    b1.crenels_on(0.0, Y0, 0)
+    for x, y, yaw, length in runs:
+        w = place(k("wall"), (x, y, 0), yaw)
+        w.scale = (length / 4.0, 1.0, 1.0)
+        b1.crenels_on(x, y, yaw, length=length)
 
 
 def arish():

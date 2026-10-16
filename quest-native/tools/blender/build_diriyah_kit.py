@@ -91,10 +91,16 @@ def make_textures():
             a = close_vents(a)
         # opaque, mud-coloured fill behind the alpha edge so mip levels don't go dark
         im = Image.fromarray(a)
-        if key in ("p4", "p8"):  # these need their alpha (vent holes)
-            path = os.path.join(TEX, "kit_%s.png" % key)
-            # 256-colour PNG keeps the alpha and is a third of the size
-            im.quantize(256, method=Image.Quantize.FASTOCTREE).save(path, optimize=True)
+        if key in ("p4", "p8"):
+            # Drawn fully opaque: the geometry already follows the top outline (taken from
+            # this alpha), and alpha-tested edges shimmered on the headset ("the walls
+            # flicker"). The clear pixels outside the outline get the wall's mean colour.
+            opaque = a[..., 3] >= 128
+            fill = a[opaque][:, :3].mean(0)
+            rgb = a[..., :3].astype(float)
+            rgb[~opaque] = fill
+            path = os.path.join(TEX, "kit_%s.jpg" % key)
+            Image.fromarray(rgb.astype(np.uint8)).save(path, quality=90)
         else:
             path = os.path.join(TEX, "kit_%s.jpg" % key)
             im.convert("RGB").save(path, quality=88)
@@ -283,7 +289,7 @@ CRENEL = [(-0.30, 0), (0.30, 0), (0.30, 0.15), (0.225, 0.15), (0.225, 0.32), (0.
 
 def build(tex):
     TILE = mat("kit_mud", tex["tile"][0])
-    F = {k: mat("kit_" + k, tex[k][0], clip=k in ("p4", "p8")) for k in ("p1", "p3", "p4", "p8", "p2a", "p2b")}
+    F = {k: mat("kit_" + k, tex[k][0]) for k in ("p1", "p3", "p4", "p8", "p2a", "p2b")}
     WOOD = mat("kit_wood", tex["wood"][0])
     pieces = {}
 
@@ -294,7 +300,7 @@ def build(tex):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1)
     bmesh.ops.scale(bm, vec=(1.35, 0.6, 0.19), verts=bm.verts)
-    bmesh.ops.translate(bm, verts=bm.verts, vec=(0.015, -0.02, 2.385))
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(0.015, -0.02, 2.4))   # 1 cm above the opening's soffit: no shared plane to flicker
     uv = bm.loops.layers.uv.verify()
     for f in bm.faces:
         for lp in f.loops:

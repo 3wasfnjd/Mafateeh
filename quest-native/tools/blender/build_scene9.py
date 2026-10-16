@@ -70,7 +70,8 @@ def bake_ground(n=1024):
 def well_and_basin():
     place(k("well"), g(-7.6, -3.6), 30)
     place(k("water_basin"), g(-5.7, -1.3), 0)
-    place(k("water_channel"), g(-4.6, -1.3), 90, 0.5)   # a short run from the basin to the field
+    ch = place(k("water_channel"), g(-4.3, -1.3), 90)   # a short run from the basin to the field
+    ch.scale = (1.0, 0.3, 1.0)
 
 
 def hut():
@@ -78,8 +79,9 @@ def hut():
     cx, cz = 6.2, -6.2
     place(k("wall_door"), g(cx, cz + 2.0), 0)
     place(k("wall"), g(cx, cz - 2.0), 180)
-    place(k("wall"), g(cx - 2.0, cz), -90)
-    place(k("wall"), g(cx + 2.0, cz), 90)
+    for x, yaw in ((cx - 2.0, -90), (cx + 2.0, 90)):
+        side = place(k("wall"), g(x, cz), yaw)
+        side.scale = (0.875, 1.0, 1.0)   # between the front and back walls
     block("HutRoof", (4.4, 4.4, 0.2), g(cx, cz, 2.75), mud)
     b1.crenels_on(cx, -(cz + 2.0), 0, z=2.85)
 
