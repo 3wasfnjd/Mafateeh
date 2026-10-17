@@ -10,14 +10,15 @@ extends Node3D
 ## wings on its perch by the old man, and the cat sits at his feet; and the old men of the house come out of
 ## the rooms with their rifles and fire into the sky for joy, the tracers going up like
 ## shooting stars. Once they have all stopped, point at any of them and pull the trigger:
-## he fires another burst.
+## he fires another burst; point at the old man and they all fire together.
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
 signal level_won
 
 const CHEST := Vector3(0.0, 0.0, -0.4)     # back from the front wall, which hides the ground just behind it
-const OLD_MAN := Vector3(0.0, 0.0, -1.8)
+const OLD_MAN := Vector3(1.5, 0.0, -1.5)   # beside the chest, not behind it: in full view when it opens
+const CHEST_K := 0.62                        # the chest's size (it was big enough to hide him)
 const ARC_R := 3.2
 const KEEPSAKES := ["cat", "block", "key", "truck", "lantern", "drum", "star", "dallah", "palm"]
 const PLACES := [4, 7, 1, 8, 2, 5, 0, 6, 3]   # which arc place each keepsake stands on (shuffled)
@@ -94,6 +95,7 @@ func _chest() -> void:
 	var n := Node3D.new()
 	add_child(n)
 	n.position = CHEST
+	n.scale = Vector3.ONE * CHEST_K
 	var wood := TableKit.mat(Color("6e2f1e"), 0.7)
 	var brass := TableKit.mat(Color("d9a63a"), 0.3)
 	brass.metallic = 0.7
@@ -113,7 +115,7 @@ func _chest() -> void:
 	# the light inside, a little above the chest's top (level with it, the two surfaces flickered)
 	_glow = TableKit.box(n, Vector3(1.4, 0.02, 0.7), TableKit.lit_mat(Color("ffd27a"), 2.5), Vector3(0, 0.866, 0))
 	_glow.visible = false
-	_boxes["chest"] = AABB(CHEST - Vector3(0.9, 0, 0.6), Vector3(1.8, 1.2, 1.2))
+	_boxes["chest"] = AABB(CHEST - Vector3(0.9, 0, 0.6) * CHEST_K, Vector3(1.8, 1.2, 1.2) * CHEST_K)
 
 
 ## The keepsakes, each a little model (about half a metre), origin at the foot.
@@ -168,7 +170,10 @@ func pointer(held: bool, p) -> void:
 	if pressed and _won and _salute_over:
 		# after the salute: point at one of the old men and he fires a burst into the sky
 		var who := TableKit.ray_pick(self, _ray, hover_boxes())
-		if who.begins_with("g"):
+		if who == "old_man":   # the old man: every rifle fires at once
+			for g in _guns:
+				_burst(g.gun, 4 + randi() % 3)
+		elif who.begins_with("g"):
 			_burst(_guns[int(who.substr(1))].gun, 4 + randi() % 3)
 		return
 	if not pressed or _busy or _won:
@@ -205,7 +210,7 @@ func _pick(i: int) -> void:
 		TableKit.face(diorama.shaib, n.position - OLD_MAN)
 		diorama.play_shaib("interact", "idle")
 	var from := n.position
-	var to := CHEST + Vector3(0, 1.0, 0)
+	var to := CHEST + Vector3(0, 1.0 * CHEST_K, 0)
 	var stud: Node3D = _studs[next]
 	TableKit.sfx(self, "seq_%d" % (next % 6 + 1), from, -4.0)
 	var tw := create_tween()
@@ -365,11 +370,11 @@ static func rifle() -> Node3D:
 
 
 ## What the pointer can pick: the keepsakes and the chest while the puzzle is on; the old men
-## with their rifles once the salute is over.
+## with their rifles once the salute is over, and the old man himself (they all fire).
 func hover_boxes() -> Dictionary:
 	if not _salute_over:
 		return _boxes
-	var out := {}
+	var out := {"old_man": AABB(OLD_MAN - Vector3(0.6, 0, 0.6), Vector3(1.2, 2.2, 1.2))}
 	for i in _guns.size():
 		var man: Node3D = _guns[i].man
 		out["g%d" % i] = AABB(man.position - Vector3(0.6, 0, 0.6), Vector3(1.2, 2.6, 1.2))

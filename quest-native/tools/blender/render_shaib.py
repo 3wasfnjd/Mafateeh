@@ -167,4 +167,4 @@ for job in jobs:
         arm.animation_data_create()
         arm.animation_data.action = bpy.data.actions[clip]
         sc.frame_set(int(frame))
-        shot("pose_%s_%s" % (clip, frame), 35, 8)
+        shot("pose_%s_%s" % (clip, frame), float(os.environ.get("POSE_YAW", 35)), 8)

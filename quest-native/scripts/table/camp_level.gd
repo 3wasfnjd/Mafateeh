@@ -6,7 +6,8 @@ extends Node3D
 ## (shases and datsuns, Motri's), and the water truck is boxed in among them. Its way out is to the
 ## right, towards the trough. Tap a car to pick it (the cells it can drive to light up), then
 ## tap one of them and it drives there, forwards or in reverse, never sideways. Get the truck
-## out and it drives to the trough; the camels drink and the old man dances.
+## out and it drives to the trough; the camels drink, and the old man leads three men of the
+## camp in prayer on the tent's carpet.
 ## (Rush-hour rules; this layout takes 11 moves at best.)
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
@@ -40,6 +41,15 @@ const DRIVE_SPEED := 4.5
 const CAR_LEN := 2 * CELL * 0.93
 const HINT_AFTER := 20.0
 const BEIGE := Color("f1dcae")
+# the prayer after the win, on the tent's red carpet (tent.glb, centred (-2.5, -9.2), about
+# 6 by 4): the old man leads at its left end, three men in a row behind him, all facing -x
+const CARPET_Y := 0.05
+const IMAM := Vector3(-4.5, CARPET_Y, -9.2)
+const ROW := [Vector3(-2.9, CARPET_Y, -10.3), Vector3(-2.9, CARPET_Y, -9.2), Vector3(-2.9, CARPET_Y, -8.1)]
+const FROM_TENT := [Vector3(0.2, 0.0, -10.4), Vector3(0.4, 0.0, -9.4), Vector3(0.6, 0.0, -8.4)]
+const ROW_DRESS := [{"head": "ghutra"}, {"thobe": "thobe_beige"}, {"thobe": "thobe_grey", "head": "ghutra"}]
+const FACING := Vector3(-1, 0, 0)
+const WALK_SPEED := 2.2
 const GOLD := Color("e6b85a")
 
 var diorama: Diorama
@@ -293,12 +303,47 @@ func _win() -> void:
 	tw.tween_property(truck.node, "position", TROUGH_STOP, 1.6).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(func():
 		_sfx("seq_3", TROUGH_STOP, -4.0)
-		diorama.play_shaib("ardah", "")
-		diorama.scare_birds(TROUGH_STOP, 5.0))
-	tw.tween_interval(4.0)
+		_prayer())
+	tw.tween_interval(9.0)
 	tw.tween_callback(func():
 		_sfx("level_complete", TROUGH_STOP)
 		level_won.emit())
+
+
+## The water is in: the old man walks into the tent to the front of its carpet, three men come
+## in from its open end to stand in a row behind him, and they pray.
+func _prayer() -> void:
+	var men: Array = []
+	if diorama.shaib:
+		men.append([diorama.shaib, diorama.shaib_anim, IMAM])
+	for i in ROW.size():
+		var m := TableKit.model(self, Diorama.SHAIB, FROM_TENT[i], 0.0, Diorama.LIFE_SCALE.shaib)
+		if m == null:
+			continue
+		Wardrobe.apply(m, ROW_DRESS[i])
+		var aps := m.find_children("*", "AnimationPlayer", true, false)
+		men.append([m, aps[0] if not aps.is_empty() else null, ROW[i]])
+	for k in men.size():
+		_walk_to_pray(men[k][0], men[k][1], men[k][2], 0.3 + 0.4 * k)
+
+
+## Walks a man to his place (the walk clip), turns him to face the way of the prayer, and he
+## prays.
+func _walk_to_pray(n: Node3D, ap: AnimationPlayer, to: Vector3, wait: float) -> void:
+	var d := to - n.position
+	var tw := create_tween()
+	tw.tween_interval(wait)
+	tw.tween_callback(func():
+		TableKit.face(n, d)
+		if ap and ap.has_animation("walk"):
+			ap.get_animation("walk").loop_mode = Animation.LOOP_LINEAR
+			ap.play("walk", 0.2))
+	tw.tween_property(n, "position", to, maxf(0.4, Vector2(d.x, d.z).length() / WALK_SPEED))
+	tw.tween_callback(func():
+		TableKit.face(n, FACING)
+		if ap and ap.has_animation("pray"):
+			ap.get_animation("pray").loop_mode = Animation.LOOP_LINEAR
+			ap.play("pray", 0.3))
 
 
 # --- solving (hints and the demo) --------------------------------------------------------------

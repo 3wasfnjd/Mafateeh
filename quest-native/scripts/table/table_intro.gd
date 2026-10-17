@@ -14,9 +14,9 @@ const MUD_TEX := "res://assets/world/courtyard_mud.jpg"
 const GOLD := Color("e3a83a")
 const CREAM := Color("fff1d0")
 const DIST := 2.1           # metres in front of the player
-const LOGO_IN := 0.9
-const LOGO_HOLD := 3.6      # the owner wants the studio's name to stay a while
-const LOGO_OUT := 0.9
+const LOGO_IN := 1.2
+const LOGO_HOLD := 5.0      # the studio's name stays a good while (shown only here: the system splash is off)
+const LOGO_OUT := 1.2
 const GATE_W := 1.0         # the doorway
 const GATE_H := 1.5
 

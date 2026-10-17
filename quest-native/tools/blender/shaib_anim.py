@@ -697,6 +697,75 @@ def clip_sit_pet(t, T):
     return p
 
 
+# --- prayer (salah): standing, bowing, prostrating, sitting between, as the old man leads it
+PRAY_HANDS_OPEN = {"Fingers1.L": (0, 6, 0), "Fingers2.L": (0, 8, 0), "Thumb.L": (0, 4, 0),
+                   "Fingers1.R": (0, -6, 0), "Fingers2.R": (0, -8, 0), "Thumb.R": (0, -4, 0)}
+FOOT_FLAT = V((0, -0.84, -0.55))
+
+
+def _pray_stand():
+    return {"rot": {"Hips": ((0, 0, 0), (0, 0, -0.004)), "Spine": (2, 0, 0), "Head": (6, 0, 0)},
+            "legs": {"L": (ANKLE["L"].copy(), V((0, -1, 0)), FOOT_FLAT), "R": (ANKLE["R"].copy(), V((0, -1, 0)), FOOT_FLAT)},
+            # right hand over the left, on the chest
+            "hands": {"L": (V((0.03, -0.125, 0.665)), V((1.0, 0.4, -0.6))), "R": (V((-0.015, -0.14, 0.68)), V((-1.0, 0.4, -0.6)))}}
+
+
+def _pray_ruku():
+    return {"rot": {"Hips": ((22, 0, 0), (0, 0.06, -0.02)), "Spine": (34, 0, 0), "Chest": (22, 0, 0), "Neck": (-8, 0, 0), "Head": (-4, 0, 0),
+                    "Skirt.F": (-10, 0, 0), "Skirt.B": (14, 0, 0)},
+            "legs": {"L": (ANKLE["L"].copy(), V((0, -1, 0)), FOOT_FLAT), "R": (ANKLE["R"].copy(), V((0, -1, 0)), FOOT_FLAT)},
+            "hands": {"L": (V((0.075, -0.06, 0.29)), V((0.6, 0.6, 0.4))), "R": (V((-0.075, -0.06, 0.29)), V((-0.6, 0.6, 0.4)))}}
+
+
+def _pray_sujud():
+    return {"rot": {"Hips": ((58, 0, 0), (0, 0.05, -0.25)), "Spine": (30, 0, 0), "Chest": (18, 0, 0), "Neck": (4, 0, 0), "Head": (2, 0, 0),
+                    "Skirt.F": (-55, 0, 0), "Skirt.B": (35, 0, 0), "Skirt.L": (0, -20, 0), "Skirt.R": (0, 20, 0)},
+            "legs": {"L": (V((0.07, 0.16, 0.07)), V((0, -1, -0.3)), V((0, -0.25, -1))), "R": (V((-0.07, 0.16, 0.07)), V((0, -1, -0.3)), V((0, -0.25, -1)))},
+            "hands": {"L": (V((0.15, -0.36, 0.03)), V((1.0, 0.3, 0.5))), "R": (V((-0.15, -0.36, 0.03)), V((-1.0, 0.3, 0.5)))}}
+
+
+def _pray_jalsa():
+    return {"rot": {"Hips": ((6, 0, 0), (0, 0.03, -0.33)), "Spine": (6, 0, 0), "Chest": (2, 0, 0), "Head": (8, 0, 0),
+                    "Skirt.F": (-62, 0, 0), "Skirt.B": (48, 0, 0), "Skirt.L": (0, -30, 0), "Skirt.R": (0, 30, 0)},
+            "legs": {"L": (V((0.07, 0.12, 0.035)), V((0, -1, 0)), V((0, 1, -0.15))), "R": (V((-0.07, 0.12, 0.035)), V((0, -1, 0)), V((0, 1, -0.15)))},
+            "hands": {"L": (V((0.1, -0.14, 0.2)), V((1.0, 0.5, -0.3))), "R": (V((-0.1, -0.14, 0.2)), V((-1.0, 0.5, -0.3)))}}
+
+
+def _pray_blend(a, b, t):
+    rot = {}
+    for k in set(a["rot"]) | set(b["rot"]):
+        ra, la = norm(a["rot"].get(k))
+        rb, lb = norm(b["rot"].get(k))
+        rot[k] = (tuple(lerp(x, y, t) for x, y in zip(ra, rb)), tuple(lerp(x, y, t) for x, y in zip(la, lb)))
+    legs = {s: (a["legs"][s][0].lerp(b["legs"][s][0], t), a["legs"][s][1].lerp(b["legs"][s][1], t).normalized(),
+                a["legs"][s][2].lerp(b["legs"][s][2], t).normalized()) for s in ("L", "R")}
+    hands = {s: (a["hands"][s][0].lerp(b["hands"][s][0], t), a["hands"][s][1].lerp(b["hands"][s][1], t).normalized()) for s in ("L", "R")}
+    return {"rot": rot, "legs": legs, "hands": hands}
+
+
+PRAY_STEPS = [  # (pose, arrive by, hold until) in seconds of a 12 s loop
+    (_pray_stand, 0.0, 2.0), (_pray_ruku, 2.8, 4.0), (_pray_stand, 4.8, 5.4), (_pray_sujud, 6.6, 7.8),
+    (_pray_jalsa, 8.6, 9.2), (_pray_sujud, 10.0, 11.0), (_pray_stand, 12.0, 12.0),
+]
+
+
+def clip_pray(t, T):
+    """The old man (and the men behind him) at prayer on a mat: stands with the hands on
+    the chest, bows (ruku), rises, prostrates, sits up, prostrates again, rises. Loops (T = 12)."""
+    pose = PRAY_STEPS[0][0]()
+    for i in range(1, len(PRAY_STEPS)):
+        fn, arrive, hold = PRAY_STEPS[i]
+        prev_hold = PRAY_STEPS[i - 1][2]
+        if t < prev_hold:
+            break
+        pose = _pray_blend(PRAY_STEPS[i - 1][0](), fn(), smooth(prev_hold, arrive, t))
+    p = mix(PRAY_HANDS_OPEN, pose["rot"])
+    p["_legs"] = pose["legs"]
+    p["_hands"] = pose["hands"]
+    p["_hide"] = ["Cane", "CaneArm"]
+    return p
+
+
 CLIPS = [
     # name, seconds, function, loop
     ("idle", 4.8, clip_idle, True),
@@ -720,6 +789,7 @@ CLIPS = [
     ("tired", 2.4, clip_tired, False),
     ("sit_idle", 4.0, clip_sit_idle, True),
     ("sit_pet", 2.4, clip_sit_pet, True),
+    ("pray", 12.0, clip_pray, True),
 ]
 
 

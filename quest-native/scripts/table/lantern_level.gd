@@ -38,6 +38,7 @@ var _won := false
 var _idle_t := 0.0
 var _t := 0.0
 var _hint := -1
+var _walkers: Array = []     # guests on their way in: kept on the sand they cross (the dunes too)
 var _hint_ring: MeshInstance3D
 var _demo: Array = []
 
@@ -215,11 +216,16 @@ func _win() -> void:
 			ap.play("walk")
 		var seat: Vector3 = SEATS[k]
 		var front := Vector3(seat.x, 0, -2.0)
+		g.position.y = _ground(g.position)
+		_walkers.append(g)
 		var tw := create_tween()
 		tw.tween_interval(0.6 + k * 0.9)
 		tw.tween_callback(func(): TableKit.face(g, front - g.position))
-		tw.tween_property(g, "position", front, g.position.distance_to(front) / 1.3)
-		tw.tween_callback(func(): TableKit.face(g, Vector3(0, 0, -1)))
+		tw.tween_property(g, "position:x", front.x, Vector2(front.x - g.position.x, front.z - g.position.z).length() / 1.3)
+		tw.parallel().tween_property(g, "position:z", front.z, Vector2(front.x - g.position.x, front.z - g.position.z).length() / 1.3)
+		tw.tween_callback(func():
+			_walkers.erase(g)
+			TableKit.face(g, Vector3(0, 0, -1)))
 		tw.tween_property(g, "position", seat + Vector3(0, DAKKA_Y, 0), 0.9)
 		tw.tween_callback(func():
 			TableKit.face(g, Vector3(0, 0, 1))
@@ -237,12 +243,27 @@ func _win() -> void:
 	end.tween_callback(func(): level_won.emit())
 
 
+## The height of the sand (or the court) under a point: the guests walk over the dunes on
+## their way in, never through them. The lowest of a few samples round it, so a palm's fronds
+## overhead are never taken for the ground.
+func _ground(p: Vector3) -> float:
+	if diorama == null:
+		return 0.0
+	var y := INF
+	for o in [Vector2.ZERO, Vector2(0.5, 0), Vector2(-0.5, 0), Vector2(0, 0.5), Vector2(0, -0.5)]:
+		y = minf(y, diorama.top_at(p.x + o.x, p.z + o.y))
+	return clampf(y, 0.0, 3.0)
+
+
 func demo() -> void:
 	_demo = solution()
 
 
 func _process(dt: float) -> void:
 	_t += dt
+	for g in _walkers:
+		if is_instance_valid(g):
+			g.position.y = _ground(g.position)
 	if _fire.visible:
 		for c in _fire.get_children():
 			if c is MeshInstance3D and (c as MeshInstance3D).mesh is CylinderMesh:

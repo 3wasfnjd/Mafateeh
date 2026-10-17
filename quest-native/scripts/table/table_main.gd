@@ -881,6 +881,8 @@ func _screenshot() -> void:
 			"rain": _weather.shower(30.0)
 			"gust": _weather.gust_now()
 			"dust": _weather.dust(true)
+	if _args.has("solved") and level and level.has_method("_win"):   # --solved=1: the level's own ending, now
+		level._win()
 	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, the end)
 		_on_level_won()
 	for i in int(_args.get("wait", "40")):
