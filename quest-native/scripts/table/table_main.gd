@@ -146,6 +146,20 @@ func _ready() -> void:
 			else:
 				_show_menu(str(_args.get("page", "levels")))
 	if _args.has("screenshot"):
+		if _args.has("sky"):   # store art: a warm desert sky behind the table instead of the grey room
+			var sky := Sky.new()
+			var pm := ProceduralSkyMaterial.new()
+			var night := str(_args.sky) == "night"
+			pm.sky_top_color = Color("0d1630") if night else Color("8fb6d8")
+			pm.sky_horizon_color = Color("2b2c46") if night else Color("f1dcb8")
+			pm.ground_bottom_color = Color("15141c") if night else Color("b9a58c")
+			pm.ground_horizon_color = Color("2b2c46") if night else Color("e9dcc6")
+			pm.sky_energy_multiplier = 0.6 if night else 1.0
+			sky.sky_material = pm
+			env.sky = sky
+			env.background_mode = Environment.BG_SKY
+		if _args.has("title"):
+			_store_title(str(_args.title))
 		_screenshot.call_deferred()
 
 
@@ -864,6 +878,30 @@ func _desk_move(dt: float) -> void:
 
 
 # --- screenshots ----------------------------------------------------------------------------
+
+## Store art: the game's name (and the studio's) in the sky above the table. "line": a wide
+## picture; "stack": a tall or square one (the same words, smaller).
+func _store_title(kind: String) -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var vp := get_viewport().get_visible_rect().size
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_BEGIN
+	box.size = Vector2(vp.x, vp.y * 0.34)
+	box.position = Vector2(0, vp.y * (0.06 if kind == "stack" else 0.05))
+	layer.add_child(box)
+	var big := minf(vp.x * (0.1 if kind == "stack" else 0.075), vp.y * 0.15)
+	for row in [["مفاتيح — Mafateeh", big, int(big * 0.09)], ["عبودين قيمز — Aboden Games", big * 0.34, int(big * 0.05)]]:
+		var l := Label.new()
+		l.text = row[0]
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_override("font", TableMenu.font())
+		l.add_theme_font_size_override("font_size", int(row[1]))
+		l.add_theme_color_override("font_color", Color("4a2c16"))
+		l.add_theme_color_override("font_outline_color", Color("fbf0da"))
+		l.add_theme_constant_override("outline_size", row[2])
+		box.add_child(l)
+
 
 func _screenshot() -> void:
 	for i in 20:

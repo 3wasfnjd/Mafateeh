@@ -8,19 +8,32 @@ Copy these into the Developer Dashboard (Store → Details). The title must stay
 **الاسم:** مفاتيح — Mafateeh
 
 **الوصف المختصر:**
-ألغاز هادئة في عالم مصغّر مستوحى من الدرعية: قُد شيخًا سعوديًا صغيرًا عبر الأفنية والبيوت النجدية وافتح طريقه إلى المخرج.
+عالم نجدي مصغّر على طاولتك: ألغاز هادئة مع الشايب في بيوت الطين والمخيم والسوق، حتى صندوق الجد.
 
 **الوصف الكامل:**
-ضع عالمًا صغيرًا على طاولتك وابدأ رحلة هادئة بين أفنية من الطين وأبواب خشبية ملوّنة وبيوت من طابقين مستوحاة من الدرعية والعمارة النجدية.
+تكتشف النظارة طاولتك الحقيقية، ويطلع عليها عالم صغير مستوحى من الدرعية ونجد: بيوت طين وأبواب خشب ملوّنة ونخيل وكثبان وبيت شعر وسوق.
 
-قُد الشايب بثوبه وشماغه الملفوف ولحيته البيضاء، وحرّك الصناديق، واحمل الطوب والأوزان، ووجّه الضوء بالمرايا، وأدِر الأقراص المترابطة، وأشعل القناديل، واتبع النقوش بالترتيب الصحيح لتفتح الأبواب والجسور والسلالم.
+ترافق الشايب في إحدى عشرة مرحلة، لكل مرحلة لغز مختلف:
+- ترسم درب القط بين الشوك.
+- تبني درجاً من الحجارة.
+- ترسل الصقر من وكر إلى وكر.
+- تطلّع الوايت من بين السيارات.
+- تولّع فوانيس المجلس.
+- تعيد إيقاع الطبول.
+- ترتّب النجوم في السماء.
+- تقايض في السوق.
+- تجري الماء في السواقي.
+- تصد غزوة على الخيل والجمال.
+- وتفتح أخيراً صندوق الجد بتذكارات الرحلة.
 
-- 21 مرحلة تتدرّج من الفناء الأول إلى «بيت البركة».
-- واقع مختلط: ضع اللوحة على طاولتك الحقيقية، أو العب في الواقع الافتراضي وسط الكثبان والنخيل.
-- فجر ونهار وغروب وليل، وصحو أو مطر، بأجواء صوتية هادئة.
-- تحكّم مريح: لا حاجة للمشي في غرفتك. حرّك الشخصية بالعصا، ودوّر العالم المصغّر وكبّره كما تشاء.
-- واجهة بالعربية والإنجليزية، وإعدادات للراحة: تدوير سلس أو متدرّج، وتبديل اليدين، وجودة رسم قابلة للتعديل.
-- دون إعلانات، ودون جمع بيانات، ويعمل دون إنترنت.
+مميزات اللعبة:
+- إحدى عشرة مرحلة، ولكل مرحلة نجوم حسب سرعة حلها، ومفتاح ذهبي مخفي فيها.
+- واقع مختلط: يطلع المشهد على طاولتك أو أرضك، وتقدر تكبّره وتدوّره وتنقله.
+- أجواء تتغير: نهار ومغرب وليل، ومطر وغبار، وأصوات المكان حولك.
+- خزانة ملابس للشايب، منها العقال المقصّب والبشت والغترة.
+- تحكم مريح بالمؤشر والزناد، والقائمة تبقى ثابتة في مكانها.
+- واجهة بالعربية والإنجليزية.
+- لا إعلانات، ولا جمع بيانات، وتشتغل بدون إنترنت.
 
 من عبودين قيمز — Aboden Games.
 
@@ -29,18 +42,31 @@ Copy these into the Developer Dashboard (Store → Details). The title must stay
 **Name:** مفاتيح — Mafateeh
 
 **Short description:**
-Calm puzzles in a miniature world inspired by Diriyah: guide a small Saudi elder through Najdi courtyards and houses and open the way to each exit.
+A miniature Najdi world on your table: calm puzzles with the old man through mud-brick houses, a desert camp and a souq, to the grandfather's chest.
 
 **Full description:**
-Place a tiny world on your table and set off through mud-brick courtyards, painted wooden doors and two-storey houses inspired by Diriyah and traditional Najdi architecture.
+Your headset finds your real table, and a tiny world inspired by Diriyah and Najd rises on it: mud-brick houses, painted wooden doors, palms and dunes, a goat-hair tent and a souq.
 
-Guide the white-bearded elder in his thobe and wrapped shemagh as you push crates, carry bricks and weights, bend light with mirrors, turn linked dials, light lamps and follow carved symbols in order to open doors, bridges and stairways.
+Go with the old man through eleven levels, each with its own puzzle:
+- Draw the cat's way through the thorns.
+- Build a stair of stones.
+- Send the falcon from perch to perch.
+- Free the water truck from the parked cars.
+- Light the majlis lanterns.
+- Play back the drums.
+- Line up the stars.
+- Barter in the souq.
+- Run water down the channels.
+- Beat back a raid on horses and camels.
+- Open the grandfather's chest with the keepsakes of the journey.
 
-- 21 handcrafted levels, from the First Courtyard to the House of the Pool.
-- Mixed reality: set the board on your real table, or play in VR among dunes and date palms.
-- Dawn, day, golden hour and night, in clear skies or gentle rain, with calm ambient sound.
-- Comfortable controls: no walking around your room — move the character with the thumbstick, rotate and resize the miniature as you like.
-- Arabic and English interface, with comfort options: smooth or snap turning, left-handed controls and adjustable graphics quality.
+Features:
+- Eleven levels, each with stars for speed and a hidden golden key to find.
+- Mixed reality: the scene sits on your table or floor; resize, turn and move it as you like.
+- Changing atmosphere: day, dusk and night, rain and blowing sand, and the sounds of each place around you.
+- A wardrobe for the old man, including the gold-threaded agal, the bisht and the white ghutra.
+- Comfortable pointer-and-trigger controls; the menu stays where you put it.
+- Arabic and English interface.
 - No ads, no data collection, plays offline.
 
 By Aboden Games — عبودين قيمز.
@@ -50,15 +76,17 @@ By Aboden Games — عبودين قيمز.
 | Field | Suggested value |
 |---|---|
 | Category / genre | Puzzle; Casual; Family |
-| Comfort rating | Comfortable (the player never moves; the board does not move unless the player rotates it) |
+| Comfort rating | Comfortable (the player never moves; the scene only moves when the player moves it) |
 | Play modes | Sitting, Standing (roomscale not required) |
 | Supported controllers | Touch controllers (hand tracking not supported) |
 | Supported devices | Meta Quest 3, Meta Quest 3S |
-| Mixed reality | Yes — passthrough; uses Space Setup tables if allowed |
+| Mixed reality | Yes: passthrough. Uses Space Setup tables (the Scene permission) to place the scene; works without them on a surface the player points at |
+| Permissions | Scene (USE_SCENE), to find tables from Space Setup; nothing else |
+| Content (age rating questionnaire) | Mild cartoon violence: in level 10 the old man's men and raiders on horses and camels fire rifles. Shots are stylised tracers, the raiders' shots miss, a hit raider falls from his mount and vanishes in a puff of sand. No blood, no gore, no death shown. In level 11 the old men fire into the sky in celebration. |
 | Languages | Arabic and English (in-app and store text) |
 | Internet required | No |
 | Privacy policy URL | https://github.com/3wasfnjd/Mafateeh/blob/main/PRIVACY.md (works while the repo is public; https://3wasfnjd.github.io/Mafateeh/privacy.html only if GitHub Pages is published) |
-| Age group (upload) | Your decision: TEENS_AND_ADULTS (default) or MIXED_AGES |
+| Age group (upload) | TEENS_AND_ADULTS (what this build was uploaded with) |
 
 ## Art (all in this folder)
 
@@ -74,11 +102,11 @@ By Aboden Games — عبودين قيمز.
 | Spatialized icon — background | `spatial_icon_background_180x180.png` | 180×180, 24-bit |
 | Logo (optional) | `logo_transparent.png` | 1600×710, transparent |
 | Trailer cover (only with a trailer) | `trailer_cover_2560x1440.png` | 2560×1440, 24-bit |
-| Screenshots | `screenshots/01…07_*.png` | 2560×1440 each (7; Meta needs at least 5) |
+| Screenshots | `screenshots/01…08_*.png` | 2560×1440 each (8; Meta needs at least 5) |
 
-`aboden_logo.png` is the studio logo for the in-game intro; it is not a store asset.
+`aboden_logo.png` is the studio logo; it is not a store asset.
 
-Covers and screenshots are rendered from the real game scenes with the desktop renderer
-(`quest-native/tools/store/make_store_art.sh`); a headset capture can replace any of them.
-The icon portraits come from `quest-native/tools/store/render_portrait.gd` (or `render_icon.py`
-with Blender) and `compose_icons.py`. A trailer video is optional and not included.
+Covers and screenshots are rendered from the real table game with the desktop renderer
+(`quest-native/tools/store/make_table_store_art.sh`), with a plain desert sky where the
+headset would show the player's room; a headset capture can replace any of them.
+The icons come from `quest-native/tools/store/render_portrait.gd` and `compose_icons.py`.
