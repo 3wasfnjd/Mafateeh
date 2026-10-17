@@ -78,6 +78,8 @@ var _placer: TablePlacer   # finding the surface, before the scene appears
 var _place_began := 0.0
 var _clock_running := false
 var _placing := false
+var _intro: TableIntro       # the way in (studio logo, the gate), before the first level
+var _intro_begun := false
 
 
 func _ready() -> void:
@@ -136,9 +138,25 @@ func _ready() -> void:
 		desk_cam.rotation = Vector3(_pitch, _yaw, 0)
 	match str(_args.get("start", "")):
 		"play": _play(int(_args.get("level", "1")))
-		_: _show_menu(str(_args.get("page", "levels")))
+		"intro": _start_intro()
+		_:
+			if xr:
+				_start_intro()   # on the headset: the way in, then the game (the menu is one button away)
+			else:
+				_show_menu(str(_args.get("page", "levels")))
 	if _args.has("screenshot"):
 		_screenshot.call_deferred()
+
+
+## The studio's logo, then the gate; it starts once the headset reports the head, and the
+## game (the next level, from placing the scene) follows it.
+func _start_intro() -> void:
+	_intro = TableIntro.new()
+	add_child(_intro)
+	_intro_begun = false
+	_intro.finished.connect(func():
+		_intro = null
+		_play(_next_level()))
 
 
 func _save() -> Node:
@@ -171,6 +189,11 @@ func _close_menu() -> void:
 
 
 func _toggle_menu() -> void:
+	if _intro:
+		_intro.queue_free()   # the menu button skips the way in
+		_intro = null
+		_show_menu()
+		return
 	if card and diorama:
 		_close_menu()
 	else:
@@ -597,6 +620,9 @@ func _process(dt: float) -> void:
 	_tick_sky(dt)
 	if card and xr and not _card_placed:
 		_place_card()
+	if _intro and not _intro_begun and (_head().origin.length() > 0.01 or _t > 1.5 or not xr):
+		_intro_begun = true
+		_intro.begin(_head())
 	if xr and not _mr_on:
 		_ensure_passthrough()
 	if not xr:
@@ -639,6 +665,15 @@ func _process(dt: float) -> void:
 	if ray.is_empty():
 		if level and diorama:
 			level.pointer(false, null)
+		return
+	if _intro:
+		if xr:
+			var ih = _intro.hover(ray[0], ray[1]) if _intro_begun else null
+			if ih != null:
+				ih["pressed"] = down
+			rig.set_pointer(_hand, ih, true)
+		if pressed and _intro_begun:
+			_intro.press()
 		return
 	if card:
 		var h = card.hover(ray[0], ray[1])
