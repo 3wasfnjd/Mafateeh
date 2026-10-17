@@ -282,7 +282,7 @@ func _thanks() -> void:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.albedo_texture = load("res://assets/ui/site_qr.png")
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST   # crisp squares, for the phone's camera
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC   # clean at any distance
 	qr.material_override = m
 	qr.position = Vector3(qx, 0.012, 0.004)
 	_content.add_child(qr)
@@ -447,7 +447,7 @@ func _icon(parent: Node3D, icon: String, at: Vector3, size: float, tint := Color
 	m.albedo_texture = load(path)
 	m.albedo_color = tint
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	ic.material_override = m
 	ic.position = at
 	parent.add_child(ic)
@@ -465,7 +465,7 @@ static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3
 	l.position = at
 	l.alpha_cut = Label3D.ALPHA_CUT_DISABLED   # blended: a cut ate the letters' fine strokes and dots
 	l.render_priority = 2
-	l.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	l.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	l.shaded = false
 	l.double_sided = false
 	return l

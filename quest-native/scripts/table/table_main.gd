@@ -192,16 +192,22 @@ func _next_level() -> int:
 	return stage % LAST_LEVEL + 1 if diorama else 1
 
 
-func _place_card(instant: bool) -> void:
+## Sets the menu in front of the player, where it then stays (it does not follow the head).
+## Before the headset reports the head it goes to a default spot, and moves once, when it does.
+var _card_placed := false
+
+
+func _place_card(_instant := true) -> void:
 	var head := _head()
+	_card_placed = head.origin.length() > 0.01
 	var fwd := -head.basis.z
 	fwd.y = 0
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 	var target := head.origin + fwd * 0.75 + Vector3(0, -0.06, 0)
-	if head.origin.length() < 0.01:
+	if not _card_placed:
 		target = Vector3(0, 1.56, -0.75)
-	card.global_position = target if instant else card.global_position.lerp(target, 0.05)
-	var look := head.origin if head.origin.length() > 0.01 else Vector3(0, 1.62, 0)
+	card.global_position = target
+	var look := head.origin if _card_placed else Vector3(0, 1.62, 0)
 	card.look_at(look, Vector3.UP, true)
 
 
@@ -281,8 +287,6 @@ func _play(n := 1, rising := false) -> void:
 	if rising:  # the new scene grows up out of the ground
 		diorama.set_rise(0.0)
 		create_tween().tween_method(diorama.set_rise, 0.0, 1.0, RISE_TIME).set_delay(0.15)
-	if save and save.players == 2:
-		_show_turn()
 
 
 ## The height of the scene's top surface at (x, z): the ground, a roof, a dune.
@@ -350,36 +354,6 @@ func _on_level_won() -> void:
 		tw.tween_callback(func():
 			if r == _round:
 				_play(won + 1, true)))
-
-
-## Two players: whose turn this level is, shown over the scene for a moment.
-func _show_turn() -> void:
-	var c := Color("7a5a3a") if _turn == 0 else Color("c9a27a")
-	var disc := TableFx.badge(diorama.stage, "check", 3.4, c)
-	(disc.material_override as StandardMaterial3D).albedo_texture = null   # a plain disc behind the number
-	disc.mesh = _round_quad()
-	var num := TableFx.badge(diorama.stage, "level_%d" % (_turn + 1), 2.8, Color.WHITE)
-	for n in [disc, num]:
-		n.position = Vector3(0, 8.5, 0)
-		var tw: Tween = n.create_tween()
-		tw.tween_interval(2.5)
-		tw.tween_property(n, "transparency", 1.0, 0.8)
-		tw.tween_callback(n.queue_free)
-
-
-func _round_quad() -> Mesh:
-	var am := ArrayMesh.new()
-	# a flat disc facing +z (what a billboard shows)
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in 32:
-		var a0 := TAU * i / 32
-		var a1 := TAU * (i + 1) / 32
-		st.add_vertex(Vector3.ZERO)
-		st.add_vertex(Vector3(cos(a1), sin(a1), 0) * 1.7)
-		st.add_vertex(Vector3(cos(a0), sin(a0), 0) * 1.7)
-	st.commit(am)
-	return am
 
 
 # --- sound ----------------------------------------------------------------------------------------
@@ -462,7 +436,7 @@ func _apply_mood(mood: String, seconds := 0.8) -> void:
 # The time of day goes round by itself (unless switched off in the menu): day, sunset, night,
 # dawn, each for a while, from the level's own time. Levels 7 (the stars) and 10 (the old
 # men's tracers) stay at night.
-const SKY := [["day", 150.0], ["evening", 50.0], ["night", 80.0], ["dawn", 45.0]]
+const SKY := [["day", 75.0], ["evening", 30.0], ["night", 45.0], ["dawn", 25.0]]   # about three minutes round
 const ALWAYS_NIGHT := [7, 10]
 var _sky := -1              # where in SKY the day is; -1: it stays as it is
 var _sky_left := 0.0
@@ -470,6 +444,8 @@ var _sky_left := 0.0
 
 func _start_sky(mood: String) -> void:
 	_apply_mood(mood)
+	if diorama:
+		diorama.set_night(mood == "night")
 	_play_music("evening" if mood == "dawn" else mood)
 	var save := _save()
 	_sky = -1
@@ -493,6 +469,8 @@ func _tick_sky(dt: float) -> void:
 	_sky_left = SKY[_sky][1]
 	var mood: String = SKY[_sky][0]
 	_apply_mood(mood, 10.0)   # slowly, as the light really changes
+	if diorama:
+		diorama.set_night(mood == "night")
 	_play_music("evening" if mood == "dawn" else mood)
 
 
@@ -619,10 +597,10 @@ func _ensure_passthrough() -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	_tick_sky(dt)
+	if card and xr and not _card_placed:
+		_place_card()
 	if xr and not _mr_on:
 		_ensure_passthrough()
-	if card and xr:
-		_place_card(false)
 	if not xr:
 		_desk_move(dt)
 	if _gem:

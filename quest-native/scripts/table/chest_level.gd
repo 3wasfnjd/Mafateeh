@@ -6,8 +6,8 @@ extends Node3D
 ## keepsake of the journey: the cat, a mud block, the key, the water truck, a lantern, a drum,
 ## a star, the coffee pot, a young palm. Tap them in the order the journey went (the order of
 ## the chapters) and each goes into the chest and lights a stud; a keepsake out of turn just
-## shakes. With all nine in, the lid opens, the drums beat, the men dance, the falcon wheels
-## overhead and the cat sits at the old man's feet; and the old men of the house come out of
+## shakes. With all nine in, the lid opens, the drums beat, the men dance, the falcon beats its
+## wings on its perch by the old man, and the cat sits at his feet; and the old men of the house come out of
 ## the rooms with their rifles and fire into the sky for joy, the tracers going up like
 ## shooting stars.
 ##
@@ -50,7 +50,6 @@ var _t := 0.0
 var _hint_ring: MeshInstance3D
 var _demo := false
 var _falcon: Node3D
-var _falcon_a := 0.0
 var _guns: Array = []         # {gun, man}: kept pointing at the sky, whatever the arm does
 
 
@@ -78,6 +77,14 @@ func setup(d: Diorama) -> void:
 			TableKit.sphere(self, 0.12, TableKit.lit_mat(Color("ffc46b"), 2.4), at + Vector3(0, 0.3, 0), 8)
 	_hint_ring = TableKit.ring(self, 0.6, GOLD, 0.9)
 	_hint_ring.visible = false
+	# the falcon on its perch (وكر) by the old man: it is night
+	var wakr_at := OLD_MAN + Vector3(1.2, 0, 0.3)
+	Diorama.wakr(self, wakr_at)
+	_falcon = CreatureSlot.spawn(self, "falcon")
+	if _falcon:
+		_falcon.scale = Vector3.ONE * Diorama.LIFE_SCALE.falcon
+		_falcon.position = wakr_at + Vector3(0, Diorama.WAKR_H + 0.06, 0)
+		CreatureSlot.play(_falcon, "perch")
 
 
 func _chest() -> void:
@@ -245,10 +252,9 @@ func _celebrate() -> void:
 		beat.tween_interval(0.45)
 	for k in SHOOTERS.size():
 		_shooter(k)
-	_falcon = CreatureSlot.spawn(self, "falcon")
-	if _falcon:
-		_falcon.scale = Vector3.ONE * Diorama.LIFE_SCALE.falcon
+	if _falcon:   # the falcon beats its wings on its perch, and settles again
 		CreatureSlot.play(_falcon, "fly")
+		get_tree().create_timer(2.5).timeout.connect(func(): CreatureSlot.play(_falcon, "perch"))
 	var cat := CreatureSlot.spawn(self, "cat")
 	if cat:
 		cat.scale = Vector3.ONE * Diorama.LIFE_SCALE.cat
@@ -373,10 +379,6 @@ func _process(dt: float) -> void:
 		var x := -fwd
 		var z := x.cross(up).normalized()
 		gun.global_transform = Transform3D(Basis(x, up, z).scaled(sc), hand.global_position)
-	if _falcon:
-		_falcon_a += dt * 0.5
-		_falcon.position = CHEST + Vector3(cos(_falcon_a) * 4.5, 6.0 + sin(_falcon_a * 2.0) * 0.5, sin(_falcon_a) * 4.5)
-		_falcon.rotation = Vector3(0, -_falcon_a, deg_to_rad(16))
 	if _won or _busy:
 		return
 	if _demo:

@@ -6,14 +6,14 @@ extends Node3D
 ## well waters the farm). Lives under Diorama.stage, so it is in the scene's own metres and
 ## sinks with it. Everything moves in vertex shaders: no work per frame on the CPU.
 ##   dust(on)        the drifting motes
-##   auto(rain, gust) the weather changes by itself: every 35 to 60 s a passing shower or a
-##                   gust of blown sand, whichever the scene allows (the first in 12 to 18 s)
+##   auto(rain, gust) the weather changes by itself: every 20 to 35 s a passing shower or a
+##                   gust of blown sand, whichever the scene allows (the first in 8 to 12 s)
 ##   shower(seconds) rain for a while, easing in and out; gust_now() a gust of sand
 
 const HALF := Vector2(11.5, 9.5)   # the area it covers (x, z half sizes)
 const MOTES := 420
 const STREAKS := 360
-const DROPS := 700
+const DROPS := 620
 const TOP := 11.0
 
 var _dust: MultiMeshInstance3D
@@ -96,7 +96,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled, fog_disabled;
 uniform float amount = 0.0;
 uniform float speed = 14.0;
-uniform float width = 0.0013;  // real metres, half across
+uniform float width = 0.0006;  // real metres, half across: fine drops
 varying float fade;
 void vertex() {
 	vec4 c = INSTANCE_CUSTOM;   // x, z: where; y: the surface under it; w: seed
@@ -105,7 +105,7 @@ void vertex() {
 	float k = fract(TIME * speed / span + c.w * 7.0);
 	vec3 p = vec3(c.x, mix(top, c.y, k), c.z);
 	vec4 a = MODELVIEW_MATRIX * vec4(p, 1.0);
-	vec4 b = MODELVIEW_MATRIX * vec4(p + vec3(0.0, 0.9, 0.0), 1.0);
+	vec4 b = MODELVIEW_MATRIX * vec4(p + vec3(0.0, 0.6, 0.0), 1.0);
 	vec2 d = b.xy - a.xy;
 	vec2 side = length(d) > 1e-6 ? normalize(vec2(-d.y, d.x)) : vec2(1.0, 0.0);
 	vec4 v = mix(a, b, VERTEX.y + 0.5);
@@ -115,7 +115,9 @@ void vertex() {
 }
 void fragment() {
 	ALBEDO = vec3(0.86, 0.9, 0.95);
-	ALPHA = 0.7 * fade;
+	// soft across (no hard-edged stripes), fading towards its top
+	float across = 1.0 - abs(UV.x - 0.5) * 2.0;
+	ALPHA = 0.42 * fade * across * (0.4 + 0.6 * UV.y);
 }
 """
 
@@ -142,7 +144,7 @@ func dust(on: bool, evening := false) -> void:
 func auto(rain_ok: bool, gust_ok: bool) -> void:
 	_rain_ok = rain_ok
 	_gust_ok = gust_ok
-	_next = randf_range(12.0, 18.0)
+	_next = randf_range(8.0, 12.0)
 	if not gust_ok:
 		_fade(_sand, 0.0, 1.0)
 
@@ -177,7 +179,7 @@ func _process(dt: float) -> void:
 	_next -= dt
 	if _next > 0.0:
 		return
-	_next = randf_range(35.0, 60.0)
+	_next = randf_range(20.0, 35.0)
 	if _rain_ok and (not _gust_ok or randf() < 0.6):
 		shower(14.0)
 	else:

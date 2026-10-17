@@ -265,6 +265,71 @@ func play_shaib(clip: String, then := "idle") -> void:
 		shaib_anim.queue(then)
 
 
+## Night: the birds sleep. The pigeons stay still where they are on the roofs, the sparrows
+## are gone to their nests, and the falcon sits on its perch (وكر) by the old man.
+## Day: they go back to their ways.
+var night := false
+var _wakr: Node3D
+
+
+func set_night(on: bool) -> void:
+	if on == night:
+		return
+	night = on
+	for bd in _flock:
+		if not _flock_flying:
+			_rest(bd.node, on)
+	for bd in _birds:
+		(bd.node as Node3D).visible = not on
+	if _falcon:
+		if on:
+			var top := falcon_perch()
+			var tw := create_tween()
+			tw.tween_property(_falcon, "position", top, 2.5).set_trans(Tween.TRANS_SINE)
+			tw.tween_callback(func():
+				_falcon.rotation = Vector3(0, shaib.rotation.y if shaib else 0.0, 0)
+				CreatureSlot.play(_falcon, "perch"))
+		else:
+			CreatureSlot.play(_falcon, "fly")
+
+
+## A bird asleep (its animation stilled) or awake.
+static func _rest(n: Node3D, asleep: bool) -> void:
+	if n and n.has_meta("anim"):
+		(n.get_meta("anim") as AnimationPlayer).speed_scale = 0.0 if asleep else 1.0
+
+
+## The falcon's perch by the old man (built the first time it is wanted): a wooden post on a
+## round foot, with a padded crossbar. Returns where the falcon stands on it.
+func falcon_perch() -> Vector3:
+	var at := (shaib.position if shaib else Vector3.ZERO) + Vector3(1.1, 0, 0.35)
+	if _wakr == null:
+		_wakr = wakr(stage, at)
+	return _wakr.position + Vector3(0, WAKR_H + 0.06, 0)
+
+
+const WAKR_H := 1.25
+
+
+## A falcon's perch (وكر): post, foot and a padded bar on top, origin at its foot.
+static func wakr(parent: Node3D, at: Vector3) -> Node3D:
+	var n := Node3D.new()
+	n.name = "Wakr"
+	parent.add_child(n)
+	n.position = at
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color("6e4a2c")
+	wood.roughness = 0.8
+	var pad := StandardMaterial3D.new()
+	pad.albedo_color = Color("a8322a")
+	pad.roughness = 0.9
+	TableKit.cyl(n, 0.32, 0.36, 0.08, wood, Vector3(0, 0.04, 0), 14)
+	TableKit.cyl(n, 0.045, 0.06, WAKR_H, wood, Vector3(0, WAKR_H / 2.0, 0), 8)
+	var bar := TableKit.cyl(n, 0.07, 0.07, 0.5, pad, Vector3(0, WAKR_H, 0), 10)
+	bar.rotation.z = PI / 2
+	return n
+
+
 ## Sparrows within r metres of p fly off to another spot.
 func scare_birds(p: Vector3, r: float) -> void:
 	for bd in _birds:
@@ -345,7 +410,7 @@ func _perch_spot(perch: Array, i: int) -> Vector3:
 
 
 func _update_flock(dt: float) -> void:
-	if _flock.is_empty() or _flock_flying:
+	if _flock.is_empty() or _flock_flying or night:
 		return
 	_flock_wait -= dt
 	if _flock_wait > 0.0:
@@ -387,6 +452,7 @@ func _update_flock(dt: float) -> void:
 			n.position = p, 0.0, 1.0, 11.0)
 		tw.tween_callback(func():
 			CreatureSlot.play(n, "peck")
+			_rest(n, night)
 			if i == _flock.size() - 1:
 				_flock_flying = false
 				_flock_wait = _rng.randf_range(10.0, 22.0))
@@ -475,8 +541,9 @@ func _process(dt: float) -> void:
 		_walker.position = a.lerp(b, smoothstep(0.0, 1.0, u))
 		var going_out := fmod(_walk_t, 2.0) < 1.0
 		_walker.rotation.y = 0.0 if going_out else PI
-	# the falcon circles the tower, head first, banking into the turn
-	if _falcon:
+	# the falcon circles the tower, head first, banking into the turn (at night it sits on
+	# its perch by the old man)
+	if _falcon and not night:
 		_falcon_a += dt * 0.35
 		var c: Vector3 = layout.falcon[0]
 		var fr: float = layout.falcon[1]
