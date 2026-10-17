@@ -10,7 +10,7 @@ extends Node3D
 ##   settings  music, effects and surroundings volume; which hand walks; vibration; players;
 ##             the language (Arabic or English; at first the headset's own)
 ##   about     who made it, and whose work it uses
-##   thanks    (after the last level) thank you, the studio's site as a QR code, play again
+##   thanks    (after the last level) thank you, the studio's site (opens it; and a QR code), play again
 ##   close     back to the game (only while a level is on the table)
 ## The owner of this node (table_main) places it, feeds it the pointer (hover / press) and
 ## listens to its signals.
@@ -36,6 +36,7 @@ const RAIL_X := 0.262
 const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
 const LEVELS := 10
+const SITE := "https://abodengames.com"   # the studio's games
 const TABS := [["levels", "levels", "المراحل", "Levels"], ["wardrobe", "wardrobe", "خزانة الشايب", "Wardrobe"],
 	["world", "atmosphere", "الأجواء", "Atmosphere"], ["settings", "settings", "الإعدادات", "Settings"],
 	["about", "about", "عن اللعبة", "About"]]
@@ -256,9 +257,8 @@ func _settings() -> void:
 			_changed())
 
 
-## After the last level: thank you for playing, and where to find the studio's other games.
-## The site is a QR code to scan with a phone: opening the headset's browser would take the
-## player out of the game, with no easy way back.
+## After the last level: thank you for playing, and where to find the studio's other games:
+## the site on a band that opens it in the headset's browser, and as a QR code for a phone.
 func _thanks() -> void:
 	var cx := 0.075
 	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(cx, 0.08, 0.004), 56))
@@ -269,6 +269,8 @@ func _thanks() -> void:
 	for x in [-0.075, 0.075]:
 		_disc(_content, at + Vector3(x, 0, -0.001), 0.016, ACCENT)
 	_content.add_child(text("abodengames.com", at + Vector3(0, 0, 0.003), 44, Color.WHITE))
+	# press it and the headset's browser opens the site (the owner wants players to go there)
+	_buttons.append({"at": at, "r": 0.075, "action": func(): OS.shell_open(SITE), "label": _say("افتح موقع الاستوديو", "Open the studio's site"), "no_ring": true})
 	_button(Vector3(cx, -0.098, 0.004), 0.02, "restart", ACCENT, Color.WHITE, _say("العب من جديد", "Play again"), func(): play_level.emit(1))
 	# the QR code, on a cream card, with a word under it
 	var qx := -0.16
