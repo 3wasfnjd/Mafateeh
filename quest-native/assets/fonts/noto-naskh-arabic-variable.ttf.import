@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://cyt7rb4hy725a"
-path="res://.godot/imported/reem-kufi-variable.ttf-dc3630b0e12e5661b183042bd1c6ac71.fontdata"
+uid="uid://m2ee77t0tode"
+path="res://.godot/imported/noto-naskh-arabic-variable.ttf-9b34d4250fbd6bf1f732080e9e85071a.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/reem-kufi-variable.ttf"
-dest_files=["res://.godot/imported/reem-kufi-variable.ttf-dc3630b0e12e5661b183042bd1c6ac71.fontdata"]
+source_file="res://assets/fonts/noto-naskh-arabic-variable.ttf"
+dest_files=["res://.godot/imported/noto-naskh-arabic-variable.ttf-9b34d4250fbd6bf1f732080e9e85071a.fontdata"]
 
 [params]
 

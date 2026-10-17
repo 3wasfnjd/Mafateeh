@@ -462,12 +462,12 @@ func _icon(parent: Node3D, icon: String, at: Vector3, size: float, tint := Color
 	parent.add_child(ic)
 
 
-## A line of text in the menu's font (Reem Kufi, bold).
+## A line of text in the menu's font (Noto Naskh Arabic, bold).
 static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3D:
 	var l := Label3D.new()
 	l.text = s
 	l.font = font()
-	l.font_size = int(size * 1.25)   # the Kufi reads small: a quarter larger than the sizes asked
+	l.font_size = int(size * 1.15)   # Naskh's letters sit small: a little larger than the sizes asked
 	l.pixel_size = 0.00034
 	l.modulate = c
 	l.outline_size = 0
@@ -482,10 +482,11 @@ static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3
 
 static func font() -> Font:
 	if _font == null:
-		# Reem Kufi (a geometric Kufi, like the inscriptions of Najd's mud buildings; OFL, so
-		# no credit is owed in the game), bold, with Cairo for anything it lacks
+		# Noto Naskh Arabic: a plain, unfussy Naskh (the free counterpart of Sakkal Majalla,
+		# which the owner liked but may not be shipped; OFL, no credit owed in the game), bold,
+		# with Cairo for the Latin letters and anything else it lacks
 		var f := FontVariation.new()
-		f.base_font = load("res://assets/fonts/reem-kufi-variable.ttf")
+		f.base_font = load("res://assets/fonts/noto-naskh-arabic-variable.ttf")
 		f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 700}
 		f.fallbacks = [load("res://assets/fonts/cairo-variable.ttf")]
 		_font = f
