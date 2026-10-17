@@ -219,6 +219,9 @@ func setup(scene := 1) -> void:
 			c.owner = null   # (its own children keep the scene as owner, still an ancestor)
 			stage.add_child(c)
 	model.add_child(stage)
+	# the scene's own meshes, before anything alive or any level piece is added: what the
+	# pointer stops on, the rain falls onto and gems sit on (scene_mesh())
+	_scene_meshes = model.find_children("*", "MeshInstance3D", true, false)
 	_rng.seed = 7
 	_add_shaib()
 	_add_life()
@@ -265,6 +268,42 @@ func play_shaib(clip: String, then := "idle") -> void:
 		shaib_anim.queue(then)
 
 
+var _scene_meshes: Array = []
+var _scene_tm: TriangleMesh
+
+
+## The scene's buildings, ground and palms as one TriangleMesh in model space (built the
+## first time it is wanted), or null.
+func scene_mesh() -> TriangleMesh:
+	if _scene_tm == null and not _scene_meshes.is_empty():
+		var inv := model.global_transform.affine_inverse()
+		var faces := PackedVector3Array()
+		for n in _scene_meshes:
+			var mi := n as MeshInstance3D
+			if not is_instance_valid(mi) or mi.mesh == null:
+				continue
+			var x := inv * mi.global_transform
+			if stage.is_ancestor_of(mi):   # as the scene stands, even mid-sink or mid-rise
+				x = stage.transform.affine_inverse() * x
+			var f := mi.mesh.get_faces()
+			for i in f.size():
+				f[i] = x * f[i]
+			faces.append_array(f)
+		var tm := TriangleMesh.new()
+		if faces.size() >= 3 and tm.create_from_faces(faces):
+			_scene_tm = tm
+	return _scene_tm
+
+
+## The height of the scene's top surface at (x, z) in model metres (a roof, a palm, the ground).
+func top_at(x: float, z: float) -> float:
+	var tm := scene_mesh()
+	if tm == null:
+		return 0.0
+	var hit := tm.intersect_ray(Vector3(x, 60.0, z), Vector3.DOWN)
+	return hit.position.y if not hit.is_empty() else 0.0
+
+
 ## Night: the birds sleep. The pigeons stay still where they are on the roofs, the sparrows
 ## are gone to their nests, and the falcon sits on its perch (وكر) by the old man.
 ## Day: they go back to their ways.
@@ -282,15 +321,29 @@ func set_night(on: bool) -> void:
 	for bd in _birds:
 		(bd.node as Node3D).visible = not on
 	if _falcon:
-		if on:
-			var top := falcon_perch()
-			var tw := create_tween()
-			tw.tween_property(_falcon, "position", top, 2.5).set_trans(Tween.TRANS_SINE)
-			tw.tween_callback(func():
+		if _falcon_tw:
+			_falcon_tw.kill()
+		_falcon_busy = true
+		_falcon_tw = create_tween()
+		if on:   # down to its perch
+			_falcon_tw.tween_property(_falcon, "position", falcon_perch(), 2.5).set_trans(Tween.TRANS_SINE)
+			_falcon_tw.tween_callback(func():
 				_falcon.rotation = Vector3(0, shaib.rotation.y if shaib else 0.0, 0)
 				CreatureSlot.play(_falcon, "perch"))
-		else:
+		else:    # up from it, back to where it circles
 			CreatureSlot.play(_falcon, "fly")
+			_falcon_tw.tween_property(_falcon, "position", _falcon_orbit(), 2.5).set_trans(Tween.TRANS_SINE)
+			_falcon_tw.tween_callback(func(): _falcon_busy = false)
+
+
+var _falcon_tw: Tween
+var _falcon_busy := false     # going to or from its perch
+
+
+func _falcon_orbit() -> Vector3:
+	var c: Vector3 = layout.falcon[0]
+	var fr: float = layout.falcon[1]
+	return c + Vector3(cos(_falcon_a) * fr, layout.falcon[2] + sin(_falcon_a * 2.0) * 0.8, sin(_falcon_a) * fr)
 
 
 ## A bird asleep (its animation stilled) or awake.
@@ -543,12 +596,9 @@ func _process(dt: float) -> void:
 		_walker.rotation.y = 0.0 if going_out else PI
 	# the falcon circles the tower, head first, banking into the turn (at night it sits on
 	# its perch by the old man)
-	if _falcon and not night:
+	if _falcon and not night and not _falcon_busy:
 		_falcon_a += dt * 0.35
-		var c: Vector3 = layout.falcon[0]
-		var fr: float = layout.falcon[1]
-		var p := c + Vector3(cos(_falcon_a) * fr, layout.falcon[2] + sin(_falcon_a * 2.0) * 0.8, sin(_falcon_a) * fr)
-		_falcon.position = p
+		_falcon.position = _falcon_orbit()
 		# it moves along (-sin a, 0, cos a); the model faces +Z, so its yaw is -a
 		_falcon.rotation = Vector3(0, -_falcon_a, deg_to_rad(16))
 	# sparrows peck, then now and then hop-fly to another spot

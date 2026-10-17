@@ -22,7 +22,7 @@ var _rain: MultiMeshInstance3D
 var _rain_ok := false
 var _gust_ok := false
 var _next := 15.0             # seconds to the next change of weather (the first one soon)
-var _model: Node3D
+var _diorama: Diorama
 
 # The shaders build each mote, streak and drop in view space: it moves in the scene's metres
 # (so it wraps round the island and stops on the roofs) but is drawn at a size in real
@@ -122,8 +122,8 @@ void fragment() {
 """
 
 
-func setup(model: Node3D) -> void:
-	_model = model
+func setup(d: Diorama) -> void:
+	_diorama = d
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4711
 	_dust = _field(DUST_SHADER, MOTES, Vector2(2, 2), func(i: int) -> Color:
@@ -222,20 +222,9 @@ func _field(code: String, count: int, quad: Vector2, data: Callable) -> MultiMes
 ## The rain: every drop knows the height of whatever is under it (roof, palm, ground), so it
 ## stops there. The heights come from the scene's own triangles, once.
 func _rain_field() -> MultiMeshInstance3D:
-	var faces := PackedVector3Array()
-	if _model:
-		var inv := _model.global_transform.affine_inverse()
-		for n in _model.find_children("*", "MeshInstance3D", true, false):
-			var mi := n as MeshInstance3D
-			if mi.mesh == null or not mi.is_visible_in_tree():
-				continue
-			var x := inv * mi.global_transform
-			var f := mi.mesh.get_faces()
-			for i in f.size():
-				f[i] = x * f[i]
-			faces.append_array(f)
-	var tm := TriangleMesh.new()
-	var ok := faces.size() >= 3 and tm.create_from_faces(faces)
+	# the scene's own surfaces (Diorama.scene_mesh: gathered whether or not it is on show yet)
+	var tm: TriangleMesh = _diorama.scene_mesh() if _diorama else null
+	var ok := tm != null
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
 	return _field(RAIN_SHADER, DROPS, Vector2(1, 1), func(i: int) -> Color:

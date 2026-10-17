@@ -250,8 +250,9 @@ func _win() -> void:
 	for p in _plots:
 		var palm: Node3D = p.palm
 		if palm:
-			var tw := create_tween()
+			var tw := create_tween().set_parallel()
 			tw.tween_property(palm, "scale", Vector3.ONE * 0.52, 1.5).set_trans(Tween.TRANS_BACK)
+			tw.tween_property(palm, "rotation:z", 0.0, 1.0)   # standing up again
 	var end := create_tween()
 	end.tween_interval(5.0)
 	end.tween_callback(func():

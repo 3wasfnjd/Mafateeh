@@ -267,15 +267,22 @@ func demo() -> void:
 var _demo_on := false
 
 
-## A gust of the night wind turns one ring a notch on its own (one not yet in place, if any).
+## A gust of the night wind turns one ring a notch on its own: one already in place if there
+## is one (it undoes a little of the player's work), never so that it solves the sky.
 func _gust() -> void:
 	_gusts -= 1
 	_gust_wait = randf_range(25.0, 40.0)
-	var k := randi() % RADII.size()
+	var k := -1
 	for j in RADII.size():
-		if offsets[j] != TARGET:
+		if offsets[j] == TARGET:
 			k = j
 			break
+	if k < 0:
+		k = randi() % RADII.size()
+	var after := offsets.duplicate()
+	after[k] = (after[k] + 1) % SLOTS
+	if str(after) == str([TARGET, TARGET, TARGET]):
+		return   # (cannot happen from an unsolved sky with one in place, but never gift the win)
 	_busy = true
 	_hint = -1
 	TableKit.sfx(self, "bridge_move", Vector3(0, SKY_Y, 0), -6.0, 0.7)
@@ -285,9 +292,7 @@ func _gust() -> void:
 	tw.tween_property(ring, "rotation:y", ring.rotation.y - TAU / SLOTS, 1.1).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(func():
 		_busy = false
-		_show_aligned()
-		if aligned():
-			_win())
+		_show_aligned())
 
 
 func _process(dt: float) -> void:

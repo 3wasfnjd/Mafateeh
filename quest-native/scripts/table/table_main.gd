@@ -75,6 +75,8 @@ var _started_at := 0.0
 var _gem: Node3D
 var _weather: TableWeather
 var _placer: TablePlacer   # finding the surface, before the scene appears
+var _place_began := 0.0
+var _clock_running := false
 var _placing := false
 var _turn := 0              # two players: whose turn
 var _session := [0, 0]      # two players: stars won this sitting
@@ -226,8 +228,12 @@ func _apply_settings() -> void:
 		if not save.day_cycle:
 			_sky = -1
 		elif _sky < 0 and not (stage in ALWAYS_NIGHT):
+			# carry on from the light the scene has now
 			_sky = 0
-			_sky_left = SKY[0][1]
+			for i in SKY.size():
+				if SKY[i][0] == _mood:
+					_sky = i
+			_sky_left = SKY[_sky][1]
 	_set_weather()
 
 
@@ -269,7 +275,7 @@ func _play(n := 1, rising := false) -> void:
 	_hover_id = ""
 	_weather = TableWeather.new()
 	diorama.stage.add_child(_weather)
-	_weather.setup(diorama.model)
+	_weather.setup(diorama)
 	_set_weather()
 	_gem = null
 	var save := _save()
@@ -277,6 +283,7 @@ func _play(n := 1, rising := false) -> void:
 		var g: Vector2 = GEMS[n]
 		_gem = TableFx.gem(diorama.stage, Vector3(g.x, _surface_y(g), g.y))
 	_started_at = _t
+	_clock_running = keep_spot or not xr   # in XR it starts when the scene is set down
 	if keep_spot:
 		diorama.global_transform = keep
 	elif xr:
@@ -291,27 +298,7 @@ func _play(n := 1, rising := false) -> void:
 
 ## The height of the scene's top surface at (x, z): the ground, a roof, a dune.
 func _surface_y(at: Vector2) -> float:
-	var best := 0.0
-	var inv := diorama.model.global_transform.affine_inverse()
-	var from := Vector3(at.x, 40.0, at.y)
-	for n in diorama.model.find_children("*", "MeshInstance3D", true, false):
-		var mi := n as MeshInstance3D
-		if mi.mesh == null or mi.get_parent() is Skeleton3D:
-			continue
-		var x := inv * mi.global_transform
-		var aabb := x * mi.get_aabb()
-		if at.x < aabb.position.x or at.x > aabb.end.x or at.y < aabb.position.z or at.y > aabb.end.z:
-			continue
-		var tm := TriangleMesh.new()
-		var f := mi.mesh.get_faces()
-		for i in f.size():
-			f[i] = x * f[i]
-		if f.size() < 3 or not tm.create_from_faces(f):
-			continue
-		var hit := tm.intersect_ray(from, Vector3.DOWN)
-		if not hit.is_empty():
-			best = maxf(best, hit.position.y)
-	return best
+	return diorama.top_at(at.x, at.y)
 
 
 func _set_weather() -> void:
@@ -393,7 +380,9 @@ func _play_music(mood: String) -> void:
 func _play_ambience(kind: String) -> void:
 	var path := AMBIENCE % kind
 	if kind == "" or not ResourceLoader.exists(path):
-		create_tween().tween_property(_ambience, "volume_db", -40.0, 1.2)
+		var tw := create_tween()
+		tw.tween_property(_ambience, "volume_db", -40.0, 1.2)
+		tw.tween_callback(_ambience.stop)   # stopped, so the same sound later starts afresh
 		return
 	if _ambience.stream and _ambience.stream.resource_path == path and _ambience.playing:
 		return
@@ -417,7 +406,11 @@ func _crossfade(player: AudioStreamPlayer, path: String) -> void:
 
 ## Light for the level's time of day: "day", "evening" (low warm sun) or "night" (dim and
 ## blue, so lamps and fires carry the scene). Only the diorama is lit; the room is passthrough.
+var _mood := "day"          # the light on the scene now
+
+
 func _apply_mood(mood: String, seconds := 0.8) -> void:
+	_mood = mood
 	var looks := {
 		"day": [Vector3(-48, 32, 0), Color("ffffff"), 0.95, Color("fff6ea"), 0.55],
 		"evening": [Vector3(-16, 60, 0), Color("ffb36b"), 0.75, Color("f2c9a0"), 0.42],
@@ -531,7 +524,13 @@ func _begin_place() -> void:
 	if _placer:
 		_placer.queue_free()
 	_placing = true
+	_place_began = _t
 	diorama.visible = false
+	# the level waits while it is hidden: no beats, no thirst, no wind, no weather unseen
+	if level:
+		level.process_mode = Node.PROCESS_MODE_DISABLED
+	if _weather:
+		_weather.process_mode = Node.PROCESS_MODE_DISABLED
 	if _hover_mark:
 		_hover_mark.visible = false
 	_placer = TablePlacer.new()
@@ -553,7 +552,17 @@ func _finish_place() -> void:
 	TableKit.sfx(diorama, "unlock", Vector3.ZERO, -6.0)
 	if xr:
 		rig.pulse(_hand, 0.4, 0.06)
-	_started_at = _t   # the level's clock starts when it is on the table
+	if level:
+		level.process_mode = Node.PROCESS_MODE_INHERIT
+	if _weather:
+		_weather.process_mode = Node.PROCESS_MODE_INHERIT
+	# the level's clock starts when it is first on the table, and does not count the time
+	# spent setting it down somewhere else later
+	if _clock_running:
+		_started_at += _t - _place_began
+	else:
+		_started_at = _t
+		_clock_running = true
 
 
 func _table_controls(dt: float) -> void:
@@ -733,39 +742,17 @@ func _level_hover(ray: Array) -> Dictionary:
 	return {}
 
 
-## The scene's own triangles (the buildings, the ground, the palms; not the level's moving
-## pieces or the animals), gathered once a level so the pointer can stop on them.
-var _scene_tm: TriangleMesh
-var _scene_tm_for: Node = null
-
-
+## The first thing the ray meets in the scene itself (the buildings, the ground, the palms; not
+## the level's moving pieces, the animals or anything hidden): {point, normal} or {}.
 func _scene_hit(ray: Array) -> Dictionary:
 	if diorama == null or diorama.model == null:
 		return {}
-	if _scene_tm_for != diorama:
-		_scene_tm_for = diorama
-		_scene_tm = null
-		var inv := diorama.model.global_transform.affine_inverse()
-		var faces := PackedVector3Array()
-		for n in diorama.model.find_children("*", "MeshInstance3D", true, false):
-			var mi := n as MeshInstance3D
-			if mi.mesh == null or mi.get_parent() is Skeleton3D or (level and level.is_ancestor_of(mi)):
-				continue
-			if _weather and _weather.is_ancestor_of(mi):
-				continue
-			var x := inv * mi.global_transform
-			var f := mi.mesh.get_faces()
-			for i in f.size():
-				f[i] = x * f[i]
-			faces.append_array(f)
-		var tm := TriangleMesh.new()
-		if faces.size() >= 3 and tm.create_from_faces(faces):
-			_scene_tm = tm
-	if _scene_tm == null:
+	var tm := diorama.scene_mesh()
+	if tm == null:
 		return {}
 	var o := diorama.model.to_local(ray[0])
 	var d := (diorama.model.to_local((ray[0] as Vector3) + (ray[1] as Vector3)) - o).normalized()
-	var hit := _scene_tm.intersect_ray(o, d)
+	var hit := tm.intersect_ray(o, d)
 	if hit.is_empty():
 		return {}
 	var n: Vector3 = hit.get("normal", Vector3.UP)
