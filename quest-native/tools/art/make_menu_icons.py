@@ -3,7 +3,7 @@ tinted in the game; drawn at 4x and downsampled).
 python3 tools/art/make_menu_icons.py [out_dir]
 
   close  music  wind  dust  rain  hand_left  hand_right  haptics  players_1  players_2
-  minus  plus  gem
+  minus  plus  gem  daynight
 """
 import math
 import os
@@ -134,6 +134,19 @@ def sign(name, plus):
     save(im, name)
 
 
+def daynight():
+    """The day going round: a sun on one side, a crescent moon on the other, an arc between."""
+    im, d = canvas()
+    d.ellipse([60, 150, 160, 250], fill=W)
+    for k in range(8):
+        a = k * math.pi / 4
+        line(d, [(110 + 70 * math.cos(a), 200 + 70 * math.sin(a)), (110 + 92 * math.cos(a), 200 + 92 * math.sin(a))], 16)
+    d.ellipse([214, 120, 334, 240], fill=W)
+    d.ellipse([244, 100, 354, 210], fill=(0, 0, 0, 0))
+    d.arc([70, 40, 330, 330], 200, 340, fill=W, width=14)
+    save(im, "daynight")
+
+
 def gem():
     im, d = canvas()
     top, mid, bot = 90, 160, 320
@@ -160,4 +173,5 @@ if __name__ == "__main__":
     sign("minus", False)
     sign("plus", True)
     gem()
+    daynight()
     print("menu icons written to", OUT)

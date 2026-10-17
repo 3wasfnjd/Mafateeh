@@ -37,7 +37,8 @@ const GEMS := {1: Vector2(-6.4, -5.2), 2: Vector2(5.8, -0.6), 3: Vector2(-9.2, 2
 	9: Vector2(8.2, 5.4), 10: Vector2(-6.0, -1.8)}
 # The weather each scene has when the atmosphere is "as designed", and its surroundings sound.
 # dust: drifting motes; gusts: blown sand now and then; rain: a passing shower now and then
-const WEATHER := {1: "dust", 2: "dust rain", 3: "dust", 4: "dust gusts", 5: "dust", 6: "dust rain", 7: "", 8: "dust rain", 9: "dust", 10: ""}
+const WEATHER := {1: "dust rain", 2: "dust rain", 3: "dust rain gusts", 4: "dust gusts rain", 5: "dust rain",
+	6: "dust rain gusts", 7: "", 8: "dust rain", 9: "dust rain gusts", 10: ""}
 const AMBIENT := {1: "birds", 2: "birds", 3: "wind", 4: "wind", 5: "fire", 6: "birds", 7: "night", 8: "market", 9: "water", 10: "night"}
 
 var env: Environment
@@ -216,6 +217,11 @@ func _apply_settings() -> void:
 			AudioServer.set_bus_mute(i, b[2] <= 0.001)
 	if diorama:
 		diorama.dress()
+		if not save.day_cycle:
+			_sky = -1
+		elif _sky < 0 and not (stage in ALWAYS_NIGHT):
+			_sky = 0
+			_sky_left = SKY[0][1]
 	_set_weather()
 
 
@@ -236,8 +242,7 @@ func _play(n := 1, rising := false) -> void:
 	add_child(diorama)
 	diorama.setup(n)
 	var mood := str(diorama.layout.get("mood", "day"))
-	_apply_mood(mood)
-	_play_music(mood)
+	_start_sky(mood)
 	_play_ambience(AMBIENT.get(n, ""))
 	match n:
 		2: level = TableStepsLevel.new()
@@ -313,8 +318,7 @@ func _set_weather() -> void:
 	var kind: String = WEATHER.get(stage, "")
 	var dust_on: bool = (save == null or save.dust) and kind.contains("dust")
 	_weather.dust(dust_on, str(diorama.layout.get("mood", "day")) == "evening")
-	_weather.gusts(designed and kind.contains("gusts"))
-	_weather.showers(designed and kind.contains("rain"))
+	_weather.auto(designed and kind.contains("rain"), designed and kind.contains("gusts"))
 
 
 func _on_level_won() -> void:
@@ -439,19 +443,57 @@ func _crossfade(player: AudioStreamPlayer, path: String) -> void:
 
 ## Light for the level's time of day: "day", "evening" (low warm sun) or "night" (dim and
 ## blue, so lamps and fires carry the scene). Only the diorama is lit; the room is passthrough.
-func _apply_mood(mood: String) -> void:
+func _apply_mood(mood: String, seconds := 0.8) -> void:
 	var looks := {
 		"day": [Vector3(-48, 32, 0), Color("ffffff"), 0.95, Color("fff6ea"), 0.55],
 		"evening": [Vector3(-16, 60, 0), Color("ffb36b"), 0.75, Color("f2c9a0"), 0.42],
 		"night": [Vector3(-40, -30, 0), Color("9fb4e0"), 0.38, Color("7f8fb8"), 0.45],
+		"dawn": [Vector3(-14, -100, 0), Color("ffc9a8"), 0.62, Color("e9cfc6"), 0.44],
 	}
 	var l: Array = looks.get(mood, looks.day)
 	var tw := create_tween().set_parallel()
-	tw.tween_property(sun, "rotation_degrees", l[0], 0.8)
-	tw.tween_property(sun, "light_color", l[1], 0.8)
-	tw.tween_property(sun, "light_energy", l[2], 0.8)
-	tw.tween_property(env, "ambient_light_color", l[3], 0.8)
-	tw.tween_property(env, "ambient_light_energy", l[4], 0.8)
+	tw.tween_property(sun, "rotation_degrees", l[0], seconds)
+	tw.tween_property(sun, "light_color", l[1], seconds)
+	tw.tween_property(sun, "light_energy", l[2], seconds)
+	tw.tween_property(env, "ambient_light_color", l[3], seconds)
+	tw.tween_property(env, "ambient_light_energy", l[4], seconds)
+
+
+# The time of day goes round by itself (unless switched off in the menu): day, sunset, night,
+# dawn, each for a while, from the level's own time. Levels 7 (the stars) and 10 (the old
+# men's tracers) stay at night.
+const SKY := [["day", 150.0], ["evening", 50.0], ["night", 80.0], ["dawn", 45.0]]
+const ALWAYS_NIGHT := [7, 10]
+var _sky := -1              # where in SKY the day is; -1: it stays as it is
+var _sky_left := 0.0
+
+
+func _start_sky(mood: String) -> void:
+	_apply_mood(mood)
+	_play_music("evening" if mood == "dawn" else mood)
+	var save := _save()
+	_sky = -1
+	if stage in ALWAYS_NIGHT or (save and not save.day_cycle):
+		return
+	for i in SKY.size():
+		if SKY[i][0] == mood:
+			_sky = i
+	if _sky < 0:
+		_sky = 0
+	_sky_left = SKY[_sky][1]
+
+
+func _tick_sky(dt: float) -> void:
+	if _sky < 0:
+		return
+	_sky_left -= dt
+	if _sky_left > 0.0:
+		return
+	_sky = (_sky + 1) % SKY.size()
+	_sky_left = SKY[_sky][1]
+	var mood: String = SKY[_sky][0]
+	_apply_mood(mood, 10.0)   # slowly, as the light really changes
+	_play_music("evening" if mood == "dawn" else mood)
 
 
 # --- the table ------------------------------------------------------------------------------------
@@ -576,6 +618,7 @@ func _ensure_passthrough() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	_tick_sky(dt)
 	if xr and not _mr_on:
 		_ensure_passthrough()
 	if card and xr:
@@ -701,10 +744,54 @@ func _level_hover(ray: Array) -> Dictionary:
 		var hp = level.hover_point(ray)
 		if hp != null:
 			return {"point": hp, "normal": -(ray[1] as Vector3), "target": true}
+	# nothing to pick: the ray stops on the first thing it meets in the scene (a wall, a
+	# roof, a dune), never passing through it to the ground behind
+	var sh := _scene_hit(ray)
+	if not sh.is_empty():
+		return sh
 	var p = diorama.model_point(ray[0], ray[1])
 	if p != null:
 		return {"point": diorama.model.to_global(p)}
 	return {}
+
+
+## The scene's own triangles (the buildings, the ground, the palms; not the level's moving
+## pieces or the animals), gathered once a level so the pointer can stop on them.
+var _scene_tm: TriangleMesh
+var _scene_tm_for: Node = null
+
+
+func _scene_hit(ray: Array) -> Dictionary:
+	if diorama == null or diorama.model == null:
+		return {}
+	if _scene_tm_for != diorama:
+		_scene_tm_for = diorama
+		_scene_tm = null
+		var inv := diorama.model.global_transform.affine_inverse()
+		var faces := PackedVector3Array()
+		for n in diorama.model.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			if mi.mesh == null or mi.get_parent() is Skeleton3D or (level and level.is_ancestor_of(mi)):
+				continue
+			if _weather and _weather.is_ancestor_of(mi):
+				continue
+			var x := inv * mi.global_transform
+			var f := mi.mesh.get_faces()
+			for i in f.size():
+				f[i] = x * f[i]
+			faces.append_array(f)
+		var tm := TriangleMesh.new()
+		if faces.size() >= 3 and tm.create_from_faces(faces):
+			_scene_tm = tm
+	if _scene_tm == null:
+		return {}
+	var o := diorama.model.to_local(ray[0])
+	var d := (diorama.model.to_local((ray[0] as Vector3) + (ray[1] as Vector3)) - o).normalized()
+	var hit := _scene_tm.intersect_ray(o, d)
+	if hit.is_empty():
+		return {}
+	var n: Vector3 = hit.get("normal", Vector3.UP)
+	return {"point": diorama.model.to_global(hit.position), "normal": (diorama.model.global_basis * n).normalized()}
 
 
 ## Rings the thing under the pointer (and a light tick in the hand when it changes).

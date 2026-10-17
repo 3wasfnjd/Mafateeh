@@ -89,6 +89,8 @@ func setup(environment: Environment) -> void:
 		torus.ring_segments = 6
 		dot.mesh = torus
 		dot.material_override = _unshaded(Color(1.0, 0.86, 0.45, 0.95), false)
+		(dot.material_override as StandardMaterial3D).no_depth_test = true   # always seen where the ray ends
+		(dot.material_override as StandardMaterial3D).render_priority = 20
 		dot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		dot.top_level = true
 		dot.visible = false
@@ -145,7 +147,7 @@ func apply_quality(q: String) -> void:
 	if xr_interface == null:
 		return
 	var high := q == "high"
-	xr_interface.render_target_size_multiplier = 1.3 if high else 1.0
+	xr_interface.render_target_size_multiplier = 1.4 if high else 1.0   # (with 4x MSAA: sharp, still light on a Quest 3)
 	xr_interface.foveation_level = 1 if high else 2
 	xr_interface.foveation_dynamic = true
 
@@ -271,6 +273,8 @@ func set_pointer(hand: String, hit, show_ray: bool) -> void:
 	h.ray.visible = show_ray and tracked(hand)
 	if h.ray.visible:
 		var d: Vector3 = r[1]
+		if hit != null and (hit.point as Vector3).distance_to(r[0]) > 0.01:
+			d = ((hit.point as Vector3) - (r[0] as Vector3)).normalized()   # straight to what it is on (a snapped target too)
 		var up := Vector3.UP if absf(d.dot(Vector3.UP)) < 0.95 else Vector3.FORWARD
 		var along := Basis.looking_at(d, up) * Basis(Vector3.RIGHT, -PI / 2)   # the cylinder's y along d
 		h.ray.global_transform = Transform3D(along.scaled(Vector3(1, length, 1)), r[0] + d * length / 2.0)

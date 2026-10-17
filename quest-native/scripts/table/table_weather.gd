@@ -6,9 +6,9 @@ extends Node3D
 ## well waters the farm). Lives under Diorama.stage, so it is in the scene's own metres and
 ## sinks with it. Everything moves in vertex shaders: no work per frame on the CPU.
 ##   dust(on)        the drifting motes
-##   gusts(on)       now and then a gust of sand streaks across, every 20 to 35 s
-##   showers(on)     now and then a passing shower
-##   shower(seconds) rain for a while, easing in and out
+##   auto(rain, gust) the weather changes by itself: every 35 to 60 s a passing shower or a
+##                   gust of blown sand, whichever the scene allows (the first in 12 to 18 s)
+##   shower(seconds) rain for a while, easing in and out; gust_now() a gust of sand
 
 const HALF := Vector2(11.5, 9.5)   # the area it covers (x, z half sizes)
 const MOTES := 420
@@ -19,10 +19,9 @@ const TOP := 11.0
 var _dust: MultiMeshInstance3D
 var _sand: MultiMeshInstance3D
 var _rain: MultiMeshInstance3D
-var _gusts := false
-var _gust_wait := 8.0         # the first gust soon, so it is seen
-var _showers := false
-var _shower_wait := 25.0
+var _rain_ok := false
+var _gust_ok := false
+var _next := 15.0             # seconds to the next change of weather (the first one soon)
 var _model: Node3D
 
 # The shaders build each mote, streak and drop in view space: it moves in the scene's metres
@@ -97,7 +96,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled, fog_disabled;
 uniform float amount = 0.0;
 uniform float speed = 14.0;
-uniform float width = 0.0009;  // real metres, half across
+uniform float width = 0.0013;  // real metres, half across
 varying float fade;
 void vertex() {
 	vec4 c = INSTANCE_CUSTOM;   // x, z: where; y: the surface under it; w: seed
@@ -116,7 +115,7 @@ void vertex() {
 }
 void fragment() {
 	ALBEDO = vec3(0.86, 0.9, 0.95);
-	ALPHA = 0.55 * fade;
+	ALPHA = 0.7 * fade;
 }
 """
 
@@ -139,14 +138,12 @@ func dust(on: bool, evening := false) -> void:
 	_fade(_dust, 0.75 if on else 0.0, 1.5)
 
 
-## Now and then a passing shower (12 s, about every minute and a half; the first soon).
-func showers(on: bool) -> void:
-	_showers = on
-
-
-func gusts(on: bool) -> void:
-	_gusts = on
-	if not on:
+## Weather by itself: rain and / or gusts of sand, now and then (off: clear skies).
+func auto(rain_ok: bool, gust_ok: bool) -> void:
+	_rain_ok = rain_ok
+	_gust_ok = gust_ok
+	_next = randf_range(12.0, 18.0)
+	if not gust_ok:
 		_fade(_sand, 0.0, 1.0)
 
 
@@ -175,22 +172,20 @@ func shower(seconds := 8.0) -> void:
 
 
 func _process(dt: float) -> void:
-	if _showers:
-		_shower_wait -= dt
-		if _shower_wait <= 0.0:
-			_shower_wait = randf_range(80.0, 110.0)
-			shower(12.0)
-	if not _gusts:
+	if not (_rain_ok or _gust_ok):
 		return
-	_gust_wait -= dt
-	if _gust_wait > 0.0:
+	_next -= dt
+	if _next > 0.0:
 		return
-	gust_now()
+	_next = randf_range(35.0, 60.0)
+	if _rain_ok and (not _gust_ok or randf() < 0.6):
+		shower(14.0)
+	else:
+		gust_now()
 
 
 ## A gust of blown sand, now.
 func gust_now() -> void:
-	_gust_wait = randf_range(20.0, 35.0)
 	var tw := create_tween()
 	tw.tween_method(func(v: float): _amount(_sand, v), 0.0, 1.0, 1.4).set_trans(Tween.TRANS_SINE)
 	tw.tween_interval(3.5)

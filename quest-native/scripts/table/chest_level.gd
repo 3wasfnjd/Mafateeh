@@ -366,7 +366,13 @@ func _process(dt: float) -> void:
 		var out := Vector3(man.position.x - CHEST.x, 0, man.position.z - CHEST.z).normalized()
 		var up := (global_basis * (Vector3.UP + out * 0.3)).normalized()
 		var sc := hand.global_basis.get_scale()
-		gun.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, up)).scaled(sc), hand.global_position)
+		# the whole turn fixed, not just where it points: the magazine (the rifle's -x) faces
+		# the way the man faces, the same for every man on either side
+		var fwd := man.global_basis.z.normalized()
+		fwd = (fwd - up * fwd.dot(up)).normalized()
+		var x := -fwd
+		var z := x.cross(up).normalized()
+		gun.global_transform = Transform3D(Basis(x, up, z).scaled(sc), hand.global_position)
 	if _falcon:
 		_falcon_a += dt * 0.5
 		_falcon.position = CHEST + Vector3(cos(_falcon_a) * 4.5, 6.0 + sin(_falcon_a * 2.0) * 0.5, sin(_falcon_a) * 4.5)

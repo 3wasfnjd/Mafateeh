@@ -5,11 +5,12 @@ extends Node3D
 ## whatever the pointer is on shown above it). Read right to left: the rail is on the right.
 ##   levels    the ten levels with their stars and gems, the totals, play / carry on
 ##   wardrobe  the old man turning on his stand, and all his clothes to try on
-##   world     weather, drifting dust, set the scene down elsewhere, the headset's room setup
+##   world     weather by itself, drifting dust, day and night going round, set the scene down
+##             elsewhere, the headset's room setup
 ##   settings  music, effects and surroundings volume; which hand walks; vibration; players;
 ##             the language (Arabic or English; at first the headset's own)
 ##   about     who made it, and whose work it uses
-##   thanks    (after the last level) thank you, the studio's site, play again
+##   thanks    (after the last level) thank you, the studio's site as a QR code, play again
 ##   close     back to the game (only while a level is on the table)
 ## The owner of this node (table_main) places it, feeds it the pointer (hover / press) and
 ## listens to its signals.
@@ -35,7 +36,6 @@ const RAIL_X := 0.262
 const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
 const LEVELS := 10
-const SITE := "https://abodengames.com"   # the studio's games
 const TABS := [["levels", "levels", "المراحل", "Levels"], ["wardrobe", "wardrobe", "خزانة الشايب", "Wardrobe"],
 	["world", "atmosphere", "الأجواء", "Atmosphere"], ["settings", "settings", "الإعدادات", "Settings"],
 	["about", "about", "عن اللعبة", "About"]]
@@ -198,15 +198,19 @@ func _wardrobe() -> void:
 
 func _world() -> void:
 	var save := _save()
-	var designed: bool = save == null or save.weather_pref != "clear"
+	var auto_on: bool = save == null or save.weather_pref != "clear"
 	var dust_on: bool = save == null or save.dust
-	_toggle(Vector3(0.14, 0.02, 0.004), "rain", designed, _say("الطقس", "Weather"), func():
-		save.weather_pref = "clear" if designed else "level")
-	_toggle(Vector3(0.03, 0.02, 0.004), "dust", dust_on, _say("الغبار", "Drifting dust"), func():
-		save.dust = not dust_on)
-	_button(Vector3(-0.08, 0.02, 0.004), 0.034, "board", ACCENT, Color.WHITE, _say("ثبّت المشهد في مكان ثاني", "Set the scene down somewhere else"),
+	var cycle_on: bool = save == null or save.day_cycle
+	var y := 0.025
+	var flip_auto := func(): save.weather_pref = "clear" if auto_on else "cycle"
+	var flip_dust := func(): save.dust = not dust_on
+	var flip_cycle := func(): save.day_cycle = not cycle_on
+	_toggle(Vector3(0.16, y, 0.004), "rain", auto_on, _say("الطقس تلقائي: مطر وعجاج", "Weather by itself: rain and blown sand"), flip_auto, 0.032)
+	_toggle(Vector3(0.075, y, 0.004), "dust", dust_on, _say("الغبار", "Drifting dust"), flip_dust, 0.032)
+	_toggle(Vector3(-0.01, y, 0.004), "daynight", cycle_on, _say("الليل والنهار يتبدلون", "Day and night go round"), flip_cycle, 0.032)
+	_button(Vector3(-0.095, y, 0.004), 0.032, "board", ACCENT, Color.WHITE, _say("ثبّت المشهد في مكان ثاني", "Set the scene down somewhere else"),
 		func(): replace_table.emit())
-	_button(Vector3(-0.08, -0.075, 0.004), 0.024, "mr", ACCENT, Color.WHITE, _say("إعداد الغرفة: خل النظارة تتعرف على طاولاتك", "Room setup: let the headset learn your tables"),
+	_button(Vector3(-0.095, -0.075, 0.004), 0.024, "mr", ACCENT, Color.WHITE, _say("إعداد الغرفة: خل النظارة تتعرف على طاولاتك", "Room setup: let the headset learn your tables"),
 		func(): capture_room.emit())
 
 
@@ -253,18 +257,34 @@ func _settings() -> void:
 
 
 ## After the last level: thank you for playing, and where to find the studio's other games.
+## The site is a QR code to scan with a phone: opening the headset's browser would take the
+## player out of the game, with no easy way back.
 func _thanks() -> void:
-	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(CX + 0.01, 0.075, 0.004), 60))
-	_content.add_child(text(_say("نتمنى إن الرحلة مع الشايب عجبتك", "We hope you enjoyed the journey with the old man"), Vector3(CX + 0.01, 0.04, 0.004), 34))
-	_content.add_child(text(_say("اكتشف ألعاب جديدة من استوديو عبودين قيمز", "Discover more games from Aboden Games"), Vector3(CX + 0.01, 0.005, 0.004), 34))
-	# the site, on a brown band: press it and the headset's browser opens it
-	var at := Vector3(CX + 0.01, -0.04, 0.004)
-	_quad(_content, Vector2(0.17, 0.034), ACCENT, at - Vector3(0, 0, 0.001))
-	for x in [-0.085, 0.085]:
-		_disc(_content, at + Vector3(x, 0, -0.001), 0.017, ACCENT)
-	_content.add_child(text("abodengames.com", at + Vector3(0, 0, 0.003), 46, Color.WHITE))
-	_buttons.append({"at": at, "r": 0.09, "action": func(): OS.shell_open(SITE), "label": _say("افتح موقع الاستوديو", "Open the studio's site"), "no_ring": true})
-	_button(Vector3(CX + 0.01, -0.1, 0.004), 0.02, "restart", ACCENT, Color.WHITE, _say("العب من جديد", "Play again"), func(): play_level.emit(1))
+	var cx := 0.075
+	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(cx, 0.08, 0.004), 56))
+	_content.add_child(text(_say("نتمنى إن الرحلة مع الشايب عجبتك", "We hope you enjoyed the journey with the old man"), Vector3(cx, 0.045, 0.004), 32))
+	_content.add_child(text(_say("اكتشف ألعاب جديدة من استوديو عبودين قيمز", "Discover more games from Aboden Games"), Vector3(cx, 0.012, 0.004), 32))
+	var at := Vector3(cx, -0.03, 0.004)
+	_quad(_content, Vector2(0.15, 0.032), ACCENT, at - Vector3(0, 0, 0.001))
+	for x in [-0.075, 0.075]:
+		_disc(_content, at + Vector3(x, 0, -0.001), 0.016, ACCENT)
+	_content.add_child(text("abodengames.com", at + Vector3(0, 0, 0.003), 44, Color.WHITE))
+	_button(Vector3(cx, -0.098, 0.004), 0.02, "restart", ACCENT, Color.WHITE, _say("العب من جديد", "Play again"), func(): play_level.emit(1))
+	# the QR code, on a cream card, with a word under it
+	var qx := -0.16
+	_quad(_content, Vector2(0.118, 0.118), DISC, Vector3(qx, 0.012, 0.002))
+	var qr := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.104, 0.104)
+	qr.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = load("res://assets/ui/site_qr.png")
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST   # crisp squares, for the phone's camera
+	qr.material_override = m
+	qr.position = Vector3(qx, 0.012, 0.004)
+	_content.add_child(qr)
+	_content.add_child(text(_say("صوّر الرمز بجوالك", "Scan it with your phone"), Vector3(qx, -0.062, 0.004), 30))
 
 
 func _about() -> void:
@@ -431,7 +451,7 @@ func _icon(parent: Node3D, icon: String, at: Vector3, size: float, tint := Color
 	parent.add_child(ic)
 
 
-## A line of text in the menu's font (Cairo, Arabic with a Latin fallback).
+## A line of text in the menu's font (Cairo, bold).
 static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3D:
 	var l := Label3D.new()
 	l.text = s
@@ -441,7 +461,8 @@ static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3
 	l.modulate = c
 	l.outline_size = 0
 	l.position = at
-	l.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
+	l.alpha_cut = Label3D.ALPHA_CUT_DISABLED   # blended: a cut ate the letters' fine strokes and dots
+	l.render_priority = 2
 	l.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	l.shaded = false
 	l.double_sided = false
@@ -450,9 +471,11 @@ static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3
 
 static func font() -> Font:
 	if _font == null:
+		# the whole Cairo (Arabic and Latin; the web subsets lack some letter forms, such as a
+		# final kaf, and lines with them fell back to another, thin font), in bold
 		var f := FontVariation.new()
-		f.base_font = load("res://assets/fonts/cairo-arabic-700-normal.woff2")
-		f.fallbacks = [load("res://assets/fonts/cairo-latin-700-normal.woff2")]
+		f.base_font = load("res://assets/fonts/cairo-variable.ttf")
+		f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 700}
 		_font = f
 	return _font
 
