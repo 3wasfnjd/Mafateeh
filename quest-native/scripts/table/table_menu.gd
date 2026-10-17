@@ -91,6 +91,7 @@ func open(p: String) -> void:
 	_preview = null
 	var tabs: Array = TABS.duplicate()
 	if stage > 0:
+		tabs.insert(1, ["hint", "hint", "تلميح المرحلة", "A hint for this level"])
 		tabs.append(["close", "close", "رجوع للعب", "Back to the game"])
 	var step := 0.23 / maxf(1, tabs.size() - 1)
 	for i in tabs.size():
@@ -98,13 +99,14 @@ func open(p: String) -> void:
 		var at := Vector3(RAIL_X, 0.11 - i * step, 0.004)
 		var on: bool = t[0] == page
 		var id: String = t[0]
-		_button(at, 0.019, t[1], ACCENT if on else DISC, Color.WHITE if on else ACCENT,
+		_button(at, minf(0.019, step * 0.45), t[1], ACCENT if on else DISC, Color.WHITE if on else ACCENT,
 			_say(t[2], t[3]), func(): _tab(id), 1.4)
 	match page:
 		"wardrobe": _wardrobe()
 		"world": _world()
 		"settings": _settings()
 		"about": _about()
+		"hint": _hint()
 		"thanks": _thanks()
 		_: _levels()
 
@@ -271,12 +273,37 @@ func _thanks() -> void:
 	_content.add_child(text(_say("صوّر الرمز بجوالك", "Scan it with your phone"), Vector3(qx, -0.062, 0.004), 30))
 
 
+## One hint for each level's puzzle, in words (the levels themselves stay wordless).
+const HINTS := {
+	1: ["اضغط الزناد على القط وارسم دربه للشايب: لف حول الشوك وادخل من البوابة.", "Hold the trigger on the cat and draw its way to the old man: round the thorns, in through the gate."],
+	2: ["ادفع الحجارة بالشايب وسوّ منها درج للقط: الأطول جنب الجدار ثم الأقصر فالأقصر.", "Push the blocks with the old man into a stair for the cat: the tallest by the wall, then shorter ones."],
+	3: ["أرسل الصقر من وكر لوكر قريب منه لين يوصل المفتاح، وبعدين رجّعه للشايب.", "Send the falcon from perch to a near perch until it reaches the key, then bring it back to the old man."],
+	4: ["كل سيارة تمشي على خطها بس: فضّ الطريق قدام الوايت لين يطلع.", "Each car moves only along its own line: clear the way in front of the water truck so it can get out."],
+	5: ["كل فانوس ينقلب هو واللي جنبه: ولّع الفوانيس الثمانية كلها.", "Each lantern flips itself and the one beside it: light all eight."],
+	6: ["اسمع إيقاع الشايب على الطبول وأعده بنفس الترتيب. اضغط الشايب يعيده لك.", "Listen to the old man's beat and play it back drum for drum. Tap him to hear it again."],
+	7: ["كل حلقة تدور هي واللي برا منها: خل النجوم الساطعة على خط واحد صوب الرجم.", "Each ring turns with the one outside it: line the bright stars up towards the cairn."],
+	8: ["بادل من تاجر لتاجر لين توصل للدلة، وانتبه لتاجرين يلفونك بحلقة ما توصل لشي.", "Trade from merchant to merchant to reach the coffee pot; two of them only trade in a circle."],
+	9: ["دوّر قطع السواقي لين يوصل الماي من الحوض للنخلات الثلاث.", "Turn the channel pieces until the water runs from the basin to all three palms."],
+	10: ["حط التذكارات في الصندوق بترتيب المراحل: من الأولى للتاسعة.", "Put the keepsakes in the chest in the order of the levels, from the first to the ninth."],
+}
+
+
+func _hint() -> void:
+	_icon(_content, "hint", Vector3(CX + 0.01, 0.07, 0.004), 0.04, ACCENT)
+	_content.add_child(text(_say("المرحلة %s", "Level %s") % _digits(stage), Vector3(CX + 0.01, 0.03, 0.004), 44))
+	var h: Array = HINTS.get(stage, ["", ""])
+	var l := text(_say(h[0], h[1]), Vector3(CX + 0.01, -0.025, 0.004), 36)
+	l.width = 1200.0   # wrap within the section (the label's own pixels)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(l)
+
+
 func _about() -> void:
 	var lines := [
 		[_say("مفاتيح", "Mafateeh"), 0.082, 64],
-		[_say("لعبة من عبودين قيمز", "A game by Aboden Games"), 0.045, 40],
-		[_say("المباني والأصول من Folio 2025 لـ Bruno Simon (MIT) عبر موتري", "Buildings and assets: Folio 2025 by Bruno Simon (MIT), via Motri"), 0.0, 30],
-		[_say("المحرك Godot · الخط Cairo", "Engine: Godot · Font: Cairo"), -0.03, 30],
+		[_say("لعبة من عبودين قيمز: المباني والشخصيات من تصميمهم", "A game by Aboden Games, who made its buildings and characters"), 0.042, 34],
+		[_say("بعض الموديلات من Folio 2025 لـ Bruno Simon (MIT)", "Some models from Folio 2025 by Bruno Simon (MIT)"), 0.0, 30],
+		[_say("المحرك Godot", "Engine: Godot"), -0.03, 30],
 		[_say("لا اتصال بالإنترنت ولا تتبع: كل شي يبقى في نظارتك", "No network, no tracking: everything stays on your headset"), -0.06, 28],
 	]
 	for l in lines:
@@ -435,12 +462,12 @@ func _icon(parent: Node3D, icon: String, at: Vector3, size: float, tint := Color
 	parent.add_child(ic)
 
 
-## A line of text in the menu's font (Cairo, bold).
+## A line of text in the menu's font (Reem Kufi, bold).
 static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3D:
 	var l := Label3D.new()
 	l.text = s
 	l.font = font()
-	l.font_size = size
+	l.font_size = int(size * 1.25)   # the Kufi reads small: a quarter larger than the sizes asked
 	l.pixel_size = 0.00034
 	l.modulate = c
 	l.outline_size = 0
@@ -455,11 +482,12 @@ static func text(s: String, at: Vector3, size := 40, c := ACCENT_DARK) -> Label3
 
 static func font() -> Font:
 	if _font == null:
-		# the whole Cairo (Arabic and Latin; the web subsets lack some letter forms, such as a
-		# final kaf, and lines with them fell back to another, thin font), in bold
+		# Reem Kufi (a geometric Kufi, like the inscriptions of Najd's mud buildings; OFL, so
+		# no credit is owed in the game), bold, with Cairo for anything it lacks
 		var f := FontVariation.new()
-		f.base_font = load("res://assets/fonts/cairo-variable.ttf")
+		f.base_font = load("res://assets/fonts/reem-kufi-variable.ttf")
 		f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 700}
+		f.fallbacks = [load("res://assets/fonts/cairo-variable.ttf")]
 		_font = f
 	return _font
 

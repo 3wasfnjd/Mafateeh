@@ -9,7 +9,8 @@ extends Node3D
 ## shakes. With all nine in, the lid opens, the drums beat, the men dance, the falcon beats its
 ## wings on its perch by the old man, and the cat sits at his feet; and the old men of the house come out of
 ## the rooms with their rifles and fire into the sky for joy, the tracers going up like
-## shooting stars.
+## shooting stars. Once they have all stopped, point at any of them and pull the trigger:
+## he fires another burst.
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
@@ -50,6 +51,8 @@ var _t := 0.0
 var _hint_ring: MeshInstance3D
 var _demo := false
 var _falcon: Node3D
+var _salute_over := false    # the old men have stopped firing: each fires again when pointed at
+var _quiet := 0
 var _guns: Array = []         # {gun, man}: kept pointing at the sky, whatever the arm does
 
 
@@ -162,6 +165,12 @@ func aim(origin: Vector3, dir: Vector3) -> void:
 func pointer(held: bool, p) -> void:
 	var pressed := held and not _was_held
 	_was_held = held
+	if pressed and _won and _salute_over:
+		# after the salute: point at one of the old men and he fires a burst into the sky
+		var who := TableKit.ray_pick(self, _ray, hover_boxes())
+		if who.begins_with("g"):
+			_burst(_guns[int(who.substr(1))].gun, 4 + randi() % 3)
+		return
 	if not pressed or _busy or _won:
 		return
 	var id := TableKit.ray_pick(self, _ray, _boxes)
@@ -311,6 +320,9 @@ func _shooter(k: int) -> void:
 	for b in 4:   # bursts
 		tw.tween_callback(func(): _burst(gun, 3 + randi() % 3))
 		tw.tween_interval(randf_range(0.9, 1.6))
+	tw.tween_callback(func():
+		_quiet += 1
+		_salute_over = _quiet >= SHOOTERS.size())   # all have stopped: the player may fire them
 
 
 ## A short burst from the gun's muzzle: a flash and a tracer per round.
@@ -350,6 +362,18 @@ static func rifle() -> Node3D:
 	for g in n.find_children("*", "GeometryInstance3D", true, false):
 		(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n
+
+
+## What the pointer can pick: the keepsakes and the chest while the puzzle is on; the old men
+## with their rifles once the salute is over.
+func hover_boxes() -> Dictionary:
+	if not _salute_over:
+		return _boxes
+	var out := {}
+	for i in _guns.size():
+		var man: Node3D = _guns[i].man
+		out["g%d" % i] = AABB(man.position - Vector3(0.6, 0, 0.6), Vector3(1.2, 2.6, 1.2))
+	return out
 
 
 func demo() -> void:
