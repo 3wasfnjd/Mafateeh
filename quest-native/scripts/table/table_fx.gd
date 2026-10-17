@@ -4,7 +4,7 @@ extends RefCounted
 ## the diorama when a level is won.
 ## All in the diorama's own metres (they live under Diorama.stage).
 
-const GEM_COLOUR := Color("f2c14e")   # the hidden key's gold
+const GEM_COLOUR := Color("b5740c")   # the hidden key's gold: deep, so it stands out on pale sand
 const GOLD := Color("e3a83a")
 
 
@@ -18,13 +18,14 @@ static func gem(parent: Node3D, at: Vector3) -> Node3D:
 	var body := Node3D.new()
 	n.add_child(body)
 	body.position.y = 0.45
+	body.scale = Vector3.ONE * 1.4   # big enough to catch the eye on the table
 	var m := StandardMaterial3D.new()
 	m.albedo_color = GEM_COLOUR
-	m.metallic = 0.45
-	m.roughness = 0.3
+	m.metallic = 0.6
+	m.roughness = 0.28
 	m.emission_enabled = true
-	m.emission = GEM_COLOUR
-	m.emission_energy_multiplier = 0.45
+	m.emission = Color("d08a10")
+	m.emission_energy_multiplier = 0.35
 	var bow := TorusMesh.new()   # the ring it is held by
 	bow.inner_radius = 0.12
 	bow.outer_radius = 0.2
@@ -41,7 +42,7 @@ static func gem(parent: Node3D, at: Vector3) -> Node3D:
 	TableKit.box(body, Vector3(0.05, 0.12, 0.05), m, Vector3(0.24, -0.08, 0))
 	var glint := TableKit.sphere(body, 0.09, TableKit.glow_mat(Color(1, 1, 1), 0.0), Vector3(-0.3, 0.2, 0.06), 6)
 	glint.name = "Glint"
-	var halo := TableKit.ring(n, 0.5, GEM_COLOUR.lightened(0.3), 0.35, 0.18)
+	var halo := TableKit.ring(n, 0.65, Color("5a3410"), 0.55, 0.2)   # a dark ring under it on the sand
 	halo.position.y = 0.03
 	return n
 
