@@ -903,12 +903,36 @@ func _store_title(kind: String) -> void:
 		box.add_child(l)
 
 
+## Store art: a plain room round the diorama, as the player sees it through passthrough: a
+## wooden table under it, a floor, the wall behind. Nothing of the game's own UI.
+func _store_room() -> void:
+	var at := diorama.global_position
+	var half := 0.66 * table_k * 0.5
+	var room := Node3D.new()
+	add_child(room)
+	var wood := TableKit.mat(Color("8a5a36"), 0.55)
+	var floor_m := TableKit.mat(Color("b9a184"), 0.8)
+	var top := Vector3(half * 2.8, 0.04, half * 2.5)
+	TableKit.box(room, top, wood, at - Vector3(0, 0.02, 0))
+	for sx in [-1, 1]:
+		for sz in [-1, 1]:
+			TableKit.box(room, Vector3(0.05, at.y - 0.04, 0.05), wood,
+				Vector3(at.x + sx * (top.x / 2 - 0.06), (at.y - 0.04) / 2, at.z + sz * (top.z / 2 - 0.06)))
+	TableKit.box(room, Vector3(12, 0.02, 12), floor_m, Vector3(at.x, -0.01, at.z))
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color("e9dfd0")
+	if _hover_mark:
+		_hover_mark.visible = false
+
+
 func _screenshot() -> void:
 	for i in 20:
 		await get_tree().process_frame
 	if diorama:
 		table_k = float(_args.get("k", "1"))  # --k=N: the diorama N times its usual size
 		_place_table()
+		if _args.has("room"):   # store art: the scene on a table in a room, as in mixed reality
+			_store_room()
 		diorama.rotate_y(deg_to_rad(float(_args.get("turn", "0"))))  # --turn=deg: see another side
 	if card:
 		_place_card(true)
