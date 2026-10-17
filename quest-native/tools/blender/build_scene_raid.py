@@ -62,7 +62,7 @@ def g(x, z, h=0.0):
 
 
 def camp():
-    place(p("tent"), g(*TENT), 0)
+    place(p("tent"), g(*TENT), 180)   # its open side towards the dunes the raiders come over
     place(p("camel_kneeling"), g(-2.0, 9.2), 200)
     rock = bpy.data.materials.new("scene_raid_rock")
     rock.use_nodes = True
@@ -81,7 +81,7 @@ def camp():
             o.scale = (1.2, 1.0, 0.6)
             o.rotation_euler.z = rng.uniform(0, 3)
             o.data.materials.append(rock)
-    for x, z in ((-10.2, 2.4), (9.8, 3.4), (6.0, 8.8), (-1.2, 9.6), (10.8, -1.6), (-10.8, -6.0), (3.0, -9.4)):
+    for x, z in ((-10.2, 2.4), (9.8, 3.4), (6.0, 8.8), (2.4, 10.8), (10.8, -1.6), (-10.8, -6.0), (3.0, -9.4)):
         for k in range(3):
             bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.35 + 0.15 * rng.random(),
                                                   location=g(x + rng.uniform(-0.4, 0.4), z + rng.uniform(-0.4, 0.4), 0.2))

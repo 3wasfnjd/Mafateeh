@@ -3,7 +3,7 @@ tinted in the game; drawn at 4x and downsampled).
 python3 tools/art/make_menu_icons.py [out_dir]
 
   close  music  wind  dust  rain  hand_left  hand_right  haptics  players_1  players_2
-  minus  plus  gem  daynight
+  minus  plus  gem  key  daynight
 """
 import math
 import os
@@ -147,6 +147,16 @@ def daynight():
     save(im, "daynight")
 
 
+def key():
+    """An old door key, lying across: a ring bow, the shaft and its bit."""
+    im, d = canvas()
+    d.ellipse([40, 132, 160, 252], outline=W, width=30)
+    line(d, [(160, 192), (344, 192)], 30)
+    d.rectangle([300, 192, 330, 268], fill=W)
+    d.rectangle([254, 192, 280, 250], fill=W)
+    save(im, "key")
+
+
 def gem():
     im, d = canvas()
     top, mid, bot = 90, 160, 320
@@ -173,5 +183,6 @@ if __name__ == "__main__":
     sign("minus", False)
     sign("plus", True)
     gem()
+    key()
     daynight()
     print("menu icons written to", OUT)

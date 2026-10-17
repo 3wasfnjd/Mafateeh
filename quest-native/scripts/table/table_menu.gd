@@ -3,7 +3,7 @@ extends Node3D
 ## The table game's one menu, on the owner's clay plaque (after Dahrooj Quest's menu: one
 ## quiet panel, a rail of section tabs on one side, the section on the other, the name of
 ## whatever the pointer is on shown above it). Read right to left: the rail is on the right.
-##   levels    the ten levels with their stars and gems, the totals, play / carry on
+##   levels    the levels with their stars and hidden keys, the totals, play / carry on
 ##   wardrobe  the old man turning on his stand, and all his clothes to try on
 ##   world     weather by itself, drifting dust, day and night going round, set the scene down
 ##             elsewhere (the room's tables come from the headset's own room scan, by themselves)
@@ -30,7 +30,7 @@ const DISC := Color("fbf3e4")
 const PALE := Color("ead7b8")
 const FADED := Color("b39270")
 const GOLD := Color("e3a83a")
-const GEM := Color("8fd0e8")
+const GEM := Color("d9a63a")   # the hidden keys' gold
 const RAIL_X := 0.262
 const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
@@ -139,7 +139,7 @@ func _levels() -> void:
 		for k in 3:
 			_icon(_content, "star", at + Vector3((1 - k) * 0.016, -0.038, 0.002), 0.015, GOLD if k < stars else Color(FADED, 0.8))
 		if save and save.table_gems.get(n, false):
-			_icon(_content, "gem", at + Vector3(0.024, 0.022, 0.006), 0.016, GEM)
+			_icon(_content, "key", at + Vector3(0.024, 0.022, 0.006), 0.018, GEM)
 	# carry on (or back to the level on the table), and the totals
 	var y := -0.108
 	if stage > 0:
@@ -155,7 +155,7 @@ func _levels() -> void:
 	_icon(_content, "star", Vector3(0.088, y, 0.004), 0.02, GOLD)
 	var side := 0.034 if en else -0.034   # the number after its icon, in reading order
 	_content.add_child(text("%s/%s" % [_digits(tot), _digits(LEVELS * 3)], Vector3(0.088 + side, y, 0.004), 46))
-	_icon(_content, "gem", Vector3(0.006, y, 0.004), 0.02, GEM)
+	_icon(_content, "key", Vector3(0.006, y, 0.004), 0.024, GEM)
 	_content.add_child(text("%s/%s" % [_digits(gems), _digits(LEVELS)], Vector3(0.006 + side, y, 0.004), 46))
 
 

@@ -1,14 +1,15 @@
 class_name TableFx
 extends RefCounted
-## Little moments of joy on the table: the hidden gem of each level, the stars that rise over
+## Little moments of joy on the table: the hidden key of each level, the stars that rise over
 ## the diorama when a level is won.
 ## All in the diorama's own metres (they live under Diorama.stage).
 
-const GEM_COLOUR := Color("8fd0e8")
+const GEM_COLOUR := Color("f2c14e")   # the hidden key's gold
 const GOLD := Color("e3a83a")
 
 
-## The level's hidden gem: a small cut stone that turns slowly and glints now and then.
+## The level's hidden key (مفتاح, as the game is called): an old door key in gold that turns
+## slowly and glints now and then.
 static func gem(parent: Node3D, at: Vector3) -> Node3D:
 	var n := Node3D.new()
 	n.name = "Gem"
@@ -19,33 +20,33 @@ static func gem(parent: Node3D, at: Vector3) -> Node3D:
 	body.position.y = 0.45
 	var m := StandardMaterial3D.new()
 	m.albedo_color = GEM_COLOUR
-	m.metallic = 0.3
-	m.roughness = 0.15
+	m.metallic = 0.45
+	m.roughness = 0.3
 	m.emission_enabled = true
 	m.emission = GEM_COLOUR
-	m.emission_energy_multiplier = 0.6
-	var crown := CylinderMesh.new()
-	crown.top_radius = 0.16
-	crown.bottom_radius = 0.3
-	crown.height = 0.14
-	crown.radial_segments = 8
-	crown.rings = 1
-	TableKit.mesh(body, crown, m, Vector3(0, 0.07, 0))
-	var pav := CylinderMesh.new()
-	pav.top_radius = 0.3
-	pav.bottom_radius = 0.0
-	pav.height = 0.32
-	pav.radial_segments = 8
-	pav.rings = 1
-	TableKit.mesh(body, pav, m, Vector3(0, -0.16, 0))
-	var glint := TableKit.sphere(body, 0.09, TableKit.glow_mat(Color(1, 1, 1), 0.0), Vector3(0.12, 0.12, 0.12), 6)
+	m.emission_energy_multiplier = 0.45
+	var bow := TorusMesh.new()   # the ring it is held by
+	bow.inner_radius = 0.12
+	bow.outer_radius = 0.2
+	bow.rings = 16
+	bow.ring_segments = 8
+	TableKit.mesh(body, bow, m, Vector3(-0.3, 0, 0), Vector3(PI / 2, 0, 0))
+	var shaft := CylinderMesh.new()
+	shaft.top_radius = 0.045
+	shaft.bottom_radius = 0.045
+	shaft.height = 0.62
+	shaft.radial_segments = 8
+	TableKit.mesh(body, shaft, m, Vector3(0.1, 0, 0), Vector3(0, 0, PI / 2))
+	TableKit.box(body, Vector3(0.05, 0.17, 0.05), m, Vector3(0.33, -0.1, 0))   # the bit
+	TableKit.box(body, Vector3(0.05, 0.12, 0.05), m, Vector3(0.24, -0.08, 0))
+	var glint := TableKit.sphere(body, 0.09, TableKit.glow_mat(Color(1, 1, 1), 0.0), Vector3(-0.3, 0.2, 0.06), 6)
 	glint.name = "Glint"
-	var halo := TableKit.ring(n, 0.45, GEM_COLOUR.lightened(0.3), 0.35, 0.18)
+	var halo := TableKit.ring(n, 0.5, GEM_COLOUR.lightened(0.3), 0.35, 0.18)
 	halo.position.y = 0.03
 	return n
 
 
-## Turns and bobs the gem; t is a running time in seconds.
+## Turns and bobs the key; t is a running time in seconds.
 static func gem_tick(g: Node3D, t: float) -> void:
 	if g == null or not is_instance_valid(g) or g.get_child_count() == 0:
 		return
@@ -58,7 +59,7 @@ static func gem_tick(g: Node3D, t: float) -> void:
 		(glint.material_override as StandardMaterial3D).albedo_color.a = k * 0.9
 
 
-## The gem is found: it leaps up spinning, flashes and is gone.
+## The key is found: it leaps up spinning, flashes and is gone.
 static func collect(g: Node3D) -> void:
 	TableKit.sfx(g, "gem_pickup", Vector3(0, 0.5, 0), -2.0)
 	TableKit.sfx(g, "unlock", Vector3(0, 0.5, 0), -8.0, 1.3)

@@ -31,10 +31,11 @@ const LAST_LEVEL := 11
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 # How long a level may take for three stars (twice as long: two; any longer: one). Seconds.
 const PAR := {1: 45.0, 2: 150.0, 3: 90.0, 4: 200.0, 5: 90.0, 6: 110.0, 7: 70.0, 8: 100.0, 9: 120.0, 10: 75.0, 11: 100.0}
-# Where each level's gem hides (x, z in the scene's metres; it sits on whatever is there).
-const GEMS := {1: Vector2(-6.4, -5.2), 2: Vector2(5.8, -0.6), 3: Vector2(-9.2, 2.6), 4: Vector2(10.6, 5.6),
-	5: Vector2(6.6, -2.4), 6: Vector2(8.4, -6.6), 7: Vector2(-6.2, 5.4), 8: Vector2(7.4, 3.0),
-	9: Vector2(8.2, 5.4), 10: Vector2(10.2, 7.0), 11: Vector2(-6.0, -1.8)}
+# Where each level's hidden key lies (x, z in the scene's metres; it sits on whatever is there),
+# always on low ground in sight from the front, never up in a palm or behind a house.
+const GEMS := {1: Vector2(-6.4, -5.2), 2: Vector2(5.8, -0.6), 3: Vector2(-8.2, 1.6), 4: Vector2(10.6, 5.6),
+	5: Vector2(6.6, -2.4), 6: Vector2(8.4, -6.6), 7: Vector2(-6.2, 5.4), 8: Vector2(6.9, 3.0),
+	9: Vector2(7.7, 6.9), 10: Vector2(10.2, 7.0), 11: Vector2(-6.0, -1.8)}
 # The weather each scene has when the atmosphere is "as designed", and its surroundings sound.
 # dust: drifting motes; gusts: blown sand now and then; rain: a passing shower now and then
 const WEATHER := {1: "dust rain", 2: "dust rain", 3: "dust rain gusts", 4: "dust gusts rain", 5: "dust rain",
