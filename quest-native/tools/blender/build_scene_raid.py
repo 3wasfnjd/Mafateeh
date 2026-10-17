@@ -10,7 +10,7 @@ Usage: python3 tools/blender/build_scene_raid.py [-- --render out_dir]
 
 Layout (Godot x, z; Blender y = -z):
   tent         front left, centred (-7.6, 7.4)
-  defenders    their line along z = 4.5 (raid_level.gd)
+  defenders    their line along z = 2.6 .. 3.4, clear of the tent (raid_level.gd)
   rocks        a few low ones in the middle
 """
 import os
@@ -63,7 +63,7 @@ def g(x, z, h=0.0):
 
 def camp():
     place(p("tent"), g(*TENT), 0)
-    place(p("camel_kneeling"), g(-4.4, 8.6), 200)
+    place(p("camel_kneeling"), g(-2.0, 9.2), 200)
     rock = bpy.data.materials.new("scene_raid_rock")
     rock.use_nodes = True
     rock.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.32, 0.22, 0.13, 1)
@@ -73,7 +73,7 @@ def camp():
     shrub.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.16, 0.12, 0.05, 1)
     shrub.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 1.0
     rng = np.random.default_rng(10)
-    for x, z, s in ((-3.6, -1.6, 0.8), (4.2, 0.6, 0.7), (-8.4, -3.0, 0.9), (8.6, -4.6, 0.8), (0.8, -6.2, 0.6)):
+    for x, z, s in ((-3.6, -1.6, 0.8), (5.4, -2.8, 0.7), (-8.4, -3.0, 0.9), (8.6, -4.6, 0.8), (0.8, -6.2, 0.6)):
         for k in range(3):
             bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=s * (0.5 + 0.3 * rng.random()),
                                                   location=g(x + rng.uniform(-0.6, 0.6), z + rng.uniform(-0.5, 0.5), 0.1))

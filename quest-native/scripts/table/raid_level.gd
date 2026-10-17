@@ -5,10 +5,9 @@ extends Node3D
 ## Raiders of another tribe come over the dunes on camels and horses, their shemaghs drawn
 ## across their faces, and gallop down on the camp, firing as they come. The old man sits his
 ## horse at the front with three men of his tribe mounted beside him. Point at a raider and pull
-## the trigger: the old man and his men fire on him, and he is knocked from his saddle, gets up
-## and runs off over the dunes while his mount bolts. Unhorse them all and the raid is beaten:
+## the trigger: the old man and his men fire on him, and he falls from his saddle and is gone,
+## while his mount bolts back over the dunes. Unhorse them all and the raid is beaten:
 ## the old man's men fire into the sky for joy.
-## (No one is hurt to see: the raiders' shots go wide, and the unhorsed ones flee on foot.)
 ##
 ## Lives under Diorama.stage: positions are in the diorama's own metres (Godot axes).
 
@@ -18,12 +17,12 @@ const CAMEL := "res://assets/world/props/camel_ride.glb"   # tools/blender/build
 const HORSE := "res://assets/world/props/horse.glb"
 const RIDER_SCALE := Diorama.LIFE_SCALE.shaib
 const HIPS := 0.5                     # the rider's hips above his feet, in his own units
-const OLD_MAN := Vector3(0.0, 0.0, 4.6)
+const OLD_MAN := Vector3(0.0, 0.0, 2.6)   # in front of the tent, in the open
 # the old man's men, mounted beside him: [where, camel?, dress]
 const DEFENDERS := [
-	[Vector3(-3.4, 0.0, 5.0), true, {"head": "ghutra"}],
-	[Vector3(3.4, 0.0, 5.0), false, {"thobe": "thobe_beige"}],
-	[Vector3(-6.4, 0.0, 5.8), false, {"thobe": "thobe_grey", "head": "ghutra"}],
+	[Vector3(-3.3, 0.0, 2.9), true, {"head": "ghutra"}],
+	[Vector3(3.3, 0.0, 2.9), false, {"thobe": "thobe_beige"}],
+	[Vector3(6.4, 0.0, 3.4), false, {"thobe": "thobe_grey", "head": "ghutra"}],
 ]
 # the raiders, in waves: [seconds after the start, x where they come over the dunes, camel?]
 const RAIDERS := [
@@ -33,7 +32,7 @@ const RAIDERS := [
 ]
 const RAIDER_DRESS := [{"thobe": "thobe_grey"}, {"thobe": "thobe_beige"}, {}, {"thobe": "thobe_grey", "bisht": "bisht"}]
 const RIM_Z := -12.6                  # where they come over the dunes
-const NEAR_Z := -0.5                  # how close they ride before they wheel away again
+const NEAR_Z := -2.2                  # how close they ride before they wheel away again
 const BACK_Z := -6.0                  # how far back they wheel before coming on again
 const GALLOP := 3.4                   # metres a second
 const HINT_AFTER := 9.0
@@ -230,9 +229,12 @@ func _ride(m: Dictionary, dt: float) -> void:
 			"wheel":
 				m["state"] = "charge"
 				m["to"] = Vector3(clampf(root.position.x + randf_range(-3, 3), -7, 7), 0, NEAR_Z - randf() * 1.5)
-			"bolt":
+			"bolt":   # over the crest and out of sight, never on past the edge of the scene
 				m["state"] = "gone"
-				root.queue_free()
+				TableFx.burst(self, root.position + Vector3(0, 0.6, 0), [Color("e8cf9a"), Color("d2b077")], 0.7, 30)
+				var tw := create_tween()
+				tw.tween_property(root, "scale", Vector3.ONE * 0.01, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+				tw.tween_callback(root.queue_free)
 				return
 		return
 	var dir := flat.normalized()
@@ -297,15 +299,15 @@ func _fire_on(m: Dictionary) -> void:
 	get_tree().create_timer(0.35).timeout.connect(func(): _unhorse(m))
 
 
-## Knocked from the saddle: he tumbles back off his mount onto the sand, gets up and runs off
-## over the dunes; the mount bolts back the way it came.
+## Shot from the saddle: he falls back off his mount onto the sand and lies still, then is
+## gone in a puff of sand; the mount bolts back over the dunes the way it came.
 func _unhorse(m: Dictionary) -> void:
 	var root: Node3D = m.root
 	var r: Node3D = m.rider
 	_down += 1
 	if is_instance_valid(root):
 		m["state"] = "bolt"
-		m["to"] = Vector3(root.position.x + randf_range(-2, 2), 0, RIM_Z - 3.0)
+		m["to"] = Vector3(clampf(root.position.x, -7.0, 7.0), 0, RIM_Z + 0.4)
 	if r and is_instance_valid(r):
 		var xf := r.global_transform
 		r.get_parent().remove_child(r)
@@ -317,25 +319,18 @@ func _unhorse(m: Dictionary) -> void:
 		var land := _ground(r.position + back)
 		TableKit.sfx(self, "soft_reject", r.position, -6.0)
 		var ap := _anim(r)
+		if ap:
+			ap.pause()   # limp: the ride is over
 		var tw := create_tween()
 		tw.tween_property(r, "position", Vector3(r.position.x + back.x, land, r.position.z + back.z), 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.parallel().tween_property(r, "rotation:x", -1.3, 0.55)
 		tw.tween_callback(func():
 			TableFx.burst(self, r.position + Vector3(0, 0.2, 0), [Color("e8cf9a"), Color("d2b077")], 0.6, 30)
 			TableKit.sfx(self, "brick_drop", r.position, -8.0))
-		tw.tween_interval(0.9)
-		tw.tween_property(r, "rotation:x", 0.0, 0.45)
+		tw.tween_interval(1.8)
 		tw.tween_callback(func():
-			TableKit.face(r, Vector3(0, 0, -1))
-			if ap and ap.has_animation("walk"):
-				ap.get_animation("walk").loop_mode = Animation.LOOP_LINEAR
-				ap.play("walk", 0.2)
-				ap.speed_scale = 1.8)
-		var away := Vector3(r.position.x + randf_range(-2, 2), 0, RIM_Z - 3.0)
-		tw.tween_method(func(k: float):
-			var q := (r.position + back).lerp(away, k)
-			r.position = Vector3(q.x, _ground(q), q.z), 0.0, 1.0, 5.0)
-		tw.tween_callback(r.queue_free)
+			TableFx.burst(self, r.position + Vector3(0, 0.3, 0), [Color("e8cf9a"), Color("d2b077")], 0.8, 40)
+			r.queue_free())
 	if _down >= RAIDERS.size():
 		_win()
 
