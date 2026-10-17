@@ -22,12 +22,12 @@ const ARC_R := 3.2
 const KEEPSAKES := ["cat", "block", "key", "truck", "lantern", "drum", "star", "dallah", "palm"]
 const PLACES := [4, 7, 1, 8, 2, 5, 0, 6, 3]   # which arc place each keepsake stands on (shuffled)
 const DANCERS := [Vector3(-3.6, 0, -4.6), Vector3(-1.2, 0, -4.8), Vector3(1.2, 0, -4.8), Vector3(3.6, 0, -4.6)]  # in the riwaq
-const DANCER_DRESS := [{"bisht": "bisht", "head": "ghutra"}, {"thobe": "thobe_grey"}, {"agal": "agal_gold"}, {"thobe": "thobe_beige", "glasses": "glasses"}]
+const DANCER_DRESS := [{"bisht": "bisht", "head": "ghutra"}, {"thobe": "thobe_grey"}, {"head": "ghutra", "thobe": "thobe_beige"}, {"thobe": "thobe_beige", "glasses": "glasses"}]
 const HINT_AFTER := 20.0
 # the old men who come out to fire for joy: the door they come out of, where they stand, dress
 const SHOOTERS := [
 	[Vector3(-6.8, 0, 1.2), Vector3(-5.0, 0, 0.3), {"head": "ghutra"}],
-	[Vector3(-6.8, 0, 1.2), Vector3(-5.3, 0, 3.4), {"thobe": "thobe_grey", "agal": "agal_gold"}],
+	[Vector3(-6.8, 0, 1.2), Vector3(-5.3, 0, 3.4), {"thobe": "thobe_grey"}],
 	[Vector3(6.8, 0, 1.2), Vector3(5.0, 0, 0.3), {"bisht": "bisht"}],
 	[Vector3(6.8, 0, 1.2), Vector3(5.3, 0, 3.4), {"thobe": "thobe_beige", "head": "ghutra"}],
 	[Vector3(1.75, 0, -5.8), Vector3(4.6, 0, -2.6), {"glasses": "glasses"}],

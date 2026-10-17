@@ -666,6 +666,8 @@ func _process(dt: float) -> void:
 			level.pointer(false, null)
 		return
 	if diorama == null or level == null:
+		if xr:
+			rig.set_pointer(_hand, null, true)   # between levels: a plain ray, never one left frozen
 		return
 	var info := _level_hover(ray)
 	_show_hover(info)
@@ -745,6 +747,8 @@ func _scene_hit(ray: Array) -> Dictionary:
 	if hit.is_empty():
 		return {}
 	var n: Vector3 = hit.get("normal", Vector3.UP)
+	if n.dot(d) > 0.0:
+		n = -n   # the face the ray meets, so the ring lies on the near side
 	return {"point": diorama.model.to_global(hit.position), "normal": (diorama.model.global_basis * n).normalized()}
 
 

@@ -18,11 +18,11 @@ const OLD_MAN := Vector3(0.0, 0.0, 2.8)
 # what he wants, what he gives, his dress
 const STALLS := [
 	[Vector3(-6.0, 0, -4.4), 0.0, Vector3(-6.0, 0, -2.2), "dates", "cloth", {"head": "ghutra", "thobe": "thobe_grey"}],
-	[Vector3(-2.0, 0, -4.4), 0.0, Vector3(-2.0, 0, -2.2), "jar", "coffee", {"agal": "agal_gold"}],
+	[Vector3(-2.0, 0, -4.4), 0.0, Vector3(-2.0, 0, -2.2), "jar", "coffee", {"thobe": "thobe_beige"}],
 	[Vector3(2.0, 0, -4.4), 0.0, Vector3(2.0, 0, -2.2), "coffee", "dallah", {"bisht": "bisht", "head": "ghutra"}],
 	[Vector3(6.0, 0, -4.4), 0.0, Vector3(6.0, 0, -2.2), "cloth", "jar", {"thobe": "thobe_beige", "glasses": "glasses"}],
 	[Vector3(-8.0, 0, 0.0), 90.0, Vector3(-5.5, 0, 0.0), "dates", "incense", {"misbaha": "misbaha"}],
-	[Vector3(8.0, 0, 0.0), -90.0, Vector3(5.5, 0, 0.0), "incense", "dates", {"head": "ghutra", "agal": "agal_gold"}],
+	[Vector3(8.0, 0, 0.0), -90.0, Vector3(5.5, 0, 0.0), "incense", "dates", {"head": "ghutra"}],
 ]
 const START_ITEM := "dates"
 const GOAL := "dallah"

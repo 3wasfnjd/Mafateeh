@@ -21,7 +21,7 @@ const HOST := Vector3(1.0, 0.0, 1.2)
 const DAKKA_Y := 0.45
 const SEATS := [Vector3(-3.6, 0, -4.5), Vector3(0.0, 0, -4.7), Vector3(3.6, 0, -4.5)]
 const GUESTS := [{"head": "ghutra", "thobe": "thobe_grey", "bisht": "bisht"},
-	{"head": "ghutra", "agal": "agal_gold", "glasses": "glasses"},
+	{"head": "ghutra", "glasses": "glasses"},
 	{"thobe": "thobe_beige", "misbaha": "misbaha"}]
 const HINT_AFTER := 20.0
 const FLAME := Color("ffc46b")

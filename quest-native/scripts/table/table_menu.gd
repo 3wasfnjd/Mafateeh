@@ -36,6 +36,7 @@ const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
 const LEVELS := 10
 const SITE := "https://abodengames.com"   # the studio's games
+const LOGO := "res://assets/brand/aboden_logo.png"   # the studio's logo (white on transparency)
 const TABS := [["levels", "levels", "المراحل", "Levels"], ["wardrobe", "wardrobe", "خزانة الشايب", "Wardrobe"],
 	["world", "atmosphere", "الأجواء", "Atmosphere"], ["settings", "settings", "الإعدادات", "Settings"],
 	["about", "about", "عن اللعبة", "About"]]
@@ -301,13 +302,28 @@ func _hint() -> void:
 func _about() -> void:
 	var lines := [
 		[_say("مفاتيح", "Mafateeh"), 0.082, 64],
-		[_say("لعبة من عبودين قيمز: المباني والشخصيات من تصميمهم", "A game by Aboden Games, who made its buildings and characters"), 0.042, 34],
+		[_say("لعبة من عبودين قيمز: المباني والشخصيات من تصميمهم", "Buildings and characters by Aboden Games"), 0.042, 34],
 		[_say("بعض الموديلات من Folio 2025 لـ Bruno Simon (MIT)", "Some models from Folio 2025 by Bruno Simon (MIT)"), 0.0, 30],
 		[_say("المحرك Godot", "Engine: Godot"), -0.03, 30],
 		[_say("لا اتصال بالإنترنت ولا تتبع: كل شي يبقى في نظارتك", "No network, no tracking: everything stays on your headset"), -0.06, 28],
 	]
 	for l in lines:
-		_content.add_child(text(l[0], Vector3(CX + 0.01, l[1], 0.004), l[2]))
+		_content.add_child(text(l[0], Vector3(CX + 0.07, l[1], 0.004), l[2]))
+	# the studio's logo beside them, in the plaque's dark brown
+	var logo := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.125, 0.13)
+	logo.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_texture = load(LOGO)
+	m.albedo_color = ACCENT_DARK
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	m.render_priority = 2
+	logo.material_override = m
+	logo.position = Vector3(-0.205, 0.03, 0.004)
+	_content.add_child(logo)
 
 
 # --- the pointer ---------------------------------------------------------------------------------

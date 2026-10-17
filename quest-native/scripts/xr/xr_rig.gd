@@ -34,9 +34,11 @@ var _prev := {}
 var _grip_time := {"left": -1.0, "right": -1.0}
 var _dragging := ""
 var _environment: Environment
-# Aim smoothing (a one-euro filter): strong while the hand is nearly still, so tremor does not
-# shake the pointer, light when it moves fast, so it never lags. A few recent rays are kept,
-# because pulling the trigger dips the controller: a press uses the aim from just before it.
+# Aim smoothing (a one-euro filter) on the direction only: strong while the hand is nearly
+# still, so tremor does not shake the pointer, light when it turns fast, so it never lags. The
+# ray always starts at the controller itself (smoothing where it starts made it trail behind the
+# hand and lean). A few recent rays are kept, because pulling the trigger dips the controller: a
+# press uses the aim from just before it.
 const AIM_MIN_CUTOFF := 1.3   # Hz, at rest
 const AIM_BETA := 0.05        # extra Hz per degree a second of turning
 const PRESS_LOOKBACK := 3     # frames (about 40 ms at 72 Hz)
@@ -70,13 +72,13 @@ func setup(environment: Environment) -> void:
 			grip.add_child(_fallback_controller())
 		var ray := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.0012
-		cyl.bottom_radius = 0.0025
+		cyl.top_radius = 0.0016
+		cyl.bottom_radius = 0.003
 		cyl.height = 1.0
 		cyl.radial_segments = 6
 		cyl.rings = 1
 		ray.mesh = cyl
-		ray.material_override = _unshaded(Color(1.0, 0.92, 0.7, 0.55), true)
+		ray.material_override = _unshaded(Color(1.0, 0.92, 0.7, 0.85), true)
 		ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		ray.top_level = true   # drawn along the smoothed aim, not the raw controller
 		ray.visible = false
@@ -231,7 +233,7 @@ func _smooth_aim(hand: String, delta: float) -> void:
 	var cutoff := AIM_MIN_CUTOFF + AIM_BETA * turn
 	var k := 1.0 / (1.0 + 1.0 / (TAU * cutoff * delta))
 	a.d = (a.d as Vector3).slerp(r[1], k).normalized()
-	a.o = (a.o as Vector3).lerp(r[0], k)
+	a.o = r[0]
 	a.hist.push_front([a.o, a.d])
 	if a.hist.size() > PRESS_LOOKBACK + 1:
 		a.hist.pop_back()
@@ -295,6 +297,8 @@ func _process(delta: float) -> void:
 		var ok := tracked(hand)
 		if ok:
 			_smooth_aim(hand, delta)
+		else:
+			_aim.erase(hand)   # start afresh when it comes back, not from where it was lost
 		if ok and now.trigger and not was.get("trigger", false):
 			var r := press_ray(hand)
 			trigger_pressed.emit(hand, r[0], r[1])
