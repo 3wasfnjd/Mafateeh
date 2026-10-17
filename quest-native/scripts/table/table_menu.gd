@@ -6,9 +6,9 @@ extends Node3D
 ##   levels    the ten levels with their stars and gems, the totals, play / carry on
 ##   wardrobe  the old man turning on his stand, and all his clothes to try on
 ##   world     weather by itself, drifting dust, day and night going round, set the scene down
-##             elsewhere, the headset's room setup
-##   settings  music, effects and surroundings volume; which hand walks; vibration; players;
-##             the language (Arabic or English; at first the headset's own)
+##             elsewhere (the room's tables come from the headset's own room scan, by themselves)
+##   settings  music, effects and surroundings volume; which hand walks; vibration; the
+##             language (Arabic or English; at first the headset's own). One player only.
 ##   about     who made it, and whose work it uses
 ##   thanks    (after the last level) thank you, the studio's site (opens it; and a QR code), play again
 ##   close     back to the game (only while a level is on the table)
@@ -19,7 +19,6 @@ signal play_level(n: int)     # 0: the next level not yet won
 signal closed
 signal replace_table
 signal settings_changed
-signal capture_room           # open the headset's room setup (so it knows the tables)
 
 const W := 0.62
 const H := W * 541.0 / 1024.0
@@ -43,8 +42,6 @@ const TABS := [["levels", "levels", "المراحل", "Levels"], ["wardrobe", "w
 
 var page := "levels"
 var stage := 0                # the level on the table (0: none yet)
-var session := [0, 0]         # two players: stars won this sitting by each
-var turn := 0                 # two players: whose turn (0 or 1)
 var _buttons: Array = []      # {at, r, action, label}
 var _hot := -1
 var _hover_ring: MeshInstance3D
@@ -157,13 +154,6 @@ func _levels() -> void:
 	_content.add_child(text("%s/%s" % [_digits(tot), _digits(LEVELS * 3)], Vector3(0.088 + side, y, 0.004), 46))
 	_icon(_content, "gem", Vector3(0.006, y, 0.004), 0.02, GEM)
 	_content.add_child(text("%s/%s" % [_digits(gems), _digits(LEVELS)], Vector3(0.006 + side, y, 0.004), 46))
-	if save and save.players == 2:
-		for pl in 2:
-			var x := -0.08 - pl * 0.06
-			if turn == pl:
-				_disc(_content, Vector3(x, y, 0.003), 0.017, ACCENT_DARK)
-			_icon(_content, "players_1", Vector3(x, y, 0.005), 0.02, Color.WHITE if turn == pl else ACCENT)
-			_content.add_child(text(_digits(session[pl]), Vector3(x - 0.024, y, 0.004), 46))
 
 
 func _wardrobe() -> void:
@@ -211,8 +201,6 @@ func _world() -> void:
 	_toggle(Vector3(-0.01, y, 0.004), "daynight", cycle_on, _say("الليل والنهار يتبدلون", "Day and night go round"), flip_cycle, 0.032)
 	_button(Vector3(-0.095, y, 0.004), 0.032, "board", ACCENT, Color.WHITE, _say("ثبّت المشهد في مكان ثاني", "Set the scene down somewhere else"),
 		func(): replace_table.emit())
-	_button(Vector3(-0.095, -0.075, 0.004), 0.024, "mr", ACCENT, Color.WHITE, _say("إعداد الغرفة: خل النظارة تتعرف على طاولاتك", "Room setup: let the headset learn your tables"),
-		func(): capture_room.emit())
 
 
 func _settings() -> void:
@@ -245,15 +233,9 @@ func _settings() -> void:
 	var buzz := func(): save.haptics = not save.haptics
 	_toggle(Vector3(0.085, y2, 0.004), "haptics", save.haptics, _say("الاهتزاز", "Vibration"), buzz, 0.024)
 	var english: bool = not save.arabic()
-	_button(Vector3(-0.045, y2, 0.004), 0.024, "language", ACCENT, Color.WHITE, "العربية" if english else "English",
+	_button(Vector3(0.02, y2, 0.004), 0.024, "language", ACCENT, Color.WHITE, "العربية" if english else "English",
 		func():
 			save.language = "ar" if english else "en"
-			_changed())
-	var two: bool = save.players == 2
-	_button(Vector3(0.02, y2, 0.004), 0.024, "players_2" if two else "players_1", ACCENT, Color.WHITE,
-		_say("لاعبين بالدور", "Two players, taking turns") if two else _say("لاعب واحد", "One player"),
-		func():
-			save.players = 1 if two else 2
 			_changed())
 
 

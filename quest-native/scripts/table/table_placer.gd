@@ -110,6 +110,8 @@ func update(ray: Array, head: Transform3D, stick: Vector2, dt: float) -> void:
 	if absf(stick.y) > 0.25:
 		k = clampf(k * exp(stick.y * 0.9 * dt), SIZE_MIN, SIZE_MAX)
 	var hit := _find(ray, head)
+	if hit.is_empty() and not has_spot:
+		hit = _nearest_table(head)   # the room scan's table in front, before the pointer finds one
 	if hit.is_empty():
 		_set_hot(-1)
 		_marker.visible = has_spot   # keep the last spot rather than flicker away
@@ -181,6 +183,28 @@ func _find(ray: Array, head: Transform3D) -> Dictionary:
 			continue
 		return {"point": p, "fit": k, "table": -1}
 	return {}
+
+
+## The detected table nearest in front of the player, as a spot ({point, fit, table}), or {}.
+func _nearest_table(head: Transform3D) -> Dictionary:
+	var list := _tables()
+	var fwd := -head.basis.z
+	fwd.y = 0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var best := {}
+	var best_score := INF
+	for i in list.size():
+		var s: Dictionary = list[i]
+		var to: Vector3 = s.center - head.origin
+		var flat := Vector3(to.x, 0, to.z)
+		var d := flat.length()
+		if d > 3.0 or d < 0.15:
+			continue
+		var score := d - flat.normalized().dot(fwd)
+		if score < best_score:
+			best_score = score
+			best = {"point": s.center, "fit": minf(k, minf(s.size.x, s.size.y) * 0.95 / ISLAND), "table": i}
+	return best
 
 
 func _set_hot(i: int) -> void:

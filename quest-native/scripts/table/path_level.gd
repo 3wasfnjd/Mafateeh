@@ -178,21 +178,35 @@ func _extend(a: Vector3, q: Vector3) -> void:
 		else:
 			_bump(q)
 		return
-	_path.append(q)
+	_add(q)
 	_redraw()
+
+
+## Adds a point to the line. Drawing back over the line (to and fro, or round in a loop)
+## takes it back to that place instead of adding the detour: the line, and so the cat's way,
+## is always one simple path, however often the player goes over it.
+const RETRACE := 0.45
+func _add(q: Vector3) -> void:
+	for i in maxi(0, _path.size() - 2):
+		if _path[i].distance_to(q) < RETRACE:
+			_path.resize(i + 1)
+			if _path[i].distance_to(q) > 0.1:
+				_path.append(q)
+			return
+	_path.append(q)
 
 
 func _through_gate(a: Vector3, q: Vector3) -> void:
 	var inward := a.z > 6.25
 	var pts := [GATE_OUT, GATE_IN] if inward else [GATE_IN, GATE_OUT]
 	if (pts[0] as Vector3).distance_to(a) > 0.05 and not _crosses(a, pts[0]):
-		_path.append(pts[0])
+		_add(pts[0])
 	elif _crosses(a, pts[0]):
 		_bump(q)
 		return
-	_path.append(pts[1])
+	_add(pts[1])
 	if not _blocked(q) and not _crosses(pts[1], q):
-		_path.append(q)
+		_add(q)
 	_redraw()
 
 

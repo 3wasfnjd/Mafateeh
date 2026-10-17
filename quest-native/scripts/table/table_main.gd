@@ -78,8 +78,6 @@ var _placer: TablePlacer   # finding the surface, before the scene appears
 var _place_began := 0.0
 var _clock_running := false
 var _placing := false
-var _turn := 0              # two players: whose turn
-var _session := [0, 0]      # two players: stars won this sitting
 
 
 func _ready() -> void:
@@ -154,8 +152,6 @@ func _show_menu(page := "levels") -> void:
 	var m := TableMenu.new()
 	m.page = page
 	m.stage = stage if diorama else 0
-	m.turn = _turn
-	m.session = _session
 	card = m
 	add_child(m)
 	_place_card(true)
@@ -166,9 +162,6 @@ func _show_menu(page := "levels") -> void:
 			_close_menu()
 			_begin_place())
 	m.settings_changed.connect(_apply_settings)
-	m.capture_room.connect(func():
-		if surfaces:
-			surfaces.capture_room())
 
 
 func _close_menu() -> void:
@@ -322,16 +315,12 @@ func _on_level_won() -> void:
 	if save:
 		save.table_stars[won] = maxi(save.table_stars.get(won, 0), earned)
 		save.save()
-	if save and save.players == 2:
-		_session[_turn] += earned
 	TableFx.stars(diorama.stage, Vector3(0, 9.0, 0), earned)
 	if won == 9 and (save == null or save.weather_pref != "clear"):
 		_weather.shower(9.0)   # the farm is watered: a shower to go with it
 	get_tree().create_timer(12.0 if won >= LAST_LEVEL else 4.5).timeout.connect(func():
 		if r != _round or diorama == null:
 			return  # the player already started again
-		if save and save.players == 2:
-			_turn = 1 - _turn
 		if won >= LAST_LEVEL:
 			_show_menu("thanks")   # the end: thank you, and where to find the studio's games
 			return
