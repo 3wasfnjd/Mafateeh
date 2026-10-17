@@ -17,8 +17,8 @@ const DIST := 2.1           # metres in front of the player
 const LOGO_IN := 1.2
 const LOGO_HOLD := 5.0      # the studio's name stays a good while (shown only here: the system splash is off)
 const LOGO_OUT := 1.2
-const GATE_W := 1.0         # the doorway
-const GATE_H := 1.5
+const GATE_W := 0.76        # the doorway (a little smaller than a real one: it is a way in, not a wall)
+const GATE_H := 1.14
 
 var _logo: MeshInstance3D
 var _gate: Node3D
@@ -137,36 +137,108 @@ func _build_gate() -> void:
 	add_child(_gate)
 	var mud := _mat(MUD_TEX, Color("e9c9a0"))
 	mud.uv1_triplanar = true
-	mud.uv1_scale = Vector3(1.6, 1.6, 1.6)
-	var pw := 0.26                     # the mud pillars either side
+	mud.uv1_scale = Vector3(2.6, 2.6, 2.6)
+	var plaster := _mat(MUD_TEX, Color("f3dcb6"))   # the lighter lime-washed bands
+	plaster.uv1_triplanar = true
+	plaster.uv1_scale = Vector3(3.2, 3.2, 3.2)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color("5b3a22")
+	wood.roughness = 0.8
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color("2a1a10")
+	dark.roughness = 1.0
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color("3a3430")
+	iron.metallic = 0.6
+	iron.roughness = 0.45
+	var pw := 0.2                      # the mud pillars either side, tapering as they rise
+	var top := GATE_H + 0.2
 	for s in [-1, 1]:
-		_box(_gate, Vector3(pw, GATE_H + 0.26, 0.3), Vector3(s * (GATE_W / 2 + pw / 2), (GATE_H + 0.26) / 2, 0), mud)
-	_box(_gate, Vector3(GATE_W + pw * 2 + 0.08, 0.26, 0.34), Vector3(0, GATE_H + 0.13, 0), mud)
-	# the Najdi crenels along the top
-	var n := 7
+		var x: float = s * (GATE_W / 2 + pw / 2 + 0.03)
+		var pillar := MeshInstance3D.new()
+		var c := CylinderMesh.new()
+		c.radial_segments = 4
+		c.rings = 1
+		c.bottom_radius = pw * 0.78
+		c.top_radius = pw * 0.66
+		c.height = top
+		pillar.mesh = c
+		pillar.material_override = mud
+		pillar.rotation.y = PI / 4
+		pillar.scale = Vector3(1, 1, 1.4)   # deeper than wide
+		pillar.position = Vector3(x, top / 2, 0)
+		pillar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_gate.add_child(pillar)
+		_box(_gate, Vector3(pw * 1.25, 0.08, 0.34), Vector3(x, 0.04, 0), plaster)       # its plinth
+		_box(_gate, Vector3(0.035, GATE_H, 0.06), Vector3(s * (GATE_W / 2 + 0.012), GATE_H / 2, 0.02), wood)   # door jamb
+	var span := GATE_W + pw * 2 + 0.16
+	_box(_gate, Vector3(GATE_W + 0.06, 0.05, 0.08), Vector3(0, GATE_H + 0.02, 0.02), wood)      # the lintel beam
+	_box(_gate, Vector3(span, 0.2, 0.32), Vector3(0, GATE_H + 0.15, 0), mud)                    # the mud over it
+	_box(_gate, Vector3(span + 0.02, 0.035, 0.34), Vector3(0, GATE_H + 0.27, 0), plaster)       # the coping band
+	for i in 6:   # the palm-trunk rafter ends that show in Najdi walls
+		var r := MeshInstance3D.new()
+		var cy := CylinderMesh.new()
+		cy.top_radius = 0.018
+		cy.bottom_radius = 0.018
+		cy.height = 0.1
+		cy.radial_segments = 8
+		r.mesh = cy
+		r.material_override = wood
+		r.rotation.x = PI / 2
+		r.position = Vector3(-span / 2 + 0.12 + (span - 0.24) * i / 5.0, GATE_H + 0.21, 0.17)
+		_gate.add_child(r)
+	for i in 3:   # triangular vents in the mud, dark inside
+		var v := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.07, 0.06, 0.02)
+		v.mesh = pm
+		v.material_override = dark
+		v.position = Vector3((i - 1) * 0.16, GATE_H + 0.12, 0.162)
+		_gate.add_child(v)
+	# the stepped Najdi crenels (شرفات) along the top: a little block with a point on it
+	var n := 9
 	for i in n:
-		var x := -(GATE_W / 2 + pw) + (GATE_W + pw * 2) * (i + 0.5) / n
-		var c := _box(_gate, Vector3(0.1, 0.12, 0.1), Vector3(x, GATE_H + 0.32, 0), mud)
-		c.rotation.z = PI / 4 if i % 2 == 0 else 0.0
-	# the two painted leaves, hinged at the pillars, opening away from the player
+		var x := -span / 2 + span * (i + 0.5) / n
+		_box(_gate, Vector3(0.07, 0.05, 0.1), Vector3(x, GATE_H + 0.31, 0), mud)
+		var tri := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.07, 0.07, 0.1)
+		tri.mesh = pm
+		tri.material_override = mud
+		tri.position = Vector3(x, GATE_H + 0.37, 0)
+		_gate.add_child(tri)
+	# the two painted leaves, hinged at the jambs, opening away from the player: a dark wood
+	# frame round each, rows of iron studs, an iron ring to pull it by
 	var door := _mat(DOOR_TEX)
 	for s in [-1, 1]:
 		var hinge := Node3D.new()
-		hinge.position = Vector3(s * GATE_W / 2, 0, -0.04)
+		hinge.position = Vector3(s * GATE_W / 2, 0, -0.03)
 		_gate.add_child(hinge)
-		var leaf := _box(hinge, Vector3(GATE_W / 2, GATE_H, 0.05), Vector3(-s * GATE_W / 4, GATE_H / 2, 0), door)
-		var ring := MeshInstance3D.new()   # an iron ring to pull it by
+		var lw := GATE_W / 2
+		var leaf := _box(hinge, Vector3(lw, GATE_H, 0.045), Vector3(-s * lw / 2, GATE_H / 2, 0), door)
+		for e in [[Vector3(lw, 0.035, 0.055), Vector3(0, GATE_H / 2 - 0.0175, 0)], [Vector3(lw, 0.035, 0.055), Vector3(0, -GATE_H / 2 + 0.0175, 0)],
+				[Vector3(0.03, GATE_H, 0.055), Vector3(s * (lw / 2 - 0.015), 0, 0)], [Vector3(lw, 0.025, 0.052), Vector3(0, 0.08, 0)]]:
+			_box(leaf, e[0], e[1], wood)
+		for row in [GATE_H * 0.32, -GATE_H * 0.18]:
+			for k in 4:
+				var stud := MeshInstance3D.new()
+				var sp := SphereMesh.new()
+				sp.radius = 0.008
+				sp.height = 0.016
+				sp.radial_segments = 6
+				sp.rings = 3
+				stud.mesh = sp
+				stud.material_override = iron
+				stud.position = Vector3(-lw / 2 + 0.05 + (lw - 0.1) * k / 3.0, row, 0.026)
+				leaf.add_child(stud)
+		var ring := MeshInstance3D.new()
 		var t := TorusMesh.new()
-		t.inner_radius = 0.022
-		t.outer_radius = 0.03
+		t.inner_radius = 0.016
+		t.outer_radius = 0.023
 		ring.mesh = t
-		var iron := StandardMaterial3D.new()
-		iron.albedo_color = Color("3a3430")
-		iron.metallic = 0.6
-		iron.roughness = 0.5
 		ring.material_override = iron
 		ring.rotation.x = PI / 2
-		ring.position = Vector3(s * GATE_W / 4 - s * 0.06, 0, 0.035)
+		ring.position = Vector3(s * lw / 2 - s * 0.05, -0.02, 0.03)
 		leaf.add_child(ring)
 		_leaves.append(hinge)
 	# the light behind the leaves
@@ -219,6 +291,7 @@ func _build_gate() -> void:
 	_gate.add_child(_motes)
 	_key = _build_key()
 	_key.position = Vector3(0, GATE_H * 0.48, 0.9)
+	_key.scale = Vector3.ONE * 0.8
 	_key.visible = false
 	_gate.add_child(_key)
 	_title = Node3D.new()
@@ -226,12 +299,12 @@ func _build_gate() -> void:
 	_title.position = Vector3(0, GATE_H * 0.62, 0.25)
 	_gate.add_child(_title)
 	var save = get_node_or_null("/root/Save")
-	var name_l := _label("مفاتيح", 0.0, 220, GOLD)
+	var name_l := _label("مفاتيح", 0.0, 165, GOLD)
 	name_l.outline_size = 18
 	name_l.outline_modulate = Color("4f3826")
 	_title.add_child(name_l)
-	_title.add_child(_label("MAFATEEH", -0.21, 70, CREAM))
-	_prompt = _label(save.text("اضغط الزناد لتبدأ", "Press the trigger to start") if save else "اضغط الزناد لتبدأ", -GATE_H * 0.62 + 0.08, 64, CREAM)
+	_title.add_child(_label("MAFATEEH", -0.16, 52, CREAM))
+	_prompt = _label(save.text("اضغط الزناد لتبدأ", "Press the trigger to start") if save else "اضغط الزناد لتبدأ", -GATE_H * 0.62 + 0.08, 50, CREAM)
 	_prompt.visible = false
 	_title.add_child(_prompt)
 
