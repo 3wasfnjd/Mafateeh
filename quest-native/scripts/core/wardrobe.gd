@@ -53,6 +53,8 @@ static func apply(model: Node, w: Dictionary) -> void:
 			mi.visible = w.get("glasses", "") == "glasses"
 		elif n.begins_with("Misbaha"):
 			mi.visible = w.get("misbaha", "") == "misbaha"
+		elif n.begins_with("Litham"):   # the cloth across the face: raiders only, never the wardrobe
+			mi.visible = w.get("litham", false) == true
 		if mi.mesh == null:
 			continue
 		for i in mi.mesh.get_surface_count():

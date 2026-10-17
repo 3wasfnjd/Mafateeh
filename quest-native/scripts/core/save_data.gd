@@ -35,6 +35,7 @@ var language := ""  # "ar" | "en"; empty until chosen: follows the headset langu
 var dev_time := ""  # override: dawn/day/sunset/night
 var dev_weather := ""  # override: clear/rain
 # The table game (scripts/table): its own progress, apart from the board levels above.
+const TABLE_LEVELS := 11
 var table_stars := {}  # table level -> best stars (1..3)
 var table_gems := {}  # table level -> true once its hidden gem was found
 var music_volume := 1.0
@@ -104,17 +105,21 @@ func load_data() -> void:
 	language = str(cfg.get_value("settings", "language", ""))
 	quality = "balanced" if str(cfg.get_value("settings", "quality", "high")) == "balanced" else "high"
 	table_stars = {}
+	# saves from before the raid (level 10) was put in front of the chest kept the chest as 10
+	var shift := int(cfg.get_value("table", "levels", 10)) < TABLE_LEVELS
 	var ts: Variant = cfg.get_value("table", "stars", {})
 	if ts is Dictionary:
 		for k in ts:
-			if int(k) >= 1 and int(k) <= 10:
-				table_stars[int(k)] = clampi(int(ts[k]), 1, 3)
+			var n := int(k) + (1 if shift and int(k) == 10 else 0)
+			if n >= 1 and n <= TABLE_LEVELS:
+				table_stars[n] = clampi(int(ts[k]), 1, 3)
 	table_gems = {}
 	var tg: Variant = cfg.get_value("table", "gems", {})
 	if tg is Dictionary:
 		for k in tg:
-			if int(k) >= 1 and int(k) <= 10 and tg[k]:
-				table_gems[int(k)] = true
+			var n := int(k) + (1 if shift and int(k) == 10 else 0)
+			if n >= 1 and n <= TABLE_LEVELS and tg[k]:
+				table_gems[n] = true
 	music_volume = clampf(float(cfg.get_value("settings", "music_volume", 1.0)), 0.0, 1.0)
 	players = 2 if int(cfg.get_value("settings", "players", 1)) == 2 else 1
 	current_level = mini(current_level, unlocked_level) if not dev_tools_available() else current_level
@@ -147,6 +152,7 @@ func save() -> void:
 	cfg.set_value("settings", "dust", dust)
 	cfg.set_value("settings", "language", language)
 	cfg.set_value("settings", "quality", quality)
+	cfg.set_value("table", "levels", TABLE_LEVELS)
 	cfg.set_value("table", "stars", table_stars)
 	cfg.set_value("table", "gems", table_gems)
 	cfg.set_value("settings", "music_volume", music_volume)

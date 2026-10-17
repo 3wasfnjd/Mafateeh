@@ -304,14 +304,18 @@ func _win() -> void:
 	tw.tween_callback(func():
 		_sfx("seq_3", TROUGH_STOP, -4.0)
 		_prayer())
-	tw.tween_interval(9.0)
+	tw.tween_interval(12.0)   # long enough to see them bow and prostrate
 	tw.tween_callback(func():
 		_sfx("level_complete", TROUGH_STOP)
 		level_won.emit())
 
 
 ## The water is in: the old man walks into the tent to the front of its carpet, three men come
-## in from its open end to stand in a row behind him, and they pray.
+## in from its open end to stand in a row behind him, and they pray: he leads, and each of
+## them bows, prostrates and rises a moment after him, never before.
+const FOLLOW := 0.7    # seconds the men behind keep after the imam
+
+
 func _prayer() -> void:
 	var men: Array = []
 	if diorama.shaib:
@@ -323,14 +327,27 @@ func _prayer() -> void:
 		Wardrobe.apply(m, ROW_DRESS[i])
 		var aps := m.find_children("*", "AnimationPlayer", true, false)
 		men.append([m, aps[0] if not aps.is_empty() else null, ROW[i]])
+	var all_in := 0.0
 	for k in men.size():
-		_walk_to_pray(men[k][0], men[k][1], men[k][2], 0.3 + 0.4 * k)
+		all_in = maxf(all_in, _walk_in(men[k][0], men[k][1], men[k][2], 0.3 + 0.4 * k))
+	# once they all stand in their places: the imam begins, the row follows him
+	var tw := create_tween()
+	tw.tween_interval(all_in + 0.6)
+	for k in men.size():
+		var ap: AnimationPlayer = men[k][1]
+		tw.tween_callback(func():
+			if ap and ap.has_animation("pray"):
+				ap.get_animation("pray").loop_mode = Animation.LOOP_LINEAR
+				ap.play("pray", 0.3))
+		if k == 0:
+			tw.tween_interval(FOLLOW)
 
 
-## Walks a man to his place (the walk clip), turns him to face the way of the prayer, and he
-## prays.
-func _walk_to_pray(n: Node3D, ap: AnimationPlayer, to: Vector3, wait: float) -> void:
+## Walks a man to his place (the walk clip) and turns him to face the way of the prayer, standing.
+## Returns when he is there (seconds from now).
+func _walk_in(n: Node3D, ap: AnimationPlayer, to: Vector3, wait: float) -> float:
 	var d := to - n.position
+	var walk := maxf(0.4, Vector2(d.x, d.z).length() / WALK_SPEED)
 	var tw := create_tween()
 	tw.tween_interval(wait)
 	tw.tween_callback(func():
@@ -338,12 +355,12 @@ func _walk_to_pray(n: Node3D, ap: AnimationPlayer, to: Vector3, wait: float) -> 
 		if ap and ap.has_animation("walk"):
 			ap.get_animation("walk").loop_mode = Animation.LOOP_LINEAR
 			ap.play("walk", 0.2))
-	tw.tween_property(n, "position", to, maxf(0.4, Vector2(d.x, d.z).length() / WALK_SPEED))
+	tw.tween_property(n, "position", to, walk)
 	tw.tween_callback(func():
 		TableKit.face(n, FACING)
-		if ap and ap.has_animation("pray"):
-			ap.get_animation("pray").loop_mode = Animation.LOOP_LINEAR
-			ap.play("pray", 0.3))
+		if ap and ap.has_animation("idle"):
+			ap.play("idle", 0.3))
+	return wait + walk
 
 
 # --- solving (hints and the demo) --------------------------------------------------------------

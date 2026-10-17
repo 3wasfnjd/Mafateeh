@@ -160,6 +160,17 @@ const LAYOUTS := {
 		"shaib": [Vector3(-5.4, 0.0, 1.4), 70.0, "idle"],      # by the basin
 	},
 	10: {
+		"scene": "res://assets/world/scene_raid/scene_raid.glb",
+		"cats": [],
+		"cat_walk": [],
+		"sparrows": [Vector3(-9.0, 0, 3.0), Vector3(9.4, 0, 2.2), Vector3(-2.0, 0, 9.2), Vector3(6.4, 0, 8.4)],
+		"inside": 4,
+		"hens": [],
+		"hen_area": Rect2(),
+		"falcon": [Vector3(0.0, 0.0, 0.0), 8.0, 12.0],        # high over the fight
+		"shaib": [Vector3(0.0, 0.0, 4.6), 180.0, "ride"],      # on his horse (raid_level.gd mounts him)
+	},
+	11: {
 		"scene": "res://assets/world/scene10/scene10.glb",
 		"pigeons": [
 			[Vector3(-3.00, 3.250, -4.90), Vector3(-4.00, 3.250, -5.40), Vector3(-3.50, 3.250, -3.90), Vector3(-2.00, 3.250, -5.40), Vector3(-2.25, 3.250, -4.15), Vector3(-3.75, 3.250, -4.65), Vector3(-3.25, 3.250, -5.65)],

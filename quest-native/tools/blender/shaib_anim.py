@@ -766,6 +766,29 @@ def clip_pray(t, T):
     return p
 
 
+def clip_ride(t, T):
+    """Astride a camel or a horse at a gallop: knees out round its sides, feet hanging forward,
+    the body rocking with the stride, the left hand on the rein, the right holding the rifle
+    to the shoulder (the game turns the rifle to its mark). Loops (T = 0.7)."""
+    ph = 2 * math.pi * t / T
+    bob = math.sin(2 * ph)
+    p = mix(RELAXED_L, GRAB_R, {
+        "Hips": ((-4 + 3 * bob, 0, 0), (0, 0, 0.012 * bob)),
+        "Spine": (8 - 3 * bob, 0, 0), "Chest": (4, 0, -6), "Neck": (-4, 0, 6), "Head": (-6 + 2 * bob, 0, 4),
+        "Skirt.F": (-40, 0, 0), "Skirt.B": (30, 0, 0), "Skirt.L": (0, -50, 0), "Skirt.R": (0, 50, 0),
+        "Shemagh.B2": (6 * bob, 0, 0),
+    })
+    swing = 0.02 * math.sin(2 * ph + 0.6)
+    p["_legs"] = {
+        "L": (V((0.2, -0.13 + swing, 0.26)), V((0.6, -1, 0)), V((0.25, -0.9, -0.35))),
+        "R": (V((-0.2, -0.13 + swing, 0.26)), V((-0.6, -1, 0)), V((-0.25, -0.9, -0.35))),
+    }
+    p["_hands"] = {"L": (V((0.06, -0.3, 0.62 + 0.01 * bob)), V((0.8, 0.4, -0.5))),
+                   "R": (V((-0.1, -0.24, 0.8)), V((-1.0, 0.2, -0.6)))}
+    p["_hide"] = ["Cane", "CaneArm"]
+    return p
+
+
 CLIPS = [
     # name, seconds, function, loop
     ("idle", 4.8, clip_idle, True),
@@ -790,6 +813,7 @@ CLIPS = [
     ("sit_idle", 4.0, clip_sit_idle, True),
     ("sit_pet", 2.4, clip_sit_pet, True),
     ("pray", 12.0, clip_pray, True),
+    ("ride", 0.7, clip_ride, True),
 ]
 
 

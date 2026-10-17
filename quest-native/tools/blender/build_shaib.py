@@ -982,6 +982,30 @@ def cane_points(grip):
     return pts
 
 
+def build_litham():
+    """The shemagh's end drawn across the face (لثام), worn by raiders: from just under the eyes
+    over the nose, mouth and beard to under the chin, round the cheeks to where the cloth hangs
+    at the sides. Lies on the face and beard (the same envelope the shemagh drapes over)."""
+    pt = Part("Litham")
+    eye_z = H(EYE_C[1]).z
+    top, bottom = eye_z - 0.022, H(V((0, 0, 0.862))).z
+    rows = []
+    for i in range(13):
+        v = i / 12
+        row = []
+        for j in range(25):
+            u = j / 24
+            phi = math.radians(-112 + 224 * u)               # 0 = the front
+            lift = 0.012 * (abs(phi) / math.radians(112)) ** 2   # the upper edge rises towards the ears
+            z = lerp(top + lift, bottom, v)
+            th = math.copysign(math.pi - abs(phi), phi) if phi != 0 else math.pi
+            r = env_radius(th, z) + 0.007 + 0.004 * math.sin(math.pi * v)   # a little fullness
+            row.append(V((math.sin(phi) * r, PIVOT.y - math.cos(phi) * r, z)))
+        rows.append(row)
+    pt.grid(rows, "shemagh", uvf=lambda u, v: (u * 0.9, v * 0.45))
+    return pt
+
+
 def build_cane(name, grip, xform=None):
     pt = Part(name)
     pts = cane_points(grip)
@@ -1548,7 +1572,9 @@ def main():
     glasses.name = "Glasses"
     misbaha = mk(build_misbaha(), ["misbaha", "zari"], lambda q: {"Hand.L": 1.0}, sub=0)
     misbaha.name = "Misbaha"
-    wardrobe = [bisht, glasses, misbaha]
+    litham = mk(build_litham(), ["shemagh"], w_head, sub=1, solid=0.003)
+    litham.name = "Litham"
+    wardrobe = [bisht, glasses, misbaha, litham]
     for o in wardrobe:
         o.hide_render = True  # worn only when chosen in the wardrobe
     for o in (body_obj, thobe, shemagh, cane, cane_arm):

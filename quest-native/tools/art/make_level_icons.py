@@ -1,4 +1,4 @@
-"""Level numbers for the start card's level row: white Arabic-Indic digits (١ .. ١٠).
+"""Level numbers for the start card's level row: white Arabic-Indic digits (١ .. ١١).
 python3 make_level_icons.py [out_dir]   (default assets/ui/icons) -> level_<n>.png
 Drawn at 4x and downsampled."""
 import os
@@ -12,7 +12,7 @@ DIGITS = "٠١٢٣٤٥٦٧٨٩"
 S = 384
 
 os.makedirs(OUT, exist_ok=True)
-for n in range(1, 11):
+for n in range(1, 12):
     text = "".join(DIGITS[int(c)] for c in str(n))
     im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)

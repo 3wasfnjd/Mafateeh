@@ -27,19 +27,19 @@ const AMBIENCE := "res://audio/ambience/%s.ogg"
 const MUSIC_DB := -15.0
 const SFX_DB := -11.0
 const AMBIENCE_DB := -20.0
-const LAST_LEVEL := 10
+const LAST_LEVEL := 11
 const RISE_TIME := 1.1      # a scene sinking into the ground, or rising out of it
 # How long a level may take for three stars (twice as long: two; any longer: one). Seconds.
-const PAR := {1: 45.0, 2: 150.0, 3: 90.0, 4: 200.0, 5: 90.0, 6: 110.0, 7: 70.0, 8: 100.0, 9: 120.0, 10: 100.0}
+const PAR := {1: 45.0, 2: 150.0, 3: 90.0, 4: 200.0, 5: 90.0, 6: 110.0, 7: 70.0, 8: 100.0, 9: 120.0, 10: 75.0, 11: 100.0}
 # Where each level's gem hides (x, z in the scene's metres; it sits on whatever is there).
 const GEMS := {1: Vector2(-6.4, -5.2), 2: Vector2(5.8, -0.6), 3: Vector2(-9.2, 2.6), 4: Vector2(10.6, 5.6),
 	5: Vector2(6.6, -2.4), 6: Vector2(8.4, -6.6), 7: Vector2(-6.2, 5.4), 8: Vector2(7.4, 3.0),
-	9: Vector2(8.2, 5.4), 10: Vector2(-6.0, -1.8)}
+	9: Vector2(8.2, 5.4), 10: Vector2(10.2, 7.0), 11: Vector2(-6.0, -1.8)}
 # The weather each scene has when the atmosphere is "as designed", and its surroundings sound.
 # dust: drifting motes; gusts: blown sand now and then; rain: a passing shower now and then
 const WEATHER := {1: "dust rain", 2: "dust rain", 3: "dust rain gusts", 4: "dust gusts rain", 5: "dust rain",
-	6: "dust rain gusts", 7: "", 8: "dust rain", 9: "dust rain gusts", 10: ""}
-const AMBIENT := {1: "birds", 2: "birds", 3: "wind", 4: "wind", 5: "fire", 6: "birds", 7: "night", 8: "market", 9: "water", 10: "night"}
+	6: "dust rain gusts", 7: "", 8: "dust rain", 9: "dust rain gusts", 10: "dust gusts", 11: ""}
+const AMBIENT := {1: "birds", 2: "birds", 3: "wind", 4: "wind", 5: "fire", 6: "birds", 7: "night", 8: "market", 9: "water", 10: "wind", 11: "night"}
 
 var env: Environment
 var sun: DirectionalLight3D
@@ -281,7 +281,8 @@ func _play(n := 1, rising := false) -> void:
 		7: level = TableStarsLevel.new()
 		8: level = TableBarterLevel.new()
 		9: level = TableSaniaLevel.new()
-		10: level = TableChestLevel.new()
+		10: level = TableRaidLevel.new()
+		11: level = TableChestLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
 	level.setup(diorama)
@@ -442,7 +443,7 @@ func _apply_mood(mood: String, seconds := 0.8) -> void:
 # dawn, each for a while, from the level's own time. Levels 7 (the stars) and 10 (the old
 # men's tracers) stay at night.
 const SKY := [["day", 75.0], ["evening", 30.0], ["night", 45.0], ["dawn", 25.0]]   # about three minutes round
-const ALWAYS_NIGHT := [7, 10]
+const ALWAYS_NIGHT := [7, 11]
 var _sky := -1              # where in SKY the day is; -1: it stays as it is
 var _sky_left := 0.0
 

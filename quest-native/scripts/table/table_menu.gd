@@ -34,7 +34,7 @@ const GEM := Color("8fd0e8")
 const RAIL_X := 0.262
 const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
-const LEVELS := 10
+const LEVELS := 11
 const SITE := "https://abodengames.com"   # the studio's games
 const LOGO := "res://assets/brand/aboden_logo.png"   # the studio's logo (white on transparency)
 const TABS := [["levels", "levels", "المراحل", "Levels"], ["wardrobe", "wardrobe", "خزانة الشايب", "Wardrobe"],
@@ -126,9 +126,9 @@ func _levels() -> void:
 	var en := not _arabic()
 	for i in LEVELS:
 		var n := i + 1
-		# read right to left in Arabic (١ at the top right), left to right in English
-		var x := -0.143 + (i % 5) * 0.077 if en else 0.165 - (i % 5) * 0.077
-		var at := Vector3(x, 0.066 - (i / 5) * 0.094, 0.004)
+		# read right to left in Arabic (١ at the top right), left to right in English; six a row
+		var x := -0.152 + (i % 6) * 0.064 if en else 0.172 - (i % 6) * 0.064
+		var at := Vector3(x, 0.066 - (i / 6) * 0.094, 0.004)
 		if stage == n:
 			_disc(_content, at - Vector3(0, 0, 0.001), 0.031, ACCENT_DARK)
 		var stars: int = save.table_stars.get(n, 0) if save else 0
@@ -285,7 +285,8 @@ const HINTS := {
 	7: ["كل حلقة تدور هي واللي برا منها: خل النجوم الساطعة على خط واحد صوب الرجم.", "Each ring turns with the one outside it: line the bright stars up towards the cairn."],
 	8: ["بادل من تاجر لتاجر لين توصل للدلة، وانتبه لتاجرين يلفونك بحلقة ما توصل لشي.", "Trade from merchant to merchant to reach the coffee pot; two of them only trade in a circle."],
 	9: ["دوّر قطع السواقي لين يوصل الماي من الحوض للنخلات الثلاث.", "Turn the channel pieces until the water runs from the basin to all three palms."],
-	10: ["حط التذكارات في الصندوق بترتيب المراحل: من الأولى للتاسعة.", "Put the keepsakes in the chest in the order of the levels, from the first to the ninth."],
+	10: ["أشّر على الغازي اللي على الجمل أو الخيل واضغط الزناد: يرمونه ربع الشايب ويطيح من ظهر ذلوله. طيّحهم كلهم.", "Point at a raider on his camel or horse and pull the trigger: the old man's men fire and knock him from the saddle. Unhorse them all."],
+	11: ["حط التذكارات في الصندوق بترتيب المراحل: من الأولى للتاسعة.", "Put the keepsakes in the chest in the order of the levels, from the first to the ninth."],
 }
 
 
