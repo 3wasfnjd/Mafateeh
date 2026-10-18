@@ -52,6 +52,7 @@ const END_RATE := 26.0        # 1/s: how fast the end follows (about 40 ms)
 const LOST_GRACE := 0.3       # s
 const RAY_COLOUR := Color(1.0, 0.9, 0.62)
 var _ptr := {}                # hand -> {has, end, n, size, lost}
+var fake_ray := []            # screenshots only: a right-hand ray [origin, direction] with no headset
 
 
 func setup(environment: Environment) -> void:
@@ -221,6 +222,8 @@ func tracked(hand: String) -> bool:
 
 ## Tracked, or lost only a moment ago: the pointer stays drawn from the last aim.
 func aiming(hand: String) -> bool:
+	if not fake_ray.is_empty() and hand == "right":
+		return true
 	return tracked(hand) or (xr_active and focused and _aim.has(hand) and _ptr[hand].lost < LOST_GRACE)
 
 
@@ -232,6 +235,8 @@ func stick(hand: String) -> Vector2:
 
 ## The hand's smoothed aim ray [origin, direction] (world space).
 func ray(hand: String) -> Array:
+	if not fake_ray.is_empty() and hand == "right":
+		return fake_ray
 	var a: Dictionary = _aim.get(hand, {})
 	if a.is_empty():
 		return raw_ray(hand)
@@ -334,7 +339,8 @@ func _draw_ray(node: MeshInstance3D, o: Vector3, d: Vector3, end: Vector3, dist:
 	node.visible = true
 	node.global_transform = Transform3D.IDENTITY
 	var ctrl := o + d * dist * 0.5
-	var eye := camera.global_position
+	var view := get_viewport().get_camera_3d()
+	var eye := view.global_position if view else camera.global_position
 	var col := RAY_COLOUR.lerp(Color(1, 1, 1), 0.35) if interactive else RAY_COLOUR
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	for i in RAY_SEGS + 1:

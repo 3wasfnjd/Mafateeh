@@ -69,6 +69,8 @@ var _hand := "right"        # the hand that pressed last: the one that points
 var _down := {}             # hand -> trigger held last frame
 var _swallow := false       # a press went to the menu or the gem: the level does not see it
 var _hover_id := ""
+const ISLAND_R := 16.0   # model metres: the island's radius (0.33 m at 1x)
+var _ptr_drawn := false   # the headset's pointer is drawn (on the headset, or a --hand screenshot)
 var _hover_mark: MeshInstance3D
 var _t := 0.0
 # this level's extras
@@ -650,6 +652,7 @@ func _process(dt: float) -> void:
 	if diorama and level and level.has_method("move"):
 		level.move(_hero_stick() if card == null and not _placing else Vector2.ZERO)
 	# the pointing hand's ray, and whether its trigger is down (the mouse on desktop)
+	_ptr_drawn = xr or not rig.fake_ray.is_empty()
 	var ray := []
 	var down := false
 	var pressed := false
@@ -670,6 +673,8 @@ func _process(dt: float) -> void:
 			var other := "left" if _hand == "right" else "right"
 			if rig.aiming(other):
 				rig.set_pointer(other, null, false)   # only the pointing hand shows its ray
+	elif not rig.fake_ray.is_empty():   # screenshots: --hand draws the headset's pointer
+		ray = rig.fake_ray
 	elif desk_cam:
 		var mp := get_viewport().get_mouse_position()
 		ray = [desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp)]
@@ -683,7 +688,7 @@ func _process(dt: float) -> void:
 			level.pointer(false, null)
 		return
 	if _intro:
-		if xr:
+		if _ptr_drawn:
 			var ih = _intro.hover(ray[0], ray[1]) if _intro_begun else null
 			if ih != null:
 				ih["pressed"] = down
@@ -693,7 +698,7 @@ func _process(dt: float) -> void:
 		return
 	if card:
 		var h = card.hover(ray[0], ray[1])
-		if xr:
+		if _ptr_drawn:
 			if h != null:
 				h["pressed"] = down
 			rig.set_pointer(_hand, h, true)
@@ -708,7 +713,7 @@ func _process(dt: float) -> void:
 		var save := _save()
 		var st := rig.stick("right" if save and save.left_handed else "left") if xr else Vector2.ZERO
 		_placer.update(ray, _head(), st, dt)
-		if xr:
+		if _ptr_drawn:
 			rig.set_pointer(_hand, {"point": _placer.spot(), "interactive": true, "pressed": down} if _placer.has_spot else null, true)
 		if pressed and _placer.has_spot:
 			_swallow = true
@@ -717,10 +722,14 @@ func _process(dt: float) -> void:
 			level.pointer(false, null)
 		return
 	if diorama == null or level == null:
-		if xr:
+		if _ptr_drawn:
 			rig.set_pointer(_hand, null, true)   # between levels: a plain ray, never one left frozen
 		return
-	var info := _level_hover(ray)
+	# the first thing the ray meets in the scene: pieces behind it cannot be picked through it
+	var wall := _scene_hit(ray)
+	TableKit.set_wall(ray[0], (ray[0] as Vector3).distance_to(wall.point) if not wall.is_empty() else INF,
+		diorama.model.global_basis.x.length() * 0.6, _hover_id)
+	var info := _level_hover(ray, wall)
 	_show_hover(info)
 	if pressed and info.get("id", "") == "__gem":
 		_swallow = true
@@ -730,13 +739,13 @@ func _process(dt: float) -> void:
 		if save:
 			save.table_gems[stage] = true
 			save.save()
-		if xr:
+		if _ptr_drawn:
 			rig.pulse(_hand, 0.5, 0.08)
 	if level.has_method("aim"):
 		level.aim(ray[0], ray[1])
 	var p = diorama.model_point(ray[0], ray[1])
 	level.pointer(down and not _swallow, p)
-	if xr:
+	if _ptr_drawn:
 		var at = info.get("point", null)
 		var hit = null
 		if at != null:
@@ -747,7 +756,7 @@ func _process(dt: float) -> void:
 
 ## What the ray is on: a level's target or the gem ({id, box, point, normal} with a world
 ## point), else the ground ({point}), else {}.
-func _level_hover(ray: Array) -> Dictionary:
+func _level_hover(ray: Array, wall: Dictionary) -> Dictionary:
 	var boxes := {}
 	if level.has_method("hover_boxes"):
 		boxes = level.hover_boxes()
@@ -766,6 +775,18 @@ func _level_hover(ray: Array) -> Dictionary:
 		if not g.is_empty():
 			h = g
 	if not h.is_empty():
+		if h.get("snapped", false) and not wall.is_empty():
+			# picked by the assist: the ray still ends where it really points (it never bends
+			# to the piece); the ring round the piece shows what a press takes
+			h.point = wall.point
+			h.normal = wall.normal
+			return h
+		if not wall.is_empty() and (h.box as AABB).grow(0.2).has_point(diorama.stage.to_local(wall.point)):
+			# the ray reaches the ground (or roof) inside the piece's box: the ring lies there,
+			# under the piece, not on the box's invisible top in the air
+			h.point = wall.point
+			h.normal = wall.normal
+			return h
 		h.point = diorama.stage.to_global(h.point)
 		h.normal = (diorama.stage.global_basis * (h.normal as Vector3)).normalized()
 		return h
@@ -775,11 +796,12 @@ func _level_hover(ray: Array) -> Dictionary:
 			return {"point": hp, "normal": -(ray[1] as Vector3), "target": true}
 	# nothing to pick: the ray stops on the first thing it meets in the scene (a wall, a
 	# roof, a dune), never passing through it to the ground behind
-	var sh := _scene_hit(ray)
-	if not sh.is_empty():
-		return sh
+	if not wall.is_empty():
+		return wall
+	# off the scene mesh: the ground plane, but only on the island itself (past its edge the
+	# ray goes on into the room instead of stopping on nothing in mid-air)
 	var p = diorama.model_point(ray[0], ray[1])
-	if p != null:
+	if p != null and Vector2(p.x, p.z).length() < ISLAND_R:
 		return {"point": diorama.model.to_global(p)}
 	return {}
 
@@ -945,6 +967,11 @@ func _screenshot() -> void:
 			"rain": _weather.shower(30.0)
 			"gust": _weather.gust_now()
 			"dust": _weather.dust(true)
+	if _args.has("hand"):   # --hand=x,y,z,tx,ty,tz: the right hand at x,y,z pointing at tx,ty,tz (world)
+		var h := str(_args.hand).split_floats(",")
+		var o := Vector3(h[0], h[1], h[2])
+		rig.fake_ray = [o, (Vector3(h[3], h[4], h[5]) - o).normalized()]
+		_hand = "right"
 	if _args.has("solved") and level and level.has_method("_win"):   # --solved=1: the level's own ending, now
 		level._win()
 	if _args.has("win"):   # --win=1: as if the level were just won (stars, weather, the end)

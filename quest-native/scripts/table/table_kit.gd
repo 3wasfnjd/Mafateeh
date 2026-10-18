@@ -114,16 +114,36 @@ static func model(parent: Node3D, path: String, pos := Vector3.ZERO, yaw := 0.0,
 const ASSIST := 0.035  # radians, 2 degrees: a couple of centimetres at arm's length
 
 
+## What the ray meets first in the scene itself this frame (set by the game before the level
+## reads its ray): a piece behind that wall or roof cannot be picked through it, and the piece
+## already under the pointer is the one a press picks at the edge of the assist.
+static var wall_o := Vector3.INF   # the ray's origin (the wall counts only for that ray)
+static var wall_t := INF           # world distance to the first scene surface
+static var wall_tol := 0.0         # world slack: a piece standing on that surface still counts
+static var held_id := ""           # the piece under the pointer
+
+
+static func set_wall(origin: Vector3, t: float, tol: float, held: String) -> void:
+	wall_o = origin
+	wall_t = t
+	wall_tol = tol
+	held_id = held
+
+
 ## The pick under a world ray among boxes {id: AABB} given in parent-local space; "" if none.
 static func ray_pick(parent: Node3D, ray: Array, boxes: Dictionary, assist := true) -> String:
 	return ray_hit(parent, ray, boxes, assist).get("id", "")
 
 
 ## The box under a world ray (or, failing that, the one it passes within ASSIST of):
-## {id, box, point, normal} in parent-local space, or {} if none.
+## {id, box, point, normal, snapped (true when found by the assist)} in parent-local space, or
+## {} if none. Nothing hidden behind the scene's first surface along the ray is found.
 static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := true, held := "") -> Dictionary:
 	if ray.size() != 2 or boxes.is_empty():
 		return {}
+	if held == "":
+		held = held_id
+	var walled := (ray[0] as Vector3).is_equal_approx(wall_o) and wall_t < INF
 	var o := parent.to_local(ray[0])
 	var d := (parent.to_local(ray[0] + ray[1]) - o).normalized()
 	var best := ""
@@ -131,6 +151,8 @@ static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := tru
 	var best_p := Vector3.ZERO
 	for id in boxes:
 		var hit = (boxes[id] as AABB).intersects_ray(o, d)
+		if hit != null and walled and (ray[0] as Vector3).distance_to(parent.to_global(hit)) > wall_t + wall_tol:
+			continue   # behind a wall or a roof
 		if hit != null and o.distance_to(hit) < best_t:
 			best_t = o.distance_to(hit)
 			best = id
@@ -152,6 +174,11 @@ static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := tru
 		var a := atan2((v - d * t).length(), t) - atan2(b.size.length() * 0.25, t)
 		if id == held:
 			a -= ASSIST * 0.8   # the one already under the pointer holds on a little longer: no flicker at the edge
+		if a < near_a and walled:
+			var top_w := parent.to_global(Vector3(b.get_center().x, b.end.y, b.get_center().z))
+			var reach := (parent.global_basis * (b.size * 0.5)).length()
+			if (ray[0] as Vector3).distance_to(top_w) > wall_t + wall_tol + reach:
+				continue   # the ray stops on something well in front of it
 		if a < near_a:
 			near_a = a
 			near = id
@@ -159,7 +186,7 @@ static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := tru
 		return {}
 	var nb: AABB = boxes[near]
 	var top := Vector3(nb.get_center().x, nb.end.y, nb.get_center().z)
-	return {"id": near, "box": nb, "point": top, "normal": Vector3.UP}
+	return {"id": near, "box": nb, "point": top, "normal": Vector3.UP, "snapped": true}
 
 
 static func _face_normal(b: AABB, p: Vector3) -> Vector3:
