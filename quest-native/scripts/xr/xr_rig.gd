@@ -51,6 +51,7 @@ const RAY_SEGS := 24
 const END_RATE := 26.0        # 1/s: how fast the end follows (about 40 ms)
 const LOST_GRACE := 0.3       # s
 const RAY_COLOUR := Color(1.0, 0.9, 0.62)
+const DRAW_LINE := false      # the owner's choice: no line from the hand, only the rings on what it points at
 var _ptr := {}                # hand -> {has, end, n, size, lost}
 var fake_ray := []            # screenshots only: a right-hand ray [origin, direction] with no headset
 
@@ -316,8 +317,11 @@ func set_pointer(hand: String, hit, show_ray: bool) -> void:
 	var end: Vector3 = st.end
 	var dist := maxf(o.distance_to(end), 0.01)
 	var interactive: bool = hit != null and hit.get("interactive", false)
-	_draw_ray(h.ray, o, d, end, dist, hit != null, interactive)
-	h.dot.visible = hit != null
+	h.ray.visible = DRAW_LINE
+	if DRAW_LINE:
+		_draw_ray(h.ray, o, d, end, dist, hit != null, interactive)
+	# the ring: on a target, or on a menu (hit.ui); never on bare ground or a wall
+	h.dot.visible = hit != null and (interactive or hit.get("ui", false))
 	if hit != null:
 		var size := clampf(dist / 0.7, 0.7, 2.6)   # about the same size to the eye, near or far
 		if interactive:

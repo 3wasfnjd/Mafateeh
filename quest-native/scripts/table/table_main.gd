@@ -692,6 +692,7 @@ func _process(dt: float) -> void:
 			var ih = _intro.hover(ray[0], ray[1]) if _intro_begun else null
 			if ih != null:
 				ih["pressed"] = down
+				ih["ui"] = true
 			rig.set_pointer(_hand, ih, true)
 		if pressed and _intro_begun:
 			_intro.press()
@@ -701,6 +702,7 @@ func _process(dt: float) -> void:
 		if _ptr_drawn:
 			if h != null:
 				h["pressed"] = down
+				h["ui"] = true
 			rig.set_pointer(_hand, h, true)
 		if pressed:
 			_swallow = true
@@ -714,7 +716,7 @@ func _process(dt: float) -> void:
 		var st := rig.stick("right" if save and save.left_handed else "left") if xr else Vector2.ZERO
 		_placer.update(ray, _head(), st, dt)
 		if _ptr_drawn:
-			rig.set_pointer(_hand, {"point": _placer.spot(), "interactive": true, "pressed": down} if _placer.has_spot else null, true)
+			rig.set_pointer(_hand, {"point": _placer.spot(), "interactive": true, "ui": true, "pressed": down} if _placer.has_spot else null, true)
 		if pressed and _placer.has_spot:
 			_swallow = true
 			_finish_place()
