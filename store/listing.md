@@ -102,7 +102,7 @@ By Aboden Games — عبودين قيمز.
 | Spatialized icon — background | `spatial_icon_background_512x512.png` (and `_180x180`) | 512×512, 24-bit |
 | Logo (optional) | `logo_transparent.png` | 1600×710, transparent |
 | Trailer cover (only with a trailer) | `trailer_cover_2560x1440.png` | 2560×1440, 24-bit |
-| Screenshots | `screenshots/01…08_*.png` | 2560×1440 each (8; Meta needs at least 5) |
+| Screenshots | `screenshots_headset/01…05_*_mr.png` (real headset captures, mixed reality; preferred) and `screenshots/01…08_*.png` (desktop renders) | 2560×1440 each (Meta needs at least 5) |
 
 `aboden_logo.png` is the studio logo; it is not a store asset.
 
