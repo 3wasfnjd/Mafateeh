@@ -275,7 +275,7 @@ func _add_board() -> void:
 	foot.roughness = 0.7
 	foot.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var brass := StandardMaterial3D.new()
-	brass.albedo_color = Color("c99a3e")
+	brass.albedo_color = Color("e2b03c")   # the gold line where the sand meets the board
 	brass.metallic = 0.8
 	brass.roughness = 0.35
 	brass.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -301,39 +301,55 @@ const DOME_K := 0.86   # the glass dome a little lower than a half sphere: over 
 
 
 ## A glass dome over the town, standing in the brass line on the board: clear where you look
-## straight through it, catching the light towards its edges, with a small brass knob on top.
-## Only drawn (never in the pointer's way: it is not part of the scene the pointer meets).
+## straight through it, catching the light towards its edges.
+## Where the dunes rise high near the rim it goes straight up a little before it curves over,
+## so the sand stays inside. Only drawn (never in the pointer's way: it is not part of the
+## scene the pointer meets).
 func _add_dome(board: Node3D, top: float) -> void:
 	var r := BOARD_R - 0.02
-	var mesh := SphereMesh.new()
-	mesh.radius = r
-	mesh.height = r
-	mesh.is_hemisphere = true
-	mesh.radial_segments = 96
-	mesh.rings = 32
+	# how high the glass must rise straight up before it curves over, so that no dune (and
+	# nothing else in the scene) comes out through it: the most the sand stands above the cap
+	var wall := 0.0
+	for i in 96:
+		var a := TAU * i / 96
+		for rr in [10.0, 12.0, 14.0, 15.5, 16.5]:
+			var h := top_at(cos(a) * rr, sin(a) * rr) - top
+			wall = maxf(wall, h + 0.5 - DOME_K * sqrt(r * r - rr * rr))
 	var glass := ShaderMaterial.new()
 	glass.shader = _glass_shader()
 	glass.render_priority = -1   # under the pointer and the halos drawn over the scene
+	# one smooth piece of glass: straight up from the board for `wall`, then curving over (a
+	# lathe of that outline, with no seams or flat discs inside it)
+	var outline: Array[Vector2] = []   # (radius, height)
+	if wall > 0.0:
+		outline.append(Vector2(r, 0.0))
+	for k in 25:
+		var t := PI / 2 * k / 24.0
+		outline.append(Vector2(r * cos(t), maxf(wall, 0.0) + DOME_K * r * sin(t)))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := 96
+	for k in outline.size() - 1:
+		var p0: Vector2 = outline[k]
+		var p1: Vector2 = outline[k + 1]
+		var tan := (p1 - p0).normalized()
+		var n2 := Vector2(tan.y, -tan.x)   # outward in the (radius, height) plane
+		for i in seg:
+			var a0 := TAU * i / seg
+			var a1 := TAU * (i + 1) / seg
+			var q := [Vector3(cos(a0) * p0.x, p0.y, sin(a0) * p0.x), Vector3(cos(a1) * p0.x, p0.y, sin(a1) * p0.x),
+				Vector3(cos(a1) * p1.x, p1.y, sin(a1) * p1.x), Vector3(cos(a0) * p1.x, p1.y, sin(a0) * p1.x)]
+			var na := [Vector3(cos(a0) * n2.x, n2.y, sin(a0) * n2.x), Vector3(cos(a1) * n2.x, n2.y, sin(a1) * n2.x)]
+			for j in [0, 1, 2, 0, 2, 3]:
+				st.set_normal((na[0] if j in [0, 3] else na[1]).normalized())
+				st.add_vertex(q[j])
 	var dome := MeshInstance3D.new()
 	dome.name = "Dome"
-	dome.mesh = mesh
+	dome.mesh = st.commit()
 	dome.material_override = glass
 	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	dome.scale = Vector3(1, DOME_K, 1)
 	dome.position.y = top
 	board.add_child(dome)
-	var knob := MeshInstance3D.new()
-	var km := SphereMesh.new()
-	km.radius = 0.55
-	km.height = 0.9
-	knob.mesh = km
-	var brass := StandardMaterial3D.new()
-	brass.albedo_color = Color("c99a3e")
-	brass.metallic = 0.8
-	brass.roughness = 0.35
-	knob.material_override = brass
-	knob.position.y = top + r * DOME_K + 0.3
-	board.add_child(knob)
 
 
 static var _glass: Shader
@@ -401,7 +417,7 @@ func _mesh_child(parent: Node3D, st: SurfaceTool, m: Material) -> void:
 
 
 ## The board's side: walnut with a band of Najdi triangles carved along it (one tile, repeated
-## round the board), dark in the cut, a lighter edge above and below the band.
+## round the board), the cut and the lines above and below it in pure gold.
 static var _band_tex: Texture2D
 static func _carved_band() -> Texture2D:
 	if _band_tex:
@@ -410,14 +426,14 @@ static func _carved_band() -> Texture2D:
 	var h := 64
 	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
 	var base := Color("5b3a22")
-	var cut := Color("2e1c10")
-	var edge := Color("7a5232")
+	var cut := Color("e8b13a")    # the carving filled with gold
+	var edge := Color("f2c14e")   # and gold lines above and below it
 	for y in h:
 		for x in w:
 			var c := base
 			var grain := 0.04 * sin(x * 0.21 + sin(y * 0.6) * 2.0) + 0.03 * sin(y * 1.7)
 			c = c.lightened(grain) if grain > 0.0 else c.darkened(-grain)
-			if y in [14, 15, 48, 49]:
+			if y in [13, 14, 15, 16, 47, 48, 49, 50]:
 				c = edge
 			elif y > 18 and y < 46:
 				# two triangles a tile: one pointing up, one down, side by side
