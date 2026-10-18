@@ -106,7 +106,8 @@ By Aboden Games — عبودين قيمز.
 
 `aboden_logo.png` is the studio logo; it is not a store asset.
 
-Covers and screenshots are rendered from the real table game with the desktop renderer
-(`quest-native/tools/store/make_table_store_art.sh`), with a plain desert sky where the
-headset would show the player's room; a headset capture can replace any of them.
+The covers (hero, landscape, square, portrait, mini, trailer cover) are cut from the owner's
+key art, `key_art_source.png`. The screenshots are rendered from the real table game with the
+desktop renderer (`quest-native/tools/store/make_table_store_art.sh`, whose cover step would
+overwrite the key-art covers; skip it); a headset capture can replace any screenshot.
 The icons come from `quest-native/tools/store/render_portrait.gd` and `compose_icons.py`.
