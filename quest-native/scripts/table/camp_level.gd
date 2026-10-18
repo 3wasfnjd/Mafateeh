@@ -46,7 +46,10 @@ const BEIGE := Color("f1dcae")
 const CARPET_Y := 0.05
 const IMAM := Vector3(-4.5, CARPET_Y, -9.2)
 const ROW := [Vector3(-2.9, CARPET_Y, -10.3), Vector3(-2.9, CARPET_Y, -9.2), Vector3(-2.9, CARPET_Y, -8.1)]
-const FROM_TENT := [Vector3(0.2, 0.0, -10.4), Vector3(0.4, 0.0, -9.4), Vector3(0.6, 0.0, -8.4)]
+# the men come along the open sand in front of the tent, in a file behind the old man, and go in
+# by its open front (never through its side wall or over the cushions)
+const FROM_TENT := [Vector3(3.0, 0.0, -7.0), Vector3(4.1, 0.0, -7.0), Vector3(5.2, 0.0, -7.0)]
+const TENT_DOOR := Vector3(-1.3, 0.0, -7.0)   # outside the open front, by its right-hand end
 const ROW_DRESS := [{"head": "ghutra"}, {"thobe": "thobe_beige"}, {"thobe": "thobe_grey", "head": "ghutra"}]
 const FACING := Vector3(-1, 0, 0)
 const WALK_SPEED := 2.2
@@ -329,7 +332,7 @@ func _prayer() -> void:
 		men.append([m, aps[0] if not aps.is_empty() else null, ROW[i]])
 	var all_in := 0.0
 	for k in men.size():
-		all_in = maxf(all_in, _walk_in(men[k][0], men[k][1], men[k][2], 0.3 + 0.4 * k))
+		all_in = maxf(all_in, _walk_in(men[k][0], men[k][1], [TENT_DOOR, men[k][2]], 0.3 + 0.4 * k))
 	# once they all stand in their places: the imam begins, the row follows him
 	var tw := create_tween()
 	tw.tween_interval(all_in + 0.6)
@@ -343,24 +346,29 @@ func _prayer() -> void:
 			tw.tween_interval(FOLLOW)
 
 
-## Walks a man to his place (the walk clip) and turns him to face the way of the prayer, standing.
-## Returns when he is there (seconds from now).
-func _walk_in(n: Node3D, ap: AnimationPlayer, to: Vector3, wait: float) -> float:
-	var d := to - n.position
-	var walk := maxf(0.4, Vector2(d.x, d.z).length() / WALK_SPEED)
+## Walks a man along his way to his place (the walk clip, turning at each bend) and turns him to
+## face the way of the prayer, standing. Returns when he is there (seconds from now).
+func _walk_in(n: Node3D, ap: AnimationPlayer, way: Array, wait: float) -> float:
 	var tw := create_tween()
 	tw.tween_interval(wait)
 	tw.tween_callback(func():
-		TableKit.face(n, d)
 		if ap and ap.has_animation("walk"):
 			ap.get_animation("walk").loop_mode = Animation.LOOP_LINEAR
 			ap.play("walk", 0.2))
-	tw.tween_property(n, "position", to, walk)
+	var at := n.position
+	var total := wait
+	for to in way:
+		var d: Vector3 = to - at
+		var walk := maxf(0.3, Vector2(d.x, d.z).length() / WALK_SPEED)
+		tw.tween_callback(func(): TableKit.face(n, d))
+		tw.tween_property(n, "position", to, walk)
+		total += walk
+		at = to
 	tw.tween_callback(func():
 		TableKit.face(n, FACING)
 		if ap and ap.has_animation("idle"):
 			ap.play("idle", 0.3))
-	return wait + walk
+	return total
 
 
 # --- solving (hints and the demo) --------------------------------------------------------------
