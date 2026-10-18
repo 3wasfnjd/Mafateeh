@@ -121,7 +121,7 @@ static func ray_pick(parent: Node3D, ray: Array, boxes: Dictionary, assist := tr
 
 ## The box under a world ray (or, failing that, the one it passes within ASSIST of):
 ## {id, box, point, normal} in parent-local space, or {} if none.
-static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := true) -> Dictionary:
+static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := true, held := "") -> Dictionary:
 	if ray.size() != 2 or boxes.is_empty():
 		return {}
 	var o := parent.to_local(ray[0])
@@ -150,6 +150,8 @@ static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := tru
 			continue
 		# the angle to the box, less its own half size seen from here
 		var a := atan2((v - d * t).length(), t) - atan2(b.size.length() * 0.25, t)
+		if id == held:
+			a -= ASSIST * 0.8   # the one already under the pointer holds on a little longer: no flicker at the edge
 		if a < near_a:
 			near_a = a
 			near = id

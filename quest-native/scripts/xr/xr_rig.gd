@@ -43,6 +43,15 @@ const AIM_MIN_CUTOFF := 1.3   # Hz, at rest
 const AIM_BETA := 0.05        # extra Hz per degree a second of turning
 const PRESS_LOOKBACK := 3     # frames (about 40 ms at 72 Hz)
 var _aim := {}                # hand -> {o, d, hist: [[o, d], ...] newest first}
+# The drawn pointer: its end glides to where the ray lands (no jumps between a roof and the
+# ground behind it), and a moment of lost tracking (the hand out of the cameras' view) keeps the
+# last ray instead of blinking it away.
+const RAY_FREE := 1.4         # metres drawn when the ray is on nothing
+const RAY_SEGS := 24
+const END_RATE := 26.0        # 1/s: how fast the end follows (about 40 ms)
+const LOST_GRACE := 0.3       # s
+const RAY_COLOUR := Color(1.0, 0.9, 0.62)
+var _ptr := {}                # hand -> {has, end, n, size, lost}
 
 
 func setup(environment: Environment) -> void:
@@ -70,35 +79,50 @@ func setup(environment: Environment) -> void:
 			grip.add_child(model)
 		else:
 			grip.add_child(_fallback_controller())
+		# the ray: a thin ribbon built each frame, turned to face the eyes; it curves gently from
+		# the hand to the target when the target assist pulls the end onto a piece
 		var ray := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.0016
-		cyl.bottom_radius = 0.003
-		cyl.height = 1.0
-		cyl.radial_segments = 6
-		cyl.rings = 1
-		ray.mesh = cyl
-		ray.material_override = _unshaded(Color(1.0, 0.92, 0.7, 0.85), true)
+		ray.mesh = ImmediateMesh.new()
+		var rm := _unshaded(Color.WHITE, true)
+		rm.vertex_color_use_as_albedo = true
+		rm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		rm.no_depth_test = true   # never cut by a wall it passes beside
+		rm.render_priority = 19
+		ray.material_override = rm
 		ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		ray.top_level = true   # drawn along the smoothed aim, not the raw controller
+		ray.extra_cull_margin = 16384.0
+		ray.top_level = true
 		ray.visible = false
-		aim.add_child(ray)
+		add_child(ray)
+		# where it lands: a ring with a soft centre, lying on the surface
 		var dot := MeshInstance3D.new()
 		var torus := TorusMesh.new()
 		torus.inner_radius = 0.008
-		torus.outer_radius = 0.012
-		torus.rings = 16
+		torus.outer_radius = 0.011
+		torus.rings = 24
 		torus.ring_segments = 6
 		dot.mesh = torus
-		dot.material_override = _unshaded(Color(1.0, 0.86, 0.45, 0.95), false)
+		dot.material_override = _unshaded(Color(1.0, 0.86, 0.45, 0.95), true)
 		(dot.material_override as StandardMaterial3D).no_depth_test = true   # always seen where the ray ends
 		(dot.material_override as StandardMaterial3D).render_priority = 20
 		dot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		dot.top_level = true
 		dot.visible = false
 		add_child(dot)
+		var centre := MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		disc.top_radius = 0.0035
+		disc.bottom_radius = 0.0035
+		disc.height = 0.0004
+		disc.radial_segments = 16
+		disc.rings = 1
+		centre.mesh = disc
+		centre.material_override = dot.material_override
+		centre.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		dot.add_child(centre)
 		hands[hand] = {"aim": aim, "grip": grip, "ray": ray, "dot": dot}
 		_prev[hand] = {}
+		_ptr[hand] = {"has": false, "end": Vector3.ZERO, "n": Vector3.UP, "size": 1.0, "lost": 0.0}
 
 
 func _fallback_controller() -> Node3D:
@@ -195,6 +219,11 @@ func tracked(hand: String) -> bool:
 	return xr_active and focused and c.get_is_active() and c.get_has_tracking_data()
 
 
+## Tracked, or lost only a moment ago: the pointer stays drawn from the last aim.
+func aiming(hand: String) -> bool:
+	return tracked(hand) or (xr_active and focused and _aim.has(hand) and _ptr[hand].lost < LOST_GRACE)
+
+
 func stick(hand: String) -> Vector2:
 	if not tracked(hand):
 		return Vector2.ZERO
@@ -254,32 +283,80 @@ func dragging_hand() -> String:
 
 
 ## hit: null, or {point, normal (optional, default up), interactive (a target under it),
-## pressed}. The ray is drawn from the hand to the point, the ring lies on the surface there.
+## pressed}. The ray is drawn from the hand to the point (curving there when the point is off the
+## aim line, as a snapped target is), the ring lies on the surface there.
 func set_pointer(hand: String, hit, show_ray: bool) -> void:
 	var h: Dictionary = hands[hand]
+	var st: Dictionary = _ptr[hand]
+	if not (show_ray and aiming(hand)):
+		h.ray.visible = false
+		h.dot.visible = false
+		st.has = false
+		return
 	var r := ray(hand)
-	var length := 0.6
-	h.dot.visible = false
+	var o: Vector3 = r[0]
+	var d: Vector3 = r[1]
+	var target: Vector3 = hit.point if hit != null else o + d * RAY_FREE
+	var n: Vector3 = hit.get("normal", Vector3.UP) if hit != null else -d
+	var dt := get_process_delta_time()
+	if not st.has or not st.get("hit", false) and hit != null:
+		st.end = target   # a fresh ray, or one that just landed: start right there
+		st.n = n
+		st.has = true
+	else:
+		var k := 1.0 - exp(-END_RATE * dt)
+		st.end = (st.end as Vector3).lerp(target, k)
+		st.n = (st.n as Vector3).slerp(n.normalized(), k).normalized() if (st.n as Vector3).dot(n) > -0.99 else n
+	st.hit = hit != null
+	var end: Vector3 = st.end
+	var dist := maxf(o.distance_to(end), 0.01)
+	var interactive: bool = hit != null and hit.get("interactive", false)
+	_draw_ray(h.ray, o, d, end, dist, hit != null, interactive)
+	h.dot.visible = hit != null
 	if hit != null:
-		length = (r[0] as Vector3).distance_to(hit.point)
-		var n: Vector3 = hit.get("normal", Vector3.UP)
-		var b := Basis.looking_at(n.cross(Vector3.RIGHT if absf(n.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD), n)
-		var size := 1.0
-		if hit.get("interactive", false):
-			size = 1.7
+		var size := clampf(dist / 0.7, 0.7, 2.6)   # about the same size to the eye, near or far
+		if interactive:
+			size *= 1.55 + 0.07 * sin(Time.get_ticks_msec() * 0.007)
 		if hit.get("pressed", false):
-			size *= 0.8
-		h.dot.visible = true
-		h.dot.global_transform = Transform3D(b.scaled(Vector3.ONE * size), hit.point + n * 0.002)
-		(h.dot.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.95, 0.8, 1.0) if hit.get("interactive", false) else Color(1.0, 0.86, 0.45, 0.95)
-	h.ray.visible = show_ray and tracked(hand)
-	if h.ray.visible:
-		var d: Vector3 = r[1]
-		if hit != null and (hit.point as Vector3).distance_to(r[0]) > 0.01:
-			d = ((hit.point as Vector3) - (r[0] as Vector3)).normalized()   # straight to what it is on (a snapped target too)
-		var up := Vector3.UP if absf(d.dot(Vector3.UP)) < 0.95 else Vector3.FORWARD
-		var along := Basis.looking_at(d, up) * Basis(Vector3.RIGHT, -PI / 2)   # the cylinder's y along d
-		h.ray.global_transform = Transform3D(along.scaled(Vector3(1, length, 1)), r[0] + d * length / 2.0)
+			size *= 0.75
+		st.size = lerpf(st.size, size, 1.0 - exp(-20.0 * dt))
+		var nn: Vector3 = st.n
+		var b := Basis.looking_at(nn.cross(Vector3.RIGHT if absf(nn.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD), nn)
+		h.dot.global_transform = Transform3D(b.scaled(Vector3.ONE * st.size), end + nn * 0.002)
+		(h.dot.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.97, 0.86, 1.0) if interactive else Color(1.0, 0.86, 0.45, 0.9)
+
+
+## The ribbon from o (going out along d) to end: a quadratic curve, wide and clear at the
+## hand, thin at the end; fading out into the air when it is on nothing.
+func _draw_ray(node: MeshInstance3D, o: Vector3, d: Vector3, end: Vector3, dist: float, landed: bool, interactive: bool) -> void:
+	var im := node.mesh as ImmediateMesh
+	im.clear_surfaces()
+	node.visible = true
+	node.global_transform = Transform3D.IDENTITY
+	var ctrl := o + d * dist * 0.5
+	var eye := camera.global_position
+	var col := RAY_COLOUR.lerp(Color(1, 1, 1), 0.35) if interactive else RAY_COLOUR
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for i in RAY_SEGS + 1:
+		var t := float(i) / RAY_SEGS
+		var u := 1.0 - t
+		var p := o * u * u + ctrl * 2.0 * u * t + end * t * t
+		var tg := ((ctrl - o) * u + (end - ctrl) * t).normalized()
+		var side := tg.cross(p - eye)
+		if side.length_squared() < 1e-10:
+			side = tg.cross(Vector3.UP)
+		side = side.normalized() * lerpf(0.0026, 0.0012, t)
+		var along := t * dist
+		var a := clampf(along / 0.05, 0.0, 1.0) * 0.8          # out of the controller softly
+		if not landed:
+			a *= clampf((1.0 - t) / 0.6, 0.0, 1.0)            # into the air: fade away
+		else:
+			a = maxf(a, 0.0) * (0.75 + 0.25 * t)               # a little brighter towards the ring
+		im.surface_set_color(Color(col.r, col.g, col.b, a))
+		im.surface_add_vertex(p + side)
+		im.surface_set_color(Color(col.r, col.g, col.b, a))
+		im.surface_add_vertex(p - side)
+	im.surface_end()
 
 
 func _process(delta: float) -> void:
@@ -297,8 +374,11 @@ func _process(delta: float) -> void:
 		var ok := tracked(hand)
 		if ok:
 			_smooth_aim(hand, delta)
+			_ptr[hand].lost = 0.0
 		else:
-			_aim.erase(hand)   # start afresh when it comes back, not from where it was lost
+			_ptr[hand].lost += delta
+			if _ptr[hand].lost >= LOST_GRACE:
+				_aim.erase(hand)   # start afresh when it comes back, not from where it was lost
 		if ok and now.trigger and not was.get("trigger", false):
 			var r := press_ray(hand)
 			trigger_pressed.emit(hand, r[0], r[1])

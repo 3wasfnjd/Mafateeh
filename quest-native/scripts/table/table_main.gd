@@ -655,7 +655,7 @@ func _process(dt: float) -> void:
 	var pressed := false
 	if xr:
 		for hand in ["right", "left"]:
-			if not rig.tracked(hand):
+			if not rig.aiming(hand):
 				rig.set_pointer(hand, null, false)
 				continue
 			var c: XRController3D = rig.hands[hand].aim
@@ -664,11 +664,11 @@ func _process(dt: float) -> void:
 				_hand = hand
 				pressed = true
 			_down[hand] = d
-		if rig.tracked(_hand):
+		if rig.aiming(_hand):
 			down = _down.get(_hand, false)
 			ray = rig.press_ray(_hand) if pressed else rig.ray(_hand)
 			var other := "left" if _hand == "right" else "right"
-			if rig.tracked(other):
+			if rig.aiming(other):
 				rig.set_pointer(other, null, false)   # only the pointing hand shows its ray
 	elif desk_cam:
 		var mp := get_viewport().get_mouse_position()
@@ -759,7 +759,7 @@ func _level_hover(ray: Array) -> Dictionary:
 	if _gem:
 		boxes = boxes.duplicate()
 		boxes["__gem"] = AABB(_gem.position - Vector3(0.5, 0, 0.5), Vector3(1.0, 1.2, 1.0))
-	var h := TableKit.ray_hit(diorama.stage, ray, boxes, assist != false)
+	var h := TableKit.ray_hit(diorama.stage, ray, boxes, assist != false, _hover_id)
 	if h.is_empty() and _gem:
 		# the gem is small: it alone gets a wider snap
 		var g := TableKit.ray_hit(diorama.stage, ray, {"__gem": boxes["__gem"]}, true)
