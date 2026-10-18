@@ -98,8 +98,8 @@ By Aboden Games — عبودين قيمز.
 | Cover Portrait | `cover_portrait_1008x1440.png` | 1008×1440, 24-bit |
 | Mini Landscape | `mini_landscape_1080x360.png` | 1080×360, 24-bit |
 | Icon | `icon_512x512.png` | 512×512, 24-bit, square corners |
-| Spatialized icon — foreground | `spatial_icon_foreground_180x180.png` | 180×180, transparent, 18 px safe padding |
-| Spatialized icon — background | `spatial_icon_background_180x180.png` | 180×180, 24-bit |
+| Spatialized icon — foreground | `spatial_icon_foreground_512x512.png` (and `_180x180`) | 512×512, transparent, 392 px safe area |
+| Spatialized icon — background | `spatial_icon_background_512x512.png` (and `_180x180`) | 512×512, 24-bit |
 | Logo (optional) | `logo_transparent.png` | 1600×710, transparent |
 | Trailer cover (only with a trailer) | `trailer_cover_2560x1440.png` | 2560×1440, 24-bit |
 | Screenshots | `screenshots/01…08_*.png` | 2560×1440 each (8; Meta needs at least 5) |
