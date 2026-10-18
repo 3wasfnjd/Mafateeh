@@ -221,6 +221,7 @@ func setup(scene := 1) -> void:
 	model = ps.instantiate()
 	add_child(model)
 	model.scale = Vector3.ONE * BASE_SCALE
+	model.position.y = -BOARD_BOTTOM * BASE_SCALE   # the board under the sand stands on the table
 	# the ground and its plinth stay; the buildings, palms and life move to the stage
 	stage = Node3D.new()
 	stage.name = "Stage"
@@ -233,11 +234,141 @@ func setup(scene := 1) -> void:
 	# the scene's own meshes, before anything alive or any level piece is added: what the
 	# pointer stops on, the rain falls onto and gems sit on (scene_mesh())
 	_scene_meshes = model.find_children("*", "MeshInstance3D", true, false)
+	_add_board()
 	_rng.seed = 7
 	_add_shaib()
 	_add_life()
 	_add_pigeons()
 	_no_shadows(self)
+
+
+# --- the wooden board under the island ------------------------------------------------------
+
+const BOARD_R := 17.3          # model metres: a little wider than the sand (16.5)
+const BOARD_BOTTOM := -2.6     # the board's depth below the sand (about 5 cm at 1x); the whole
+                               # model is lifted by it, so the board stands on the table
+const FOOT_R := 17.65
+const FOOT_TOP := -2.2
+
+
+## A walnut board under the sand, like a model on display: a round, even edge with a band of
+## Najdi triangles carved round its side, a thin brass line where the sand meets it and a
+## broader foot. Its top lies just under the lowest point of the sand's rim, so the dunes sit
+## on it; the sand's own skirt above it is sand-coloured.
+func _add_board() -> void:
+	var top := 0.0
+	for i in 72:
+		var a := TAU * i / 72
+		top = minf(top, top_at(cos(a) * 16.2, sin(a) * 16.2))
+	top = clampf(top - 0.06, BOARD_BOTTOM + 0.35, 0.0)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_texture = _carved_band()
+	wood.uv1_scale = Vector3(40, 1, 1)
+	wood.roughness = 0.62
+	wood.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var plain := StandardMaterial3D.new()
+	plain.albedo_color = Color("5b3a22")
+	plain.roughness = 0.6
+	plain.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var foot := StandardMaterial3D.new()
+	foot.albedo_color = Color("3f2716")
+	foot.roughness = 0.7
+	foot.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var brass := StandardMaterial3D.new()
+	brass.albedo_color = Color("c99a3e")
+	brass.metallic = 0.8
+	brass.roughness = 0.35
+	brass.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var board := Node3D.new()
+	board.name = "Board"
+	model.add_child(board)
+	_ring(board, BOARD_R, FOOT_TOP, top, wood)                    # the carved side
+	_disc(board, 15.6, BOARD_R, top, plain)                        # its top, round the sand
+	_ring(board, BOARD_R + 0.05, top - 0.1, top + 0.02, brass)     # the brass line at the top
+	_ring(board, FOOT_R, BOARD_BOTTOM, FOOT_TOP, foot)             # the foot
+	_disc(board, BOARD_R - 0.1, FOOT_R, FOOT_TOP, foot)
+	var skirt := model.find_child("Plinth*", false, false) as MeshInstance3D
+	if skirt:
+		var sand := StandardMaterial3D.new()
+		sand.albedo_color = Color("d4aa70")
+		sand.roughness = 1.0
+		sand.cull_mode = BaseMaterial3D.CULL_DISABLED
+		skirt.material_override = sand
+
+
+## The side of a round band, radius r, from y0 to y1 (model metres), its texture once round.
+func _ring(parent: Node3D, r: float, y0: float, y1: float, m: Material, seg := 144) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in seg:
+		var a0 := TAU * i / seg
+		var a1 := TAU * (i + 1) / seg
+		var p := [Vector3(cos(a0) * r, y0, sin(a0) * r), Vector3(cos(a1) * r, y0, sin(a1) * r),
+			Vector3(cos(a1) * r, y1, sin(a1) * r), Vector3(cos(a0) * r, y1, sin(a0) * r)]
+		var u0 := float(i) / seg
+		var u1 := float(i + 1) / seg
+		var uv := [Vector2(u0, 1), Vector2(u1, 1), Vector2(u1, 0), Vector2(u0, 0)]
+		for k in [0, 2, 1, 0, 3, 2]:
+			st.set_normal(Vector3(cos(a0), 0, sin(a0)) if k in [0, 3] else Vector3(cos(a1), 0, sin(a1)))
+			st.set_uv(uv[k])
+			st.add_vertex(p[k])
+	_mesh_child(parent, st, m)
+
+
+## A flat round band (an annulus) from r0 to r1 at height y, facing up.
+func _disc(parent: Node3D, r0: float, r1: float, y: float, m: Material, seg := 144) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for i in seg:
+		var a0 := TAU * i / seg
+		var a1 := TAU * (i + 1) / seg
+		var p := [Vector3(cos(a0) * r0, y, sin(a0) * r0), Vector3(cos(a1) * r0, y, sin(a1) * r0),
+			Vector3(cos(a1) * r1, y, sin(a1) * r1), Vector3(cos(a0) * r1, y, sin(a0) * r1)]
+		for k in [0, 1, 2, 0, 2, 3]:
+			st.add_vertex(p[k])
+	_mesh_child(parent, st, m)
+
+
+func _mesh_child(parent: Node3D, st: SurfaceTool, m: Material) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+
+
+## The board's side: walnut with a band of Najdi triangles carved along it (one tile, repeated
+## round the board), dark in the cut, a lighter edge above and below the band.
+static var _band_tex: Texture2D
+static func _carved_band() -> Texture2D:
+	if _band_tex:
+		return _band_tex
+	var w := 128
+	var h := 64
+	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	var base := Color("5b3a22")
+	var cut := Color("2e1c10")
+	var edge := Color("7a5232")
+	for y in h:
+		for x in w:
+			var c := base
+			var grain := 0.04 * sin(x * 0.21 + sin(y * 0.6) * 2.0) + 0.03 * sin(y * 1.7)
+			c = c.lightened(grain) if grain > 0.0 else c.darkened(-grain)
+			if y in [14, 15, 48, 49]:
+				c = edge
+			elif y > 18 and y < 46:
+				# two triangles a tile: one pointing up, one down, side by side
+				var t := float(y - 19) / 26.0
+				var xm := fposmod(float(x), 64.0)
+				var up := x < 64
+				var half := (t if up else 1.0 - t) * 26.0
+				if absf(xm - 32.0) < half:
+					c = cut
+			img.set_pixel(x, y, c)
+	img.generate_mipmaps()
+	_band_tex = ImageTexture.create_from_image(img)
+	return _band_tex
 
 
 ## The point on the diorama ground (model metres) hit by a world-space ray, or null.
