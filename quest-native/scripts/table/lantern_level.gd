@@ -72,12 +72,12 @@ func _lantern(i: int) -> void:
 	var lamp := TableKit.model(self, LANTERN, at + Vector3(0, POST_H - 0.03, 0), 0.0, 0.9)
 	if lamp == null:
 		TableKit.box(self, Vector3(0.3, 0.45, 0.3), TableKit.mat(Color("4a3a2a")), at + Vector3(0, POST_H + 0.22, 0))
-	var flame := TableKit.sphere(self, 0.09, TableKit.lit_mat(FLAME, 2.2), at + Vector3(0, POST_H + 0.25, 0), 8)
+	var flame := TableKit.sphere(self, 0.13, TableKit.lit_mat(FLAME, 3.6), at + Vector3(0, POST_H + 0.25, 0), 8)
 	var halo := MeshInstance3D.new()   # a soft glow round the lamp, always facing the eye
 	var q := QuadMesh.new()
-	q.size = Vector2(2.0, 2.0)
+	q.size = Vector2(2.6, 2.6)
 	halo.mesh = q
-	var hm := TableKit.glow_mat(FLAME, 0.8)
+	var hm := TableKit.glow_mat(FLAME, 1.0)
 	hm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	hm.billboard_keep_scale = true   # (else it is drawn at world size, huge on the table)
 	hm.albedo_texture = _radial()
@@ -93,7 +93,18 @@ func _lantern(i: int) -> void:
 	pool.material_override = plm
 	pool.position = at + Vector3(0, 0.04, 0)
 	add_child(pool)
-	_flames.append({"flame": flame, "halo": halo, "pool": pool})
+	# plain to see by day too: a gold ring round the post's foot when it is lit, a dark one when
+	# it is out, and an unlit lamp dimmed
+	var ring_on := TableKit.ring(self, 0.55, Color("ffc04a"), 0.95, 0.22)
+	ring_on.position = at + Vector3(0, 0.06, 0)
+	var ring_off := TableKit.ring(self, 0.5, Color("3a2a1c"), 0.6, 0.14)
+	ring_off.position = at + Vector3(0, 0.06, 0)
+	var dim := StandardMaterial3D.new()
+	dim.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dim.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dim.albedo_color = Color(0.05, 0.04, 0.03, 0.55)
+	_flames.append({"flame": flame, "halo": halo, "pool": pool, "on": ring_on, "off": ring_off,
+		"lamp": lamp, "dim": dim})
 	_boxes[str(i)] = AABB(at - Vector3(0.4, 0, 0.4), Vector3(0.8, POST_H + 0.8, 0.8))
 
 
@@ -133,8 +144,12 @@ func _fire_flames() -> Node3D:
 func _show() -> void:
 	for i in N:
 		var f: Dictionary = _flames[i]
-		for key in ["flame", "halo", "pool"]:
+		for key in ["flame", "halo", "pool", "on"]:
 			(f[key] as Node3D).visible = lit[i]
+		(f.off as Node3D).visible = not lit[i]
+		if f.lamp:
+			for g in (f.lamp as Node).find_children("*", "GeometryInstance3D", true, false):
+				(g as GeometryInstance3D).material_overlay = null if lit[i] else f.dim
 
 
 # --- input -----------------------------------------------------------------------------------

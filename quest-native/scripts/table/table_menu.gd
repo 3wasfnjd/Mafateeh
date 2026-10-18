@@ -30,7 +30,7 @@ const DISC := Color("fbf3e4")
 const PALE := Color("ead7b8")
 const FADED := Color("b39270")
 const GOLD := Color("e3a83a")
-const GEM := Color("d9a63a")   # the hidden keys' gold
+const GEM := Color("7a4a22")   # the hidden keys on the level buttons: brown, clear on the cream
 const RAIL_X := 0.262
 const CX := -0.035            # middle of the section area
 const LABEL_Y := 0.118
@@ -246,7 +246,8 @@ func _settings() -> void:
 ## the site on a band that opens it in the headset's browser, and as a QR code for a phone.
 func _thanks() -> void:
 	var cx := 0.075
-	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(cx, 0.08, 0.004), 56))
+	# the English line is longer than the Arabic one: smaller, so it stays clear of the side rail
+	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(cx, 0.08, 0.004), 56 if _arabic() else 42))
 	_content.add_child(text(_say("نتمنى إن الرحلة مع الشايب عجبتك", "We hope you enjoyed the journey with the old man"), Vector3(cx, 0.045, 0.004), 32))
 	_content.add_child(text(_say("اكتشف ألعاب جديدة من استوديو عبودين قيمز", "Discover more games from Aboden Games"), Vector3(cx, 0.012, 0.004), 32))
 	var at := Vector3(cx, -0.03, 0.004)

@@ -44,8 +44,9 @@ const BEIGE := Color("f1dcae")
 # the prayer after the win, on the tent's red carpet (tent.glb, centred (-2.5, -9.2), about
 # 6 by 4): the old man leads at its left end, three men in a row behind him, all facing -x
 const CARPET_Y := 0.05
-const IMAM := Vector3(-4.5, CARPET_Y, -9.2)
-const ROW := [Vector3(-2.9, CARPET_Y, -10.3), Vector3(-2.9, CARPET_Y, -9.2), Vector3(-2.9, CARPET_Y, -8.1)]
+# in the middle of the tent, on the carpet, clear of the cushions round its sides
+const IMAM := Vector3(-3.4, CARPET_Y, -9.2)
+const ROW := [Vector3(-2.0, CARPET_Y, -9.9), Vector3(-2.0, CARPET_Y, -9.2), Vector3(-2.0, CARPET_Y, -8.5)]
 # the men come along the open sand in front of the tent, in a file behind the old man, and go in
 # by its open front (never through its side wall or over the cushions)
 const FROM_TENT := [Vector3(3.0, 0.0, -7.0), Vector3(4.1, 0.0, -7.0), Vector3(5.2, 0.0, -7.0)]
