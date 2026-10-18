@@ -246,7 +246,7 @@ def clear_of_tower_and_house(x, y):
 
 def compound():
     # corners: (position, yaw) so the corner's arms run along the two walls
-    corners = [((-GX, -GY), 0), ((-GX, GY), -90), ((GX, GY), 180)]
+    corners = [((-GX, GY), -90), ((GX, GY), 180)]
     for (x, y), yaw in corners:
         place(k("wall_corner"), (x, y, 0), yaw)
         place(k("crenel_corner"), (x, y, WALL_H), yaw)
@@ -254,10 +254,10 @@ def compound():
         for ax in (V((math.cos(a), math.sin(a), 0)), V((-math.sin(a), math.cos(a), 0))):
             for t in (1.15, 1.95):   # clear of the corner crenel's band
                 place(k("crenel"), V((x, y, WALL_H)) + ax * t, math.degrees(math.atan2(ax.y, ax.x)))
-    # front (-Y): wall, door, wall; tower on the right corner
-    for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
-        place(k(name), (x, -GY, 0), 0)
-        crenels_on(x, -GY, 0, keep=clear_of_tower_and_house)
+    # front (-Y): a low wall with an open gateway (the owner's design: the courtyard in view and
+    # in reach of the pointer); it turns the left corner low and meets the tall side wall
+    low_front(-GX - 0.22, GX - 2.4, -GY)
+    block("LowCorner", (0.44, 2.25, LOW_H + 0.3), (-GX, -GY + 1.1, (LOW_H - 0.3) / 2), tile_mat())
     place(os.path.join(ROOT, "assets", "world", "house", "tower.glb"), (GX, -GY, 0), 180)
     # sides: front of each piece faces outwards
     for y in (-2.0, 2.0):
@@ -294,6 +294,32 @@ def img_mat(name, path, rough=0.9):
     nt.links.new(t.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
     nt.nodes["Principled BSDF"].inputs["Roughness"].default_value = rough
     return m
+
+
+LOW_H = 0.9        # a front wall only knee-high, so the courtyard behind it stays in view and in reach
+GATE_POST_H = 2.5
+
+
+def low_front(x0, x1, y, gate_x=0.0, gate_w=1.7, h=LOW_H):
+    """A low Najdi front wall along x (Blender coordinates) from x0 to x1 at y: knee-high mud with
+    little crenels, broken by an open gateway of two tall mud posts under a wooden lintel."""
+    mud = tile_mat()
+    wood = img_mat("low_front_lintel", os.path.join(TEX, "kit_lintel.jpg"), 0.85)
+    post = 0.55
+    gl, gr = gate_x - gate_w / 2, gate_x + gate_w / 2
+    for a, b in ((x0, gl - post), (gr + post, x1)):
+        if b - a < 0.05:
+            continue
+        block("LowWall", (b - a, 0.44, h + 0.3), ((a + b) / 2, y, (h - 0.3) / 2), mud)   # 0.3 m into the sand
+        n = int((b - a) / 0.7)
+        for i in range(n):
+            cx = a + (i + 0.5) * (b - a) / n
+            block("LowCrenel", (0.26, 0.3, 0.24), (cx, y, h + 0.12), mud)
+            block("LowCrenelTip", (0.12, 0.2, 0.12), (cx, y, h + 0.3), mud)
+    for cx in (gl - post / 2, gr + post / 2):
+        block("GatePost", (post, 0.56, GATE_POST_H + 0.3), (cx, y, (GATE_POST_H - 0.3) / 2), mud)
+        block("GatePostCap", (post + 0.08, 0.64, 0.12), (cx, y, GATE_POST_H + 0.06), mud)
+    block("GateLintel", (gate_w + post * 2 + 0.3, 0.42, 0.2), (gate_x, y, GATE_POST_H - 0.14), wood, uv_full=True)
 
 
 def block(name, size, at, m, uv_tile=2.0, uv_full=False):

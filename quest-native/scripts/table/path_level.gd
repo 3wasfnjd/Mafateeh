@@ -135,6 +135,21 @@ static func add_mat(parent: Node3D, seat: Vector3) -> void:
 
 # --- drawing ---------------------------------------------------------------------------
 
+var _ray := []
+
+
+func aim(origin: Vector3, dir: Vector3) -> void:
+	_ray = [origin, dir]
+
+
+## The cat is the pointer's target until the drawing starts: the ring shows on him and the
+## pointer's magnet holds on him, so the player sees where to begin.
+func hover_boxes() -> Dictionary:
+	if _walking or _won or _drawing or cat == null:
+		return {}
+	return {"cat": AABB(cat.position - Vector3(0.8, 0, 0.8), Vector3(1.6, 1.2, 1.6))}
+
+
 ## Feed the pointer every frame: held = trigger down, p = point on the diorama ground (model
 ## metres) or null when the ray misses it.
 func pointer(held: bool, p) -> void:
@@ -143,7 +158,9 @@ func pointer(held: bool, p) -> void:
 	if held and p != null:
 		var q: Vector3 = p
 		if not _drawing:
-			if q.distance_to(cat.position) > START_RADIUS:
+			# begin on the cat: the pointer on him (the magnet counts) or the ground close by
+			var on_cat := TableKit.ray_pick(self, _ray, hover_boxes()) == "cat"
+			if not on_cat and q.distance_to(cat.position) > START_RADIUS:
 				return
 			_drawing = true
 			_ghost_on = false

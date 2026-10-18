@@ -70,8 +70,11 @@ def bake_ground(n=1024):
 def garden_wall():
     # the kit's corner piece is textured outside on one handedness only; the front right
     # corner (which would need it mirrored) is a plain block of mud instead
-    corners = [((-GX, Y0), 0), ((-GX, Y1), -90), ((GX, Y1), 180)]
-    block("CornerFill", (0.56, 0.56, b1.WALL_H + 0.04), (GX, Y0, b1.WALL_H / 2 + 0.02), b1.tile_mat())
+    corners = [((-GX, Y1), -90), ((GX, Y1), 180)]
+    # the front: a low wall with an open gateway, turning both front corners low
+    b1.low_front(-GX - 0.22, GX + 0.22, Y0)
+    block("LowCornerL", (0.44, 2.25, b1.LOW_H + 0.3), (-GX, Y0 + 1.12, (b1.LOW_H - 0.3) / 2), b1.tile_mat())
+    block("LowCornerR", (0.44, 0.3, b1.LOW_H + 0.3), (GX, Y0 + 0.1, (b1.LOW_H - 0.3) / 2), b1.tile_mat())
     import math
     for (x, y), yaw in corners:
         place(k("wall_corner"), (x, y, 0), yaw)
@@ -82,13 +85,10 @@ def garden_wall():
                 place(k("crenel"), V((x, y, b1.WALL_H)) + ax * t, math.degrees(math.atan2(ax.y, ax.x)))
     # straight runs fill exactly the gaps the corner arms (2.25 m) leave: overlapping walls
     # share planes and flicker on the headset
-    runs = [  # (x, y, yaw, length): front with its gate, back, left, right
-        (-2.875, Y0, 0, 1.75), (3.875, Y0, 0, 3.75),
+    runs = [  # (x, y, yaw, length): back, left, right (the front is low_front above)
         (-1.875, Y1, 180, 3.75), (1.875, Y1, 180, 3.75),
         (-GX, 2.0, -90, 3.5),
         (GX, -0.375, 90, 2.75), (GX, 2.375, 90, 2.75)]
-    place(k("wall_door"), (0.0, Y0, 0), 0)
-    b1.crenels_on(0.0, Y0, 0)
     for x, y, yaw, length in runs:
         w = place(k("wall"), (x, y, 0), yaw)
         w.scale = (length / 4.0, 1.0, 1.0)

@@ -96,12 +96,8 @@ def house():
     for x, side in ((-GX + 0.27, "L"), (GX - 0.27, "R")):
         block("SideDoor" + side, (0.06, 1.4, 2.2), g(x, SIDE_DOOR_Z, 1.1), door, uv_full=True)
         block("SideLintel" + side, (0.3, 1.9, 0.16), g(x + (0.03 if side == "L" else -0.03), SIDE_DOOR_Z, 2.3), wood, uv_full=True)
-    # the front wall and gate, with crenels
-    for x, name in ((-4.0, "wall"), (0.0, "wall_door"), (4.0, "wall")):
-        place(k(name), g(x, GZ), 0, 1.0)
-        b1.crenels_on(x, -GZ, 0)
-    for x in (-6.7, 6.7):
-        block("FrontWallEnd", (1.5, 0.44, 2.8), g(x, GZ, 1.4), mud)
+    # the front: a low wall with an open gateway, so the courtyard is in view and in reach
+    b1.low_front(-GX - 0.2, GX + 0.2, -GZ)
     # carpets in the middle of the courtyard
     band = bpy.data.materials.new("scene10_band")
     band.use_nodes = True
