@@ -19,6 +19,8 @@ const LOGO_HOLD := 5.0      # the studio's name stays a good while (shown only h
 const LOGO_OUT := 1.2
 const GATE_W := 0.76        # the doorway (a little smaller than a real one: it is a way in, not a wall)
 const GATE_H := 1.14
+const GATE_K := 0.55        # the whole gate drawn at this size: about as tall as the studio's logo was
+const TITLE_K := 1.0 / GATE_K   # the title keeps its own size
 
 var _logo: MeshInstance3D
 var _gate: Node3D
@@ -132,7 +134,8 @@ func _box(parent: Node3D, size: Vector3, at: Vector3, mat: Material) -> MeshInst
 
 func _build_gate() -> void:
 	_gate = Node3D.new()
-	_gate.position.y = -GATE_H * 0.5
+	_gate.position.y = -GATE_H * 0.5 * GATE_K
+	_gate.scale = Vector3.ONE * GATE_K
 	_gate.visible = false
 	add_child(_gate)
 	var mud := _mat(MUD_TEX, Color("e9c9a0"))
@@ -357,12 +360,12 @@ func _build_key() -> Node3D:
 func _open_gate() -> void:
 	_step = "gate"
 	_gate.visible = true
-	_gate.position.y = -GATE_H * 0.5 - 1.2
-	_gate.scale = Vector3.ONE * 0.85
+	_gate.position.y = -GATE_H * 0.5 * GATE_K - 1.2
+	_gate.scale = Vector3.ONE * 0.85 * GATE_K
 	TableKit.sfx(self, "gate_lift", Vector3.ZERO, -4.0)
 	_tw = create_tween()
-	_tw.tween_property(_gate, "position:y", -GATE_H * 0.5, 1.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_tw.parallel().tween_property(_gate, "scale", Vector3.ONE, 1.3).set_trans(Tween.TRANS_SINE)
+	_tw.tween_property(_gate, "position:y", -GATE_H * 0.5 * GATE_K, 1.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tw.parallel().tween_property(_gate, "scale", Vector3.ONE * GATE_K, 1.3).set_trans(Tween.TRANS_SINE)
 	_tw.tween_callback(func(): _key.visible = true)
 	_tw.tween_property(_key, "position:z", 0.06, 0.9).from(0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_tw.tween_callback(func(): TableKit.sfx(self, "unlock", _key.position, -2.0))
@@ -391,18 +394,18 @@ func _glow_alpha(a: float) -> void:
 func _show_title() -> void:
 	_step = "title"
 	_title.visible = true
-	_title.scale = Vector3.ONE * 0.2
+	_title.scale = Vector3.ONE * 0.2 * TITLE_K
 	TableKit.sfx(self, "portal", _title.position, -6.0)
 	var tw := create_tween()
-	tw.tween_property(_title, "scale", Vector3.ONE, 0.9).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_title, "scale", Vector3.ONE * TITLE_K, 0.9).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func(): _prompt.visible = true)
 
 
 ## Skips straight to the open gate and the name.
 func _show_open() -> void:
 	_gate.visible = true
-	_gate.position.y = -GATE_H * 0.5
-	_gate.scale = Vector3.ONE
+	_gate.position.y = -GATE_H * 0.5 * GATE_K
+	_gate.scale = Vector3.ONE * GATE_K
 	_key.visible = false
 	for i in _leaves.size():
 		_leaves[i].rotation.y = (1.0 if i == 0 else -1.0) * deg_to_rad(105)
@@ -416,8 +419,8 @@ func _leave() -> void:
 	_prompt.visible = false
 	TableKit.sfx(self, "ui_click", _title.position, -4.0)
 	var tw := create_tween().set_parallel()
-	tw.tween_property(_title, "scale", Vector3.ONE * 0.01, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	tw.tween_property(_gate, "position:y", -GATE_H * 0.5 - 1.4, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_property(_title, "scale", Vector3.ONE * 0.01 * TITLE_K, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_property(_gate, "position:y", -GATE_H * 0.5 * GATE_K - 1.4, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_method(_glow_alpha, 0.6, 0.0, 0.6)
 	tw.chain().tween_callback(func():
 		finished.emit()

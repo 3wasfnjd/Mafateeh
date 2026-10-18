@@ -306,6 +306,17 @@ func scene_mesh() -> TriangleMesh:
 	return _scene_tm
 
 
+## The ground under a walker at (x, z): the first surface below `from_y` (model metres), so a
+## palm's fronds or a beam overhead are never taken for the ground, while a step or a dune he
+## is on still is. NAN when nothing is below there.
+func ground_at(x: float, z: float, from_y: float) -> float:
+	var tm := scene_mesh()
+	if tm == null:
+		return NAN
+	var hit := tm.intersect_ray(Vector3(x, from_y, z), Vector3.DOWN)
+	return hit.position.y if not hit.is_empty() else NAN
+
+
 ## The height of the scene's top surface at (x, z) in model metres (a roof, a palm, the ground).
 func top_at(x: float, z: float) -> float:
 	var tm := scene_mesh()

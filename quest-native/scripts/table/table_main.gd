@@ -809,8 +809,10 @@ func _level_hover(ray: Array, wall: Dictionary) -> Dictionary:
 	return {}
 
 
-## The first thing the ray meets in the scene itself (the buildings, the ground, the palms; not
-## the level's moving pieces, the animals or anything hidden): {point, normal} or {}.
+## The first thing the ray meets in the scene itself (the ground, the roofs, the palms; not the
+## level's moving pieces, the animals or anything hidden): {point, normal} or {}. Walls do not
+## stop it: the pointer goes through a wall's side and over its thin top to what is behind,
+## so a courtyard's wall is never in the way of what is inside.
 func _scene_hit(ray: Array) -> Dictionary:
 	if diorama == null or diorama.model == null:
 		return {}
@@ -819,13 +821,32 @@ func _scene_hit(ray: Array) -> Dictionary:
 		return {}
 	var o := diorama.model.to_local(ray[0])
 	var d := (diorama.model.to_local((ray[0] as Vector3) + (ray[1] as Vector3)) - o).normalized()
-	var hit := tm.intersect_ray(o, d)
-	if hit.is_empty():
-		return {}
-	var n: Vector3 = hit.get("normal", Vector3.UP)
-	if n.dot(d) > 0.0:
-		n = -n   # the face the ray meets, so the ring lies on the near side
-	return {"point": diorama.model.to_global(hit.position), "normal": (diorama.model.global_basis * n).normalized()}
+	for i in 8:
+		var hit := tm.intersect_ray(o, d)
+		if hit.is_empty():
+			return {}
+		var n: Vector3 = hit.get("normal", Vector3.UP)
+		if n.dot(d) > 0.0:
+			n = -n   # the face the ray meets, so the ring lies on the near side
+		var at: Vector3 = hit.position
+		if absf(n.y) > WALL_NY and not _thin_top(at):
+			return {"point": diorama.model.to_global(at), "normal": (diorama.model.global_basis * n).normalized()}
+		o = at + d * 0.05   # a wall's side or its top: on through it
+	return {}
+
+
+const WALL_NY := 0.55   # a face steeper than this is a wall's side
+
+
+## A wall's top: a narrow ledge high above the ground on either side of it (model metres).
+func _thin_top(at: Vector3) -> bool:
+	if at.y < 0.8:
+		return false
+	var low := 0
+	for off in [Vector2(0.8, 0), Vector2(-0.8, 0), Vector2(0, 0.8), Vector2(0, -0.8)]:
+		if diorama.top_at(at.x + off.x, at.z + off.y) < at.y - 1.0:
+			low += 1
+	return low >= 2
 
 
 ## Rings the thing under the pointer (and a light tick in the hand when it changes).

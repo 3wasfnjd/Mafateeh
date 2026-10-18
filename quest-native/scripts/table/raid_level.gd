@@ -410,7 +410,10 @@ func _tracer(from: Vector3, to: Vector3, puff: bool) -> void:
 
 ## Every rifle turned to its mark (or held up, ready, when it has none), the magazine down.
 func _aim_guns() -> void:
-	for m in _defenders + _raiders:
+	var all := _defenders + _raiders
+	for i in all.size():
+		var m: Dictionary = all[i]
+		var defender := i < _defenders.size()
 		var g = m.get("gun")
 		var mn = m.get("rider")
 		if g == null or not is_instance_valid(g) or mn == null or not is_instance_valid(mn) or not (g as Node3D).visible:
@@ -421,7 +424,16 @@ func _aim_guns() -> void:
 		var mark: Vector3 = m.get("aim", Vector3.ZERO)
 		var fwd := man.global_basis.z.normalized()
 		var dir: Vector3
-		if mark == Vector3.ZERO:
+		if mark == Vector3.ZERO and not _won and defender:
+			# the old man and his men keep their rifles on the nearest raider (or, before any
+			# come, levelled at the dunes they will come over); only when the raid is beaten
+			# do they point them at the sky
+			var near = _closest_raider_to(hold.global_position)
+			if near != null:
+				dir = ((near as Node3D).global_position + global_basis.y * 1.6 * RIDER_SCALE - hold.global_position).normalized()
+			else:
+				dir = (global_basis * Vector3(0, 0.3, -1)).normalized()
+		elif mark == Vector3.ZERO:
 			dir = (fwd + Vector3.UP * 1.6).normalized()
 		else:
 			dir = (to_global(mark) - hold.global_position).normalized()
@@ -431,6 +443,20 @@ func _aim_guns() -> void:
 		side = side.normalized()
 		var z := side.cross(dir).normalized()
 		gun.global_transform = Transform3D(Basis(side, dir, z).scaled(hold.global_basis.get_scale()), hold.global_position)
+
+
+## The closest raider still riding at the camp (his mount), or null.
+func _closest_raider_to(from: Vector3) -> Variant:
+	var best = null
+	var best_d := INF
+	for r in _raiders:
+		if not (r.state in ["charge", "wheel"]) or not is_instance_valid(r.root):
+			continue
+		var d := (r.root as Node3D).global_position.distance_to(from)
+		if d < best_d:
+			best_d = d
+			best = r.root
+	return best
 
 
 # --- the pointer ------------------------------------------------------------------------------------

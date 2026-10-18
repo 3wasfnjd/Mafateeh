@@ -216,7 +216,7 @@ func _win() -> void:
 			ap.play("walk")
 		var seat: Vector3 = SEATS[k]
 		var front := Vector3(seat.x, 0, -2.0)
-		g.position.y = _ground(g.position)
+		g.position.y = diorama.top_at(g.position.x, g.position.z)   # where he comes in: open sand
 		_walkers.append(g)
 		var tw := create_tween()
 		tw.tween_interval(0.6 + k * 0.9)
@@ -244,15 +244,18 @@ func _win() -> void:
 
 
 ## The height of the sand (or the court) under a point: the guests walk over the dunes on
-## their way in, never through them. The lowest of a few samples round it, so a palm's fronds
-## overhead are never taken for the ground.
+## their way in, never through them. Only what lies below knee height over his feet counts, so
+## a palm's fronds overhead (or a lantern post's top) are never taken for the ground and he
+## never climbs them; the lowest of a few samples round him.
 func _ground(p: Vector3) -> float:
 	if diorama == null:
 		return 0.0
 	var y := INF
 	for o in [Vector2.ZERO, Vector2(0.5, 0), Vector2(-0.5, 0), Vector2(0, 0.5), Vector2(0, -0.5)]:
-		y = minf(y, diorama.top_at(p.x + o.x, p.z + o.y))
-	return clampf(y, 0.0, 3.0)
+		var h := diorama.ground_at(p.x + o.x, p.z + o.y, p.y + 0.6)
+		if not is_nan(h):
+			y = minf(y, h)
+	return clampf(y, 0.0, 3.0) if y < INF else p.y
 
 
 func demo() -> void:
