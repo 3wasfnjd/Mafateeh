@@ -25,7 +25,16 @@ const FIRE := Vector3(1.6, 0, -0.6)
 const CAIRN := Vector3(0.0, 0, 9.2)
 const CAMELS := [[Vector3(3.0, 0, -3.4), 200.0], [Vector3(4.8, 0, -1.0), 250.0], [Vector3(-0.8, 0, -3.6), 160.0]]
 const KNEEL := "res://assets/world/props/camel_kneeling.glb"
-const STAND := "res://assets/world/props/camel_standing.glb"
+const STAND := "res://assets/world/props/camel_ride.glb"   # standing, its legs free to walk (build_mounts.py)
+# After the win the caravan files out behind the old man: each camel its own way round the fire
+# and the others (x, z waypoints), leaving one after another so they never meet.
+const ROUTES := [
+	[Vector2(5.4, -2.6), Vector2(5.2, 1.4), Vector2(3.7, 3.7)],                       # the east camel, last
+	[Vector2(4.6, 1.6), Vector2(2.6, 5.0), Vector2(1.5, 6.9)],                        # the near one, first
+	[Vector2(-2.0, -2.0), Vector2(-2.2, 2.4), Vector2(-1.0, 6.1)],                    # the west one
+]
+const LEAVE := [3.2, 0.4, 1.6]     # s after the old man sets off
+const CAMEL_SPEED := 1.05          # m/s, a slow walk
 const OLD_MAN := Vector3(0.6, 0, 0.3)
 const HINT_AFTER := 20.0
 const STAR := Color("f4f1e6")
@@ -43,6 +52,7 @@ var _t := 0.0
 var _hint := -1
 var _demo: Array = []
 var _camels: Array = []
+var _walkers: Array = []        # {node, legs, path: [Vector3], wait, phase}
 var _fire: Node3D
 var _gust_wait := 28.0
 var _gusts := 2
@@ -231,7 +241,7 @@ func _win() -> void:
 		diorama.play_shaib("idle", ""))
 	tw.tween_interval(0.8)
 	tw.tween_callback(_set_off)
-	tw.tween_interval(7.0)
+	tw.tween_interval(16.0)   # the caravan in its place behind him
 	tw.tween_callback(func():
 		TableKit.sfx(self, "level_complete", CAIRN)
 		level_won.emit())
@@ -252,11 +262,56 @@ func _set_off() -> void:
 		var m: Node3D = _camels[i]
 		if m == null:
 			continue
-		var to := CAIRN + Vector3(-1.5 + i * 1.6, 0, -2.4 - i * 1.6)
-		var t2 := create_tween()
-		t2.tween_interval(0.6 + i * 0.5)
-		t2.tween_callback(func(): TableKit.face(m, to - m.position))
-		t2.tween_property(m, "position", to, m.position.distance_to(to) / 1.0)
+		var legs := []
+		for n in ["Leg_FL", "Leg_FR", "Leg_BL", "Leg_BR"]:
+			var l := m.find_child(n, true, false)
+			if l:
+				legs.append(l)
+		var path := []
+		for w in ROUTES[i]:
+			path.append(Vector3(w.x, 0, w.y))
+		_walkers.append({"node": m, "legs": legs, "path": path, "wait": LEAVE[i], "phase": i * 1.3, "k": 0.0})
+
+
+## The caravan walking: along each camel's waypoints at a slow pace, on the sand (never up on a
+## rock), turning smoothly, legs pacing (both of a side together) while it moves.
+func _walk(dt: float) -> void:
+	for w in _walkers:
+		var m: Node3D = w.node
+		if not is_instance_valid(m):
+			continue
+		var moving := false
+		if w.wait > 0.0:
+			w.wait -= dt
+		elif not (w.path as Array).is_empty():
+			var to: Vector3 = w.path[0]
+			var flat := Vector3(to.x - m.position.x, 0, to.z - m.position.z)
+			if flat.length() < 0.15:
+				w.path.pop_front()
+			else:
+				moving = true
+				var want := atan2(flat.x, flat.z)
+				m.rotation.y = lerp_angle(m.rotation.y, want, 1.0 - exp(-4.0 * dt))
+				var fwd := Vector3(sin(m.rotation.y), 0, cos(m.rotation.y))
+				# goes on along where it faces, so it walks round the bend instead of sliding sideways
+				var lined := clampf(cos(angle_difference(m.rotation.y, want)), 0.15, 1.0)   # turns on the spot first
+				m.position += fwd * minf(CAMEL_SPEED * lined * dt, flat.length())
+		var target_k := 1.0 if moving else 0.0
+		w.k = lerpf(w.k, target_k, 1.0 - exp(-5.0 * dt))
+		m.position.y = _ground(m.position)
+		var legs: Array = w.legs
+		for i in legs.size():
+			var off := 0.0 if i % 2 == 0 else PI
+			(legs[i] as Node3D).rotation.x = w.k * 0.42 * sin(_t * 4.2 + float(w.phase) + off)
+
+
+func _ground(p: Vector3) -> float:
+	if diorama == null:
+		return 0.0
+	var y := INF
+	for o in [Vector2.ZERO, Vector2(0.6, 0), Vector2(-0.6, 0), Vector2(0, 0.6), Vector2(0, -0.6)]:
+		y = minf(y, diorama.top_at(p.x + o.x, p.z + o.y))
+	return clampf(y, 0.0, 3.0)
 
 
 func demo() -> void:
@@ -297,6 +352,7 @@ func _gust() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	_walk(dt)
 	for c in _fire.get_children():
 		c.scale.y = 1.0 + 0.2 * sin(_t * 9.0 + c.position.x * 30.0)
 	# the ring under the pointer glows

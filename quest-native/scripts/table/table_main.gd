@@ -777,11 +777,12 @@ func _level_hover(ray: Array, wall: Dictionary) -> Dictionary:
 		if not g.is_empty():
 			h = g
 	if not h.is_empty():
-		if h.get("snapped", false) and not wall.is_empty():
-			# picked by the assist: the ray still ends where it really points (it never bends
-			# to the piece); the ring round the piece shows what a press takes
-			h.point = wall.point
-			h.normal = wall.normal
+		if h.get("snapped", false):
+			# the magnet: near a piece the pointer jumps onto it; its ring lies at the piece's
+			# foot (not on its box's top in the air) and the short line leans towards it
+			var b: AABB = h.box
+			h.point = diorama.stage.to_global(Vector3(b.get_center().x, b.position.y, b.get_center().z))
+			h.normal = diorama.stage.global_basis.y.normalized()
 			return h
 		if not wall.is_empty() and (h.box as AABB).grow(0.2).has_point(diorama.stage.to_local(wall.point)):
 			# the ray reaches the ground (or roof) inside the piece's box: the ring lies there,

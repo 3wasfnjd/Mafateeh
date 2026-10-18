@@ -111,7 +111,7 @@ static func model(parent: Node3D, path: String, pos := Vector3.ZERO, yaw := 0.0,
 
 ## Aim assist: a ray that misses every box by less than this angle still picks the one it
 ## passes closest to (the pointer snaps to it), so small things on the table are easy to hit.
-const ASSIST := 0.035  # radians, 2 degrees: a couple of centimetres at arm's length
+const ASSIST := 0.09   # radians, 5 degrees: the magnet, about 5 cm at arm's length
 
 
 ## What the ray meets first in the scene itself this frame (set by the game before the level
@@ -173,7 +173,7 @@ static func ray_hit(parent: Node3D, ray: Array, boxes: Dictionary, assist := tru
 		# the angle to the box, less its own half size seen from here
 		var a := atan2((v - d * t).length(), t) - atan2(b.size.length() * 0.25, t)
 		if id == held:
-			a -= ASSIST * 0.8   # the one already under the pointer holds on a little longer: no flicker at the edge
+			a -= ASSIST * 0.4   # the one already under the pointer holds on a little longer: no flicker at the edge
 		if a < near_a and walled:
 			var top_w := parent.to_global(Vector3(b.get_center().x, b.end.y, b.get_center().z))
 			var reach := (parent.global_basis * (b.size * 0.5)).length()

@@ -35,6 +35,8 @@ const RIM_Z := -12.6                  # where they come over the dunes
 const NEAR_Z := -2.2                  # how close they ride before they wheel away again
 const BACK_Z := -6.0                  # how far back they wheel before coming on again
 const GALLOP := 3.4                   # metres a second
+const SPACING := 3.6                  # m: riders steer to keep this far apart
+const MIN_GAP := 2.4                  # m: and are never closer than this (a mount's length)
 const HINT_AFTER := 9.0
 const TRACER := Color("ffb347")
 const GOLD := Color("e6b85a")
@@ -238,11 +240,29 @@ func _ride(m: Dictionary, dt: float) -> void:
 				return
 		return
 	var dir := flat.normalized()
+	# keep clear of the other riders and of the old man's men: each pushes him aside when they
+	# come close, so two never ride through one another
+	for o in _raiders + _defenders:
+		if o == m or o.get("state", "") == "gone" or not is_instance_valid(o.root):
+			continue
+		var away := root.position - (o.root as Node3D).position
+		away.y = 0.0
+		var d := away.length()
+		if d < SPACING and d > 0.01:
+			dir += away / d * (SPACING - d) / SPACING * 3.0
+	dir = dir.normalized()
 	# turn smoothly towards where he is going
 	var want := atan2(dir.x, dir.z)
 	root.rotation.y = lerp_angle(root.rotation.y, want, clampf(dt * 3.0, 0, 1))
 	var fwd := Vector3(sin(root.rotation.y), 0, cos(root.rotation.y))
 	var p := root.position + fwd * speed * dt
+	for o in _raiders + _defenders:   # never into one another (or the old man's line), however they turn
+		if o == m or o.get("state", "") == "gone" or not is_instance_valid(o.root):
+			continue
+		var op: Vector3 = (o.root as Node3D).position
+		var away := Vector3(p.x - op.x, 0, p.z - op.z)
+		if away.length() < MIN_GAP and away.length() > 0.01:
+			p += away.normalized() * (MIN_GAP - away.length()) * 0.5
 	var bob := absf(sin(_t * (6.0 if m.camel else 9.0) + m.phase)) * (0.12 if m.camel else 0.08)
 	root.position = Vector3(p.x, _ground(p) + bob, p.z)
 	_legs(m, 1.0, dt)

@@ -51,7 +51,8 @@ const RAY_SEGS := 24
 const END_RATE := 26.0        # 1/s: how fast the end follows (about 40 ms)
 const LOST_GRACE := 0.3       # s
 const RAY_COLOUR := Color(1.0, 0.9, 0.62)
-const DRAW_LINE := false      # the owner's choice: no line from the hand, only the rings on what it points at
+const DRAW_LINE := true
+const RAY_MAX := 0.28         # m: the line is a short pointer out of the hand, not a laser across the room
 var _ptr := {}                # hand -> {has, end, n, size, lost}
 var fake_ray := []            # screenshots only: a right-hand ray [origin, direction] with no headset
 
@@ -343,25 +344,27 @@ func _draw_ray(node: MeshInstance3D, o: Vector3, d: Vector3, end: Vector3, dist:
 	node.visible = true
 	node.global_transform = Transform3D.IDENTITY
 	var ctrl := o + d * dist * 0.5
+	var eye := camera.global_position
 	var view := get_viewport().get_camera_3d()
-	var eye := view.global_position if view else camera.global_position
+	if view:
+		eye = view.global_position
 	var col := RAY_COLOUR.lerp(Color(1, 1, 1), 0.35) if interactive else RAY_COLOUR
+	var reach := minf(dist, RAY_MAX) / dist      # how much of the way to the end is drawn
+	var whole := landed and dist <= RAY_MAX       # short enough to reach what it is on
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	for i in RAY_SEGS + 1:
-		var t := float(i) / RAY_SEGS
+		var f := float(i) / RAY_SEGS
+		var t := f * reach
 		var u := 1.0 - t
 		var p := o * u * u + ctrl * 2.0 * u * t + end * t * t
 		var tg := ((ctrl - o) * u + (end - ctrl) * t).normalized()
 		var side := tg.cross(p - eye)
 		if side.length_squared() < 1e-10:
 			side = tg.cross(Vector3.UP)
-		side = side.normalized() * lerpf(0.0026, 0.0012, t)
-		var along := t * dist
-		var a := clampf(along / 0.05, 0.0, 1.0) * 0.8          # out of the controller softly
-		if not landed:
-			a *= clampf((1.0 - t) / 0.6, 0.0, 1.0)            # into the air: fade away
-		else:
-			a = maxf(a, 0.0) * (0.75 + 0.25 * t)               # a little brighter towards the ring
+		side = side.normalized() * lerpf(0.0028, 0.0014, f)
+		var a := clampf(t * dist / 0.03, 0.0, 1.0) * 0.85      # out of the controller softly
+		if not whole:
+			a *= clampf((1.0 - f) / 0.55, 0.0, 1.0)            # the tip fades away
 		im.surface_set_color(Color(col.r, col.g, col.b, a))
 		im.surface_add_vertex(p + side)
 		im.surface_set_color(Color(col.r, col.g, col.b, a))
