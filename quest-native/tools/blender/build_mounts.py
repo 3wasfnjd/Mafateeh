@@ -90,6 +90,7 @@ def sadu_blanket(pt, centre, w, d, h, drop):
 # --- the camel ----------------------------------------------------------------------------------
 
 BELLY = 1.25
+LEG_R = 0.24   # a leg's faces lie within this of its column; the belly's wider faces stay on the body
 
 
 def camel():
@@ -101,11 +102,22 @@ def camel():
     bm = bmesh.new()
     bm.from_mesh(me)
     groups = {k: [] for k in LEGS}
+    def quad(c):
+        return ("F" if c.y < -0.1 else "B") + ("L" if c.x > 0 else "R")
+    # each leg's column: where its lower part stands (the belly above is left on the body, so it
+    # never swings with the leg or leaves a hole under it)
+    feet = {k: [] for k in LEGS}
+    for f in bm.faces:
+        c = f.calc_center_median()
+        if c.z < 0.6:
+            feet[quad(c)].append(c)
+    centre = {k: V((sum(p.x for p in v) / len(v), sum(p.y for p in v) / len(v), 0)) for k, v in feet.items() if v}
     for f in bm.faces:
         c = f.calc_center_median()
         if c.z < BELLY:
-            key = ("F" if c.y < -0.1 else "B") + ("L" if c.x > 0 else "R")
-            groups[key].append(f)
+            key = quad(c)
+            if key in centre and (V((c.x, c.y, 0)) - centre[key]).length < LEG_R:
+                groups[key].append(f)
     legs = []
     for key, faces in groups.items():
         nb = bmesh.new()

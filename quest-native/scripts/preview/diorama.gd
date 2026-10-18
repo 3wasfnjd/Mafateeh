@@ -287,6 +287,7 @@ func _add_board() -> void:
 	_ring(board, BOARD_R + 0.05, top - 0.1, top + 0.02, brass)     # the brass line at the top
 	_ring(board, FOOT_R, BOARD_BOTTOM, FOOT_TOP, foot)             # the foot
 	_disc(board, BOARD_R - 0.1, FOOT_R, FOOT_TOP, foot)
+	_add_dome(board, top)
 	var skirt := model.find_child("Plinth*", false, false) as MeshInstance3D
 	if skirt:
 		var sand := StandardMaterial3D.new()
@@ -294,6 +295,67 @@ func _add_board() -> void:
 		sand.roughness = 1.0
 		sand.cull_mode = BaseMaterial3D.CULL_DISABLED
 		skirt.material_override = sand
+
+
+const DOME_K := 0.86   # the glass dome a little lower than a half sphere: over the tallest roof and the sky
+
+
+## A glass dome over the town, standing in the brass line on the board: clear where you look
+## straight through it, catching the light towards its edges, with a small brass knob on top.
+## Only drawn (never in the pointer's way: it is not part of the scene the pointer meets).
+func _add_dome(board: Node3D, top: float) -> void:
+	var r := BOARD_R - 0.02
+	var mesh := SphereMesh.new()
+	mesh.radius = r
+	mesh.height = r
+	mesh.is_hemisphere = true
+	mesh.radial_segments = 96
+	mesh.rings = 32
+	var glass := ShaderMaterial.new()
+	glass.shader = _glass_shader()
+	glass.render_priority = -1   # under the pointer and the halos drawn over the scene
+	var dome := MeshInstance3D.new()
+	dome.name = "Dome"
+	dome.mesh = mesh
+	dome.material_override = glass
+	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	dome.scale = Vector3(1, DOME_K, 1)
+	dome.position.y = top
+	board.add_child(dome)
+	var knob := MeshInstance3D.new()
+	var km := SphereMesh.new()
+	km.radius = 0.55
+	km.height = 0.9
+	knob.mesh = km
+	var brass := StandardMaterial3D.new()
+	brass.albedo_color = Color("c99a3e")
+	brass.metallic = 0.8
+	brass.roughness = 0.35
+	knob.material_override = brass
+	knob.position.y = top + r * DOME_K + 0.3
+	board.add_child(knob)
+
+
+static var _glass: Shader
+static func _glass_shader() -> Shader:
+	if _glass:
+		return _glass
+	_glass = Shader.new()
+	_glass.code = """
+shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_back, specular_schlick_ggx;
+uniform vec3 tint : source_color = vec3(0.86, 0.93, 1.0);
+void fragment() {
+	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	ALBEDO = tint * 0.25;
+	ROUGHNESS = 0.04;
+	METALLIC = 0.0;
+	SPECULAR = 0.9;
+	EMISSION = tint * f * 0.12;
+	ALPHA = 0.035 + 0.4 * f;
+}
+"""
+	return _glass
 
 
 ## The side of a round band, radius r, from y0 to y1 (model metres), its texture once round.
@@ -682,6 +744,14 @@ func _add_life() -> void:
 		if ps == null:
 			continue
 		var n: Node3D = ps.instantiate()
+		if h[0] == "rooster":
+			# the rooster's model faces the other way from the hen's: turned round inside a holder,
+			# so he walks (and pecks) head first like her
+			var holder := Node3D.new()
+			holder.name = "Rooster"
+			n.rotation.y = PI
+			holder.add_child(n)
+			n = holder
 		stage.add_child(n)
 		n.position = h[1]
 		n.scale = Vector3.ONE * LIFE_SCALE.hen

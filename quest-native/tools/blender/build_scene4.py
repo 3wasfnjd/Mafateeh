@@ -103,7 +103,7 @@ def camp():
     place(p("camel_standing"), g(8.4, -4.4), 10)
     place(p("camel_standing"), g(10.6, -4.6), -20)
     place(p("camel_calf"), g(11.6, -2.6), 60)
-    place(p("camel_kneeling"), g(-7.6, -6.8), 120)
+    place(p("camel_kneeling"), g(-8.4, -6.4), 300)   # beside the tent, its head away from it
     # dry desert shrubs (arfaj), low and grey-brown
     shrub = bpy.data.materials.new("scene4_shrub")
     shrub.use_nodes = True

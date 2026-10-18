@@ -17,7 +17,7 @@ extends Node3D
 signal level_won
 
 const CHEST := Vector3(0.0, 0.0, -0.4)     # back from the front wall, which hides the ground just behind it
-const OLD_MAN := Vector3(1.5, 0.0, -1.5)   # beside the chest, not behind it: in full view when it opens
+const OLD_MAN := Vector3(-0.6, 0.0, -1.7)  # behind the chest with his falcon, the two of them in the middle
 const CHEST_K := 0.62                        # the chest's size (it was big enough to hide him)
 const ARC_R := 3.2
 const KEEPSAKES := ["cat", "block", "key", "truck", "lantern", "drum", "star", "dallah", "palm"]
@@ -82,7 +82,7 @@ func setup(d: Diorama) -> void:
 	_hint_ring = TableKit.ring(self, 0.6, GOLD, 0.9)
 	_hint_ring.visible = false
 	# the falcon on its perch (وكر) by the old man: it is night
-	var wakr_at := OLD_MAN + Vector3(1.2, 0, 0.3)
+	var wakr_at := OLD_MAN + Vector3(1.2, 0, 0.0)
 	Diorama.wakr(self, wakr_at)
 	_falcon = CreatureSlot.spawn(self, "falcon")
 	if _falcon:
