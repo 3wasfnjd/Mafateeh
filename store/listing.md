@@ -110,4 +110,4 @@ The covers (hero, landscape, square, portrait, mini, trailer cover) are cut from
 key art, `key_art_source.png`. The screenshots are rendered from the real table game with the
 desktop renderer (`quest-native/tools/store/make_table_store_art.sh`, whose cover step would
 overwrite the key-art covers; skip it); a headset capture can replace any screenshot.
-The icons come from `quest-native/tools/store/render_portrait.gd` and `compose_icons.py`.
+The icon and the spatialized icon layers are cut from the owner's art: `key_art_shaib.webp` (the old man, transparent) over `key_art_background.webp`.
