@@ -9,6 +9,8 @@ extends Node3D
 signal finished
 
 const LOGO := "res://assets/brand/aboden_logo.png"
+const TITLE_LOGO := "res://assets/brand/mafateeh_title.png"   # the game's logo, as on the store
+const TITLE_W := 0.66       # metres across
 const DOOR_TEX := "res://assets/world/door_arch_door.jpg"
 const MUD_TEX := "res://assets/world/courtyard_mud.jpg"
 const GOLD := Color("e3a83a")
@@ -302,11 +304,22 @@ func _build_gate() -> void:
 	_title.position = Vector3(0, GATE_H * 0.62, 0.25)
 	_gate.add_child(_title)
 	var save = get_node_or_null("/root/Save")
-	var name_l := _label("مفاتيح", 0.0, 165, GOLD)
-	name_l.outline_size = 18
-	name_l.outline_modulate = Color("4f3826")
-	_title.add_child(name_l)
-	_title.add_child(_label("MAFATEEH", -0.16, 52, CREAM))
+	# the game's own logo (the one on the store): golden «مفاتيح» with its key and MAFATEEH
+	var logo := MeshInstance3D.new()
+	var tq := QuadMesh.new()
+	tq.size = Vector2(TITLE_W, TITLE_W * 768.0 / 1562.0)
+	logo.mesh = tq
+	var lm := StandardMaterial3D.new()
+	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lm.albedo_texture = load(TITLE_LOGO)
+	lm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	lm.no_depth_test = true
+	lm.render_priority = 10
+	logo.material_override = lm
+	logo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	logo.position.y = -0.06
+	_title.add_child(logo)
 	_prompt = _label(save.text("اضغط الزناد لتبدأ", "Press the trigger to start") if save else "اضغط الزناد لتبدأ", -GATE_H * 0.62 + 0.08, 50, CREAM)
 	_prompt.visible = false
 	_title.add_child(_prompt)
