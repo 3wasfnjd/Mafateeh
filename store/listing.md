@@ -1,5 +1,7 @@
 # Meta Horizon Store listing — مفاتيح — Mafateeh
 
+**Live on the store (released 20 Oct 2026):** https://www.meta.com/experiences/app/1431517553369145/
+
 Copy these into the Developer Dashboard (Store → Details). The title must stay exactly
 `مفاتيح — Mafateeh` everywhere (it matches the app name and the cover art).
 
