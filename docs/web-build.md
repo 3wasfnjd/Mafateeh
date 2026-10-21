@@ -13,7 +13,7 @@ The table game in `quest-native/` also runs in the browser, from the same scenes
 - Menu and intro wording without controllers (tap instead of trigger, no hand or vibration
   settings, no QR code at the end) lives beside the headset wording in `table_menu.gd` and
   `table_intro.gd`.
-- For the download only, the build imports the JPEG photo textures as lossy WebP (the headset
-  keeps them lossless).
+- Textures, resolution and anti-aliasing are exactly the headset's (owner: quality first; nothing
+  is reduced for the web until it has been tried on devices).
 - Try it locally: `godot --path quest-native scenes/table.tscn -- --web`, or build and serve
   `build/web/` with any static server.

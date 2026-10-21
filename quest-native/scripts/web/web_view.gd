@@ -72,10 +72,8 @@ func setup(environment: Environment, camera: Camera3D) -> void:
 	dist = _near()
 	_goal = {"yaw": yaw, "pitch": pitch, "dist": dist, "target": target}
 	# a phone's screen has two or three pixels to each of the page's: the buttons are drawn as
-	# large, and the 3D scene at fewer pixels (so it stays smooth), then stretched to fill
-	var dpr := DisplayServer.screen_get_scale()
-	_ui_k = clampf(dpr, 1.0, 3.0)
-	get_viewport().scaling_3d_scale = clampf(1.8 / maxf(dpr, 1.0), 0.6, 1.0)
+	# large (the scene itself at the screen's full sharpness)
+	_ui_k = clampf(DisplayServer.screen_get_scale(), 1.0, 3.0)
 	_build_hud()
 
 

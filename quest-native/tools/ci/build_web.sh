@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Browser build of the table game (used by .github/workflows/web.yml): the same project as the
+# Browser build of the table game (used by .github/workflows/pages.yml): the same project as the
 # Quest APK, exported with Godot's single-threaded Web template (no special server headers, so
 # it runs on GitHub Pages and on iPhone Safari). Output: $OUT_DIR (default ../build/web), a
 # folder to serve as is: index.html, index.js, index.wasm, index.pck, title.png.
 #
-# For the download only, the photo textures (JPEG sources, imported lossless for the headset)
-# are imported as lossy WebP here: about a quarter of the size, the same on screen. This
-# changes .import files in the checkout it runs in; CI throws the checkout away (locally:
-# git checkout -- '*.import').
+# The textures are exported exactly as the headset gets them (owner: quality first, nothing
+# reduced until it has been tried).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # quest-native/
@@ -53,16 +51,6 @@ if [ ! -f "$TPL/web_nothreads_release.zip" ]; then
   rm -f "$CACHE/$GODOT_TPZ"   # 1.2 GB, of which the web build needs 10 MB
 fi
 ls -la "$TPL"
-
-log "Photo textures as lossy WebP (web download only)"
-n=0
-while IFS= read -r f; do
-  if grep -q '^compress/mode=0$' "$f"; then
-    sed -i 's/^compress\/mode=0$/compress\/mode=1/; s/^compress\/lossy_quality=.*/compress\/lossy_quality=0.85/' "$f"
-    n=$((n + 1))
-  fi
-done < <(find "$ROOT/assets" -type f \( -name '*.jpg.import' -o -name '*.jpeg.import' \))
-echo "$n textures"
 
 log "Import"
 "$GODOT" --headless --xr-mode off --path "$ROOT" --import 2>&1 | grep -v "OpenXR-Loader" | tail -5 || true

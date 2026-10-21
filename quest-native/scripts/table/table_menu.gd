@@ -544,11 +544,12 @@ func _web() -> bool:
 	return save != null and save.web
 
 
-## The studio's site: the headset's browser opens it; in the browser the page goes there (a
-## new window would be stopped, the press reaching the game a frame after the tap).
+## The studio's site: the headset's browser opens it; in the browser the whole page goes there
+## (out of abodengames.com's play frame when it can; a new window would be stopped, the press
+## reaching the game a frame after the tap).
 func _open_site() -> void:
 	if _web() and OS.has_feature("web"):
-		JavaScriptBridge.eval("window.location.href = '%s'" % SITE)
+		JavaScriptBridge.eval("try { window.top.location.href = '%s'; } catch (e) { window.location.href = '%s'; }" % [SITE, SITE])
 	else:
 		OS.shell_open(SITE)
 
