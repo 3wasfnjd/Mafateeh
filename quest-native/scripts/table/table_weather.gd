@@ -164,6 +164,9 @@ func shower(seconds := 8.0) -> void:
 		p.stream = st
 		p.bus = "Ambience" if AudioServer.get_bus_index("Ambience") >= 0 else "Master"
 		p.volume_db = -30.0
+		var save := get_node_or_null("/root/Save")
+		if save and save.web:
+			p.volume_db = 0.0   # the browser's sound samples do not follow a fade: heard at once
 		add_child(p)
 		p.play()
 		var ts := create_tween()
