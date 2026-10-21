@@ -22,7 +22,7 @@ signal mode_changed(mode: String)
 
 const GRIP_TAP_TIME := 0.35
 
-var xr_interface: OpenXRInterface
+var xr_interface: XRInterface   # OpenXR on the headset (typed as the base class: the browser build has no OpenXR)
 var xr_active := false
 var focused := true
 var passthrough_supported := false
@@ -152,7 +152,7 @@ static func _unshaded(c: Color, transparent: bool) -> StandardMaterial3D:
 
 
 func start() -> bool:
-	xr_interface = XRServer.find_interface("OpenXR") as OpenXRInterface
+	xr_interface = XRServer.find_interface("OpenXR")
 	if xr_interface == null or not xr_interface.is_initialized():
 		if xr_interface == null or not xr_interface.initialize():
 			return false
@@ -162,11 +162,11 @@ func start() -> bool:
 	vp.use_xr = true
 	# Quest refresh rate: keep the runtime default (72 Hz) unless asked otherwise.
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	xr_interface.session_begun.connect(_on_session_begun)
-	xr_interface.session_visible.connect(func(): _set_focus(false))
-	xr_interface.session_focussed.connect(func(): _set_focus(true))
-	xr_interface.session_stopping.connect(func(): _set_focus(false))
-	xr_interface.pose_recentered.connect(func(): grip_tapped.emit("recenter"))
+	xr_interface.connect("session_begun", _on_session_begun)
+	xr_interface.connect("session_visible", func(): _set_focus(false))
+	xr_interface.connect("session_focussed", func(): _set_focus(true))
+	xr_interface.connect("session_stopping", func(): _set_focus(false))
+	xr_interface.connect("pose_recentered", func(): grip_tapped.emit("recenter"))
 	return true
 
 
@@ -176,9 +176,9 @@ func apply_quality(q: String) -> void:
 	if xr_interface == null:
 		return
 	var high := q == "high"
-	xr_interface.render_target_size_multiplier = 1.4 if high else 1.0   # (with 4x MSAA: sharp, still light on a Quest 3)
-	xr_interface.foveation_level = 1 if high else 2
-	xr_interface.foveation_dynamic = true
+	xr_interface.set("render_target_size_multiplier", 1.4 if high else 1.0)   # (with 4x MSAA: sharp, still light on a Quest 3)
+	xr_interface.set("foveation_level", 1 if high else 2)
+	xr_interface.set("foveation_dynamic", true)
 
 
 func _on_session_begun() -> void:

@@ -440,7 +440,13 @@ func follow(board: BoardPlacement) -> void:
 	var w := 10.1 * s
 	var d := 9.4 * s
 	var h := board.surface_height
-	stand.global_transform = Transform3D(Basis(Vector3.UP, board.rotation.y), Vector3(board.global_position.x, h, board.global_position.z) + board.global_transform.basis.z.normalized() * -0.3 * s)
+	set_stand(Transform3D(Basis(Vector3.UP, board.rotation.y), Vector3(board.global_position.x, h, board.global_position.z) + board.global_transform.basis.z.normalized() * -0.3 * s), w, d)
+
+
+## The stand with its top at `top` (world space), w by d metres across.
+func set_stand(top: Transform3D, w: float, d: float) -> void:
+	var h := top.origin.y
+	stand.global_transform = top
 	for c in stand.get_children():
 		if c.has_meta("corner"):
 			var k: Vector2 = c.get_meta("corner")

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#e9d6b4">
+<meta name="description" content="مفاتيح: لعبة ألغاز من عبودين قيمز في الدرعية. العبها مجانًا في المتصفح.">
+<title>مفاتيح — العب في المتصفح | عبودين قيمز</title>
+<link rel="icon" href="index.icon.png">
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png">
+<style>
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+html, body { width: 100%; height: 100%; }
+body { background: #e9d6b4; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#canvas { display: block; width: 100%; height: 100%; }
+#canvas:focus { outline: none; }
+#status { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+	background: radial-gradient(circle at 50% 38%, #f7ecd6 0%, #e9d6b4 62%, #d9bf94 100%); color: #4f3826;
+	font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
+#status img { width: min(72vw, 420px); height: auto; filter: drop-shadow(0 4px 10px rgba(79, 56, 38, .25)); }
+#bar { width: min(70vw, 360px); height: 12px; border-radius: 6px; background: #fbf3e4; border: 2px solid #7a5a3a; overflow: hidden; }
+#fill { height: 100%; width: 0; background: #7a5a3a; transition: width .2s; }
+#bar.busy #fill { width: 30%; animation: busy 1.2s ease-in-out infinite; }
+@keyframes busy { from { transform: translateX(260%); } to { transform: translateX(-120%); } }
+#line { font-size: 16px; opacity: .85; }
+#line span { display: block; font-size: 13px; opacity: .8; direction: ltr; }
+#notice { display: none; max-width: 460px; background: #fbf3e4; border: 2px solid #7a5a3a; border-radius: 14px; padding: 16px 18px; line-height: 1.6; }
+#notice small { display: block; direction: ltr; opacity: .75; margin-top: 8px; }
+</style>
+$GODOT_HEAD_INCLUDE
+</head>
+<body>
+<canvas id="canvas">متصفحك ما يدعم اللعبة.</canvas>
+<noscript>فعّل JavaScript عشان تلعب. — Please enable JavaScript to play.</noscript>
+<div id="status">
+	<img src="title.png" alt="مفاتيح — Mafateeh">
+	<div id="bar" class="busy"><div id="fill"></div></div>
+	<div id="line">جاري تحميل اللعبة… أول مرة تاخذ شوي وقت<span>Loading the game… the first time takes a moment</span></div>
+	<div id="notice"></div>
+</div>
+<script src="$GODOT_URL"></script>
+<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+(function () {
+	const status = document.getElementById('status');
+	const bar = document.getElementById('bar');
+	const fill = document.getElementById('fill');
+	const line = document.getElementById('line');
+	const notice = document.getElementById('notice');
+	function fail(ar, en) {
+		bar.style.display = 'none';
+		line.style.display = 'none';
+		notice.textContent = ar;
+		const s = document.createElement('small');
+		s.textContent = en;
+		notice.appendChild(s);
+		notice.style.display = 'block';
+	}
+	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
+	if (missing.length !== 0) {
+		fail('متصفحك ما يدعم تشغيل اللعبة. جرّب آخر نسخة من Safari أو Chrome.',
+			'Your browser cannot run the game (missing: ' + missing.join(', ') + '). Try the latest Safari or Chrome.');
+		return;
+	}
+	engine.startGame({
+		onProgress: function (current, total) {
+			if (current > 0 && total > 0) {
+				bar.classList.remove('busy');
+				fill.style.width = Math.min(100, Math.round(current / total * 100)) + '%';
+			} else {
+				bar.classList.add('busy');
+			}
+		},
+	}).then(function () {
+		status.remove();
+	}, function (err) {
+		console.error(err);
+		fail('صار خطأ وقت تشغيل اللعبة. حدّث الصفحة وجرّب مرة ثانية.', String(err && err.message ? err.message : err));
+	});
+}());
+</script>
+</body>
+</html>

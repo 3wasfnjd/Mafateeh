@@ -1,7 +1,11 @@
 name: Deploy Mafateeh
+# The browser build of the table game (quest-native/, exported with Godot's Web template by
+# quest-native/tools/ci/build_web.sh) on GitHub Pages, with the privacy policy beside it.
+# abodengames.com plays it from /play/mafateeh/.
 on:
   push:
-    branches: [main]
+    branches: [main, mafateeh-v2]
+    paths: ['quest-native/**', 'privacy.html', 'PRIVACY.md', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,25 +16,34 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/cache@v4
         with:
-          node-version: '22'
-      - run: npm test
+          path: |
+            ~/.cache/mafateeh-godot
+            ~/.local/share/godot/export_templates
+          key: godot-4.6.3-stable-web-v1
+      - name: Pillow (the loading screen's picture)
+        run: python3 -m pip install --quiet --break-system-packages 'Pillow==11.3.0'
+      - name: Build, test and export the web build
+        env:
+          OUT_DIR: ${{ github.workspace }}/_site
+        run: bash quest-native/tools/ci/build_web.sh
+      - name: Privacy policy and licence beside the game
+        run: |
+          cp privacy.html PRIVACY.md LICENSE _site/
+          mkdir -p _site/licenses && cp -R licenses/. _site/licenses/
+          touch _site/.nojekyll
+          du -sh _site
       - uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Stage static files
-        run: |
-          mkdir _site
-          cp index.html privacy.html LICENSE README.md _site/
-          cp -R src vendor licenses _site/
-          touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

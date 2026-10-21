@@ -202,7 +202,8 @@ func _world() -> void:
 	_toggle(Vector3(0.16, y, 0.004), "rain", auto_on, _say("الطقس تلقائي: مطر وعجاج", "Weather by itself: rain and blown sand"), flip_auto, 0.032)
 	_toggle(Vector3(0.075, y, 0.004), "dust", dust_on, _say("الغبار", "Drifting dust"), flip_dust, 0.032)
 	_toggle(Vector3(-0.01, y, 0.004), "daynight", cycle_on, _say("الليل والنهار يتبدلون", "Day and night go round"), flip_cycle, 0.032)
-	_button(Vector3(-0.095, y, 0.004), 0.032, "board", ACCENT, Color.WHITE, _say("ثبّت المشهد في مكان ثاني", "Set the scene down somewhere else"),
+	_button(Vector3(-0.095, y, 0.004), 0.032, "board", ACCENT, Color.WHITE,
+		_say("رجّع المنظر مثل أول", "Back to the first view") if _web() else _say("ثبّت المشهد في مكان ثاني", "Set the scene down somewhere else"),
 		func(): replace_table.emit())
 
 
@@ -227,6 +228,13 @@ func _settings() -> void:
 			save.set(key, maxf(0.0, (v - 1) / 5.0))
 			_changed())
 	var y2 := -0.085
+	var english: bool = not save.arabic()
+	if _web():   # no hands to swap and nothing to buzz in the browser: the language alone
+		_button(Vector3(0.15, y2, 0.004), 0.024, "language", ACCENT, Color.WHITE, "العربية" if english else "English",
+			func():
+				save.language = "ar" if english else "en"
+				_changed())
+		return
 	var left: bool = save.left_handed
 	_button(Vector3(0.15, y2, 0.004), 0.024, "hand_left" if left else "hand_right", ACCENT, Color.WHITE,
 		_say("المشي باليد اليسرى", "Walk with the left hand") if left else _say("المشي باليد اليمنى", "Walk with the right hand"),
@@ -235,7 +243,6 @@ func _settings() -> void:
 			_changed())
 	var buzz := func(): save.haptics = not save.haptics
 	_toggle(Vector3(0.085, y2, 0.004), "haptics", save.haptics, _say("الاهتزاز", "Vibration"), buzz, 0.024)
-	var english: bool = not save.arabic()
 	_button(Vector3(0.02, y2, 0.004), 0.024, "language", ACCENT, Color.WHITE, "العربية" if english else "English",
 		func():
 			save.language = "ar" if english else "en"
@@ -245,7 +252,7 @@ func _settings() -> void:
 ## After the last level: thank you for playing, and where to find the studio's other games:
 ## the site on a band that opens it in the headset's browser, and as a QR code for a phone.
 func _thanks() -> void:
-	var cx := 0.075
+	var cx := CX if _web() else 0.075   # no QR code beside it in the browser: in the middle
 	# the English line is longer than the Arabic one: smaller, so it stays clear of the side rail
 	_content.add_child(text(_say("شكراً لأنك جرّبت مفاتيح", "Thank you for playing Mafateeh"), Vector3(cx, 0.08, 0.004), 56 if _arabic() else 42))
 	_content.add_child(text(_say("نتمنى إن الرحلة مع الشايب عجبتك", "We hope you enjoyed the journey with the old man"), Vector3(cx, 0.045, 0.004), 32))
@@ -256,8 +263,10 @@ func _thanks() -> void:
 		_disc(_content, at + Vector3(x, 0, -0.001), 0.016, ACCENT)
 	_content.add_child(text("abodengames.com", at + Vector3(0, 0, 0.003), 44, Color.WHITE))
 	# press it and the headset's browser opens the site (the owner wants players to go there)
-	_buttons.append({"at": at, "r": 0.075, "action": func(): OS.shell_open(SITE), "label": _say("افتح موقع الاستوديو", "Open the studio's site"), "no_ring": true})
+	_buttons.append({"at": at, "r": 0.075, "action": _open_site, "label": _say("افتح موقع الاستوديو", "Open the studio's site"), "no_ring": true})
 	_button(Vector3(cx, -0.098, 0.004), 0.02, "restart", ACCENT, Color.WHITE, _say("العب من جديد", "Play again"), func(): play_level.emit(1))
+	if _web():
+		return   # the site is a press away in the browser: no code to scan
 	# the QR code, on a cream card, with a word under it
 	var qx := -0.16
 	_quad(_content, Vector2(0.118, 0.118), DISC, Vector3(qx, 0.012, 0.002))
@@ -291,10 +300,17 @@ const HINTS := {
 }
 
 
+# In the browser there is no trigger: the same hints in the words of a tap.
+const WEB_HINTS := {
+	1: ["اضغط على القط واسحب دربه للشايب: لف حول الشوك وادخل من البوابة.", "Press on the cat and drag its way to the old man: round the thorns, in through the gate."],
+	10: ["اضغط على الغازي اللي على الجمل أو الخيل: يرمونه ربع الشايب ويطيح من ظهر ذلوله. طيّحهم كلهم.", "Tap a raider on his camel or horse: the old man's men fire and knock him from the saddle. Unhorse them all."],
+}
+
+
 func _hint() -> void:
 	_icon(_content, "hint", Vector3(CX + 0.01, 0.07, 0.004), 0.04, ACCENT)
 	_content.add_child(text(_say("المرحلة %s", "Level %s") % _digits(stage), Vector3(CX + 0.01, 0.03, 0.004), 44))
-	var h: Array = HINTS.get(stage, ["", ""])
+	var h: Array = WEB_HINTS[stage] if _web() and WEB_HINTS.has(stage) else HINTS.get(stage, ["", ""])
 	var l := text(_say(h[0], h[1]), Vector3(CX + 0.01, -0.025, 0.004), 36)
 	l.width = 1200.0   # wrap within the section (the label's own pixels)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -307,7 +323,8 @@ func _about() -> void:
 		[_say("لعبة من عبودين قيمز: المباني والشخصيات من تصميمهم", "Buildings and characters by Aboden Games"), 0.042, 34],
 		[_say("بعض الموديلات من Folio 2025 لـ Bruno Simon (MIT)", "Some models from Folio 2025 by Bruno Simon (MIT)"), 0.0, 30],
 		[_say("المحرك Godot", "Engine: Godot"), -0.03, 30],
-		[_say("لا اتصال بالإنترنت ولا تتبع: كل شي يبقى في نظارتك", "No network, no tracking: everything stays on your headset"), -0.06, 28],
+		[_say("لا تتبع: تقدّمك يبقى في متصفحك", "No tracking: your progress stays in this browser") if _web()
+			else _say("لا اتصال بالإنترنت ولا تتبع: كل شي يبقى في نظارتك", "No network, no tracking: everything stays on your headset"), -0.06, 28],
 	]
 	for l in lines:
 		_content.add_child(text(l[0], Vector3(CX + 0.07, l[1], 0.004), l[2]))
@@ -520,6 +537,20 @@ static func _flat(c: Color) -> StandardMaterial3D:
 
 func _save() -> Node:
 	return get_node_or_null("/root/Save") if is_inside_tree() else null
+
+
+func _web() -> bool:
+	var save := _save()
+	return save != null and save.web
+
+
+## The studio's site: the headset's browser opens it; in the browser the page goes there (a
+## new window would be stopped, the press reaching the game a frame after the tap).
+func _open_site() -> void:
+	if _web() and OS.has_feature("web"):
+		JavaScriptBridge.eval("window.location.href = '%s'" % SITE)
+	else:
+		OS.shell_open(SITE)
 
 
 func _arabic() -> bool:

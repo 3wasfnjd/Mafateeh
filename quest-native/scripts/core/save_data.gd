@@ -40,6 +40,9 @@ var table_stars := {}  # table level -> best stars (1..3)
 var table_gems := {}  # table level -> true once its hidden gem was found
 var music_volume := 1.0
 var players := 1  # 2: two players take turns, level about
+# The browser build (abodengames.com): touch and mouse instead of controllers, a virtual
+# Diriyah round the table instead of the room. --web on the desktop tries it out.
+var web := OS.has_feature("web") or OS.get_cmdline_user_args().has("--web")
 
 
 func _ready() -> void:

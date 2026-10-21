@@ -320,7 +320,8 @@ func _build_gate() -> void:
 	logo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	logo.position.y = -0.06
 	_title.add_child(logo)
-	_prompt = _label(save.text("اضغط الزناد لتبدأ", "Press the trigger to start") if save else "اضغط الزناد لتبدأ", -GATE_H * 0.62 + 0.08, 50, CREAM)
+	var web: bool = save != null and save.web
+	_prompt = _label(save.text("اضغط لتبدأ" if web else "اضغط الزناد لتبدأ", "Tap to start" if web else "Press the trigger to start") if save else "اضغط الزناد لتبدأ", -GATE_H * 0.62 + 0.08, 50, CREAM)
 	_prompt.visible = false
 	_title.add_child(_prompt)
 

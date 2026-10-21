@@ -61,6 +61,7 @@ var _drag := {}
 var _yaw := 0.0
 var _pitch := -0.12
 var _mouse_down := false
+var _tapped := false        # a press since the last frame (a quick tap can be down and up between two frames)
 var _mr_on := false         # passthrough switched on (only possible once the session runs)
 var surfaces: SceneSurfaces # real tables from the headset's room setup (Meta Scene API)
 var _moved_by_hand := false # once the player carries the diorama, detected tables no longer move it
@@ -83,6 +84,8 @@ var _clock_running := false
 var _placing := false
 var _intro: TableIntro       # the way in (studio logo, the gate), before the first level
 var _intro_begun := false
+var web := false             # the browser build: WebView turns the camera round a virtual Diriyah
+var view: WebView
 
 
 func _ready() -> void:
@@ -130,6 +133,12 @@ func _ready() -> void:
 		rig.add_child(desk_cam)
 		desk_cam.position = Vector3(0, 1.62, 0)
 		desk_cam.current = true
+		web = _save() != null and _save().web
+		if web:
+			view = WebView.new()
+			add_child(view)
+			view.setup(env, desk_cam)
+			view.menu_pressed.connect(_toggle_menu)
 	rig.menu_pressed.connect(_toggle_menu)
 	rig.grip_tapped.connect(_on_grip_tap)
 	if _args.has("cam"):
@@ -142,8 +151,9 @@ func _ready() -> void:
 	match str(_args.get("start", "")):
 		"play": _play(int(_args.get("level", "1")))
 		"intro": _start_intro()
+		"menu": _show_menu(str(_args.get("page", "levels")))
 		_:
-			if xr:
+			if xr or web:
 				_start_intro()   # on the headset: the way in, then the game (the menu is one button away)
 			else:
 				_show_menu(str(_args.get("page", "levels")))
@@ -168,6 +178,8 @@ func _ready() -> void:
 ## The studio's logo, then the gate; it starts once the headset reports the head, and the
 ## game (the next level, from placing the scene) follows it.
 func _start_intro() -> void:
+	if web:
+		view.view_intro()
 	_intro = TableIntro.new()
 	add_child(_intro)
 	_intro_begun = false
@@ -189,11 +201,19 @@ func _show_menu(page := "levels") -> void:
 	m.stage = stage if diorama else 0
 	card = m
 	add_child(m)
+	if web:
+		view.hold(true)
+		if view.tall() and not _turn_tip_shown:
+			_turn_tip_shown = true
+			view.tip(_say_web("لف جوالك بالعرض عشان تكبر القائمة والمشهد", "Turn your phone on its side for a larger menu and scene"), 5.0)
 	_place_card(true)
 	m.play_level.connect(func(n: int): _play(n if n > 0 else _next_level()))
 	m.closed.connect(_close_menu)
 	m.replace_table.connect(func():
-		if diorama:
+		if web:   # in the browser the scene does not move: the button brings the view back
+			_close_menu()
+			view.reset()
+		elif diorama:
 			_close_menu()
 			_begin_place())
 	m.settings_changed.connect(_apply_settings)
@@ -203,6 +223,8 @@ func _close_menu() -> void:
 	if card:
 		card.queue_free()
 		card = null
+	if web:
+		view.hold(false)
 
 
 func _toggle_menu() -> void:
@@ -233,6 +255,9 @@ var _card_placed := false
 
 
 func _place_card(_instant := true) -> void:
+	if web:
+		_place_card_web()
+		return
 	var head := _head()
 	_card_placed = head.origin.length() > 0.01
 	var fwd := -head.basis.z
@@ -244,6 +269,21 @@ func _place_card(_instant := true) -> void:
 	card.global_position = target
 	var look := head.origin if _card_placed else Vector3(0, 1.62, 0)
 	card.look_at(look, Vector3.UP, true)
+
+
+## In the browser: close in front of the camera, along where it looks (above the scene, so
+## nothing of it comes between), sized to fill most of the screen whatever its shape.
+func _place_card_web() -> void:
+	const D := 0.3
+	var head := _head()
+	var vp := get_viewport().get_visible_rect().size
+	var aspect := vp.x / maxf(vp.y, 1.0)
+	var half := deg_to_rad(desk_cam.fov) * 0.5
+	var vis_h := 2.0 * D * tan(half) / (aspect if desk_cam.keep_aspect == Camera3D.KEEP_WIDTH else 1.0)
+	var vis_w := vis_h * aspect
+	var k := minf(0.94 * vis_w / TableMenu.W, 0.8 * vis_h / TableMenu.H)
+	card.global_transform = Transform3D(Basis.looking_at(head.basis.z, head.basis.y, true).scaled(Vector3.ONE * k),
+		head.origin - head.basis.z * D)
 
 
 ## Settings changed in the menu: volumes, the old man's clothes, the weather.
@@ -454,6 +494,8 @@ func _apply_mood(mood: String, seconds := 0.8) -> void:
 	tw.tween_property(sun, "light_energy", l[2], seconds)
 	tw.tween_property(env, "ambient_light_color", l[3], seconds)
 	tw.tween_property(env, "ambient_light_energy", l[4], seconds)
+	if web:
+		view.set_mood(mood, seconds)
 
 
 # The time of day goes round by itself (unless switched off in the menu): day, sunset, night,
@@ -501,6 +543,13 @@ func _tick_sky(dt: float) -> void:
 
 ## Puts the diorama in front of the player at about table height, the gate facing them.
 func _place_table() -> void:
+	if web:
+		diorama.global_transform = Transform3D(Basis().scaled(Vector3.ONE * table_k), WebView.TABLE_TOP)
+		view.view_table(table_k)
+		if not _tip_shown:
+			_tip_shown = true
+			view.tip(_say_web("اسحب السما، أو المشهد بإصبعين، عشان تلف حوله. وقرّب وبعّد بإصبعين", "Drag the sky, or the scene with two fingers, to go round it; pinch to come closer"))
+		return
 	var head := _head()
 	var fwd := -head.basis.z
 	fwd.y = 0
@@ -518,6 +567,15 @@ func _place_table() -> void:
 	var y := maxf(0.55, head.origin.y - 0.55) if head.origin.y > 0.3 else 0.75
 	diorama.global_transform = Transform3D(Basis.looking_at(fwd, Vector3.UP).scaled(Vector3.ONE * table_k),
 		Vector3(head.origin.x, y, head.origin.z) + fwd * 0.7)
+
+
+var _tip_shown := false
+var _turn_tip_shown := false
+
+
+func _say_web(ar: String, en: String) -> String:
+	var save := _save()
+	return save.text(ar, en) if save else ar
 
 
 ## The detected table closest in front of the player (within 3 m), or {}.
@@ -643,7 +701,11 @@ func _process(dt: float) -> void:
 		_intro.begin(_head())
 	if xr and not _mr_on:
 		_ensure_passthrough()
-	if not xr:
+	if web:
+		view.frame(dt)
+		if card:
+			_place_card_web()
+	elif not xr:
 		_desk_move(dt)
 	if _gem:
 		TableFx.gem_tick(_gem, _t)
@@ -678,7 +740,10 @@ func _process(dt: float) -> void:
 	elif desk_cam:
 		var mp := get_viewport().get_mouse_position()
 		ray = [desk_cam.project_ray_origin(mp), desk_cam.project_ray_normal(mp)]
-		down = _mouse_down
+		down = _mouse_down or _tapped
+		_tapped = false
+		if web and (view.gesture or view.orbiting):
+			down = false   # two fingers, or a drag round the table: the view's, not the game's
 		pressed = down and not _down.get("mouse", false)
 		_down["mouse"] = down
 	if not down:
@@ -704,6 +769,8 @@ func _process(dt: float) -> void:
 				h["pressed"] = down
 				h["ui"] = true
 			rig.set_pointer(_hand, h, true)
+		if web:
+			_cursor(h != null and h.get("interactive", false))
 		if pressed:
 			_swallow = true
 			card.press()
@@ -732,6 +799,14 @@ func _process(dt: float) -> void:
 	TableKit.set_wall(ray[0], (ray[0] as Vector3).distance_to(wall.point) if not wall.is_empty() else INF,
 		diorama.model.global_basis.x.length() * 0.6, _hover_id)
 	var info := _level_hover(ray, wall)
+	if web and pressed and info.is_empty():
+		# pressed on the sky or the sand round the table: the drag turns the view
+		view.begin_orbit()
+		_swallow = true
+		down = false
+		pressed = false
+	if web:
+		_cursor(info.has("id") or info.get("target", false))
 	_show_hover(info)
 	if pressed and info.get("id", "") == "__gem":
 		_swallow = true
@@ -894,13 +969,21 @@ func _hero_stick() -> Vector2:
 	return v.normalized() * minf(st.length(), 1.0) if v.length() > 0.0001 else Vector2.ZERO
 
 
+## The mouse's hand over something that can be pressed (the browser on a computer).
+func _cursor(on: bool) -> void:
+	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if on else Input.CURSOR_ARROW)
+
+
 func _unhandled_input(e: InputEvent) -> void:
 	if xr:
+		return
+	if web and view.input(e):
 		return
 	if e is InputEventMouseButton:
 		var mb := e as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			_mouse_down = mb.pressed
+			_tapped = _tapped or mb.pressed
 	elif e is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		_yaw -= (e as InputEventMouseMotion).relative.x * 0.005
 		_pitch = clampf(_pitch - (e as InputEventMouseMotion).relative.y * 0.005, -1.4, 1.2)
