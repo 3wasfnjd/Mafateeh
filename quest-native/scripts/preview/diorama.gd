@@ -361,14 +361,15 @@ static func _glass_shader() -> Shader:
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_back, specular_schlick_ggx;
 uniform vec3 tint : source_color = vec3(0.86, 0.93, 1.0);
+uniform float fade = 1.0;   // the browser fades it away as the camera goes in
 void fragment() {
 	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	ALBEDO = tint * 0.25;
 	ROUGHNESS = 0.04;
 	METALLIC = 0.0;
 	SPECULAR = 0.9;
-	EMISSION = tint * f * 0.12;
-	ALPHA = 0.035 + 0.4 * f;
+	EMISSION = tint * f * 0.12 * fade;
+	ALPHA = (0.035 + 0.4 * f) * fade;
 }
 """
 	return _glass
@@ -464,6 +465,14 @@ func model_point(origin: Vector3, dir: Vector3):
 
 ## Level change: 1 = the scene stands; 0 = sunk into the ground (squashed flat, a little below).
 ## The ground itself stays.
+## The glass dome: 1 there, 0 gone (the camera inside it, in the browser).
+func set_dome(k: float) -> void:
+	var d := model.find_child("Dome", true, false) as MeshInstance3D
+	if d:
+		(d.material_override as ShaderMaterial).set_shader_parameter("fade", k)
+		d.visible = k > 0.001
+
+
 func set_rise(k: float) -> void:
 	if stage == null:
 		return

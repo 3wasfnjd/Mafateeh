@@ -86,6 +86,7 @@ var _intro: TableIntro       # the way in (studio logo, the gate), before the fi
 var _intro_begun := false
 var web := false             # the browser build: WebView turns the camera round a virtual Diriyah
 var view: WebView
+var _approach := ""          # the browser's way in: "wait" (the dome from afar), "fly" (going in), "" (playing)
 
 
 func _ready() -> void:
@@ -176,11 +177,52 @@ func _ready() -> void:
 		_screenshot.call_deferred()
 
 
+## The browser's way in: the first scene under its glass dome on the table in Diriyah, seen
+## from afar, the studio's name and then the game's over it; a tap and the camera goes in
+## through the glass (which fades away) to the scene, close, where it stays for every level.
+func _web_intro() -> void:
+	_approach = "wait"
+	_play(_next_level())
+	view.view_far()
+	view.show_menu_button(false)
+	if level:
+		level.process_mode = Node.PROCESS_MODE_DISABLED
+	if _weather:
+		_weather.process_mode = Node.PROCESS_MODE_DISABLED
+	_clock_running = false
+	view.titles()
+
+
+func _web_enter() -> void:
+	if _approach != "wait":
+		return
+	_approach = "fly"
+	TableKit.sfx(diorama, "portal", Vector3.ZERO, -8.0)
+	view.hide_titles()
+	var d := diorama
+	view.fly_in(func():
+		_approach = ""
+		view.show_menu_button(true)
+		if level:
+			level.process_mode = Node.PROCESS_MODE_INHERIT
+		if _weather:
+			_weather.process_mode = Node.PROCESS_MODE_INHERIT
+		_started_at = _t
+		_clock_running = true
+		view.tip(_say_web("اسحب يمين ويسار عشان تلف المشهد، وقرّب وبعّد بإصبعين", "Drag left or right to turn the scene; pinch to come closer")))
+	var tw := create_tween()
+	tw.tween_interval(view.FLY_TIME * 0.45)
+	tw.tween_method(func(k: float):
+		if is_instance_valid(d):
+			d.set_dome(k), 1.0, 0.0, view.FLY_TIME * 0.4)
+
+
 ## The studio's logo, then the gate; it starts once the headset reports the head, and the
 ## game (the next level, from placing the scene) follows it.
 func _start_intro() -> void:
 	if web:
-		view.view_intro()
+		_web_intro()
+		return
 	_intro = TableIntro.new()
 	add_child(_intro)
 	_intro_begun = false
@@ -229,6 +271,8 @@ func _close_menu() -> void:
 
 
 func _toggle_menu() -> void:
+	if _approach != "":
+		return   # the browser's way in: a tap goes in first
 	if _intro:
 		_intro.queue_free()   # the menu button skips the way in
 		_intro = null
@@ -327,6 +371,8 @@ func _play(n := 1, rising := false) -> void:
 	diorama.birds_outside = false  # keep the ground the player works on clear
 	add_child(diorama)
 	diorama.setup(n)
+	if web and _approach == "":
+		diorama.set_dome(0.0)   # in the browser the camera is inside the glass
 	var mood := str(diorama.layout.get("mood", "day"))
 	_start_sky(mood)
 	_play_ambience(AMBIENT.get(n, ""))
@@ -562,9 +608,6 @@ func _place_table() -> void:
 	if web:
 		diorama.global_transform = Transform3D(Basis().scaled(Vector3.ONE * table_k), WebView.TABLE_TOP)
 		view.view_table(table_k)
-		if not _tip_shown:
-			_tip_shown = true
-			view.tip(_say_web("اسحب السما، أو المشهد بإصبعين، عشان تلف حوله. وقرّب وبعّد بإصبعين", "Drag the sky, or the scene with two fingers, to go round it; pinch to come closer"))
 		return
 	var head := _head()
 	var fwd := -head.basis.z
@@ -765,6 +808,12 @@ func _process(dt: float) -> void:
 	if not down:
 		_swallow = false
 	if ray.is_empty():
+		if level and diorama:
+			level.pointer(false, null)
+		return
+	if web and _approach != "":
+		if pressed:
+			_web_enter()
 		if level and diorama:
 			level.pointer(false, null)
 		return
