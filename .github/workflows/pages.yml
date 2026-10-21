@@ -29,8 +29,8 @@ jobs:
             ~/.cache/mafateeh-godot
             ~/.local/share/godot/export_templates
           key: godot-4.6.3-stable-web-v1
-      - name: Pillow (the loading screen's picture)
-        run: python3 -m pip install --quiet --break-system-packages 'Pillow==11.3.0'
+      - name: Pillow (the loading screen's picture) and numpy (the audio checks)
+        run: python3 -m pip install --quiet --break-system-packages 'Pillow==11.3.0' 'numpy==2.3.3'
       - name: Build, test and export the web build
         env:
           OUT_DIR: ${{ github.workspace }}/_site
