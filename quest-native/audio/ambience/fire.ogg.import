@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/fire.ogg-e006d143cb9682501dd03bbadd4d524a.ogg
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

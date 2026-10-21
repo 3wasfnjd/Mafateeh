@@ -95,6 +95,7 @@ func _ready() -> void:
 			_args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if _args.has("lang") and _save():   # screenshots: --lang=ar|en (not saved)
 		_save().language = str(_args.lang)
+	web = _save() != null and _save().web   # (the browser has no headset: xr stays false there)
 	_setup_audio()
 	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
@@ -431,6 +432,11 @@ func _setup_audio() -> void:
 	_ambience = AudioStreamPlayer.new()
 	_ambience.bus = "Ambience"
 	add_child(_ambience)
+	if web:
+		# the browser plays sounds as Web Audio samples, which do not always keep the stream's
+		# loop: when one ends, it starts again (stop() for a change of sound does not end it)
+		_music.finished.connect(_music.play)
+		_ambience.finished.connect(_ambience.play)
 	_apply_settings()
 	_play_music("day")
 
@@ -450,6 +456,9 @@ func _play_music(mood: String) -> void:
 func _play_ambience(kind: String) -> void:
 	var path := AMBIENCE % kind
 	if kind == "" or not ResourceLoader.exists(path):
+		if web:
+			_ambience.stop()
+			return
 		var tw := create_tween()
 		tw.tween_property(_ambience, "volume_db", -40.0, 1.2)
 		tw.tween_callback(_ambience.stop)   # stopped, so the same sound later starts afresh
@@ -464,6 +473,13 @@ func _crossfade(player: AudioStreamPlayer, path: String) -> void:
 	if st == null:
 		return
 	st.loop = true
+	if web:
+		# Web Audio samples do not follow a fade of the player's volume: straight across
+		player.stop()
+		player.stream = st
+		player.volume_db = 0.0
+		player.play()
+		return
 	var tw := create_tween()
 	if player.playing:
 		tw.tween_property(player, "volume_db", -40.0, 1.2)

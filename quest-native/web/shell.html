@@ -43,6 +43,8 @@ $GODOT_HEAD_INCLUDE
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 const engine = new Engine(GODOT_CONFIG);
+// iPhone: play the game's sound even with the ring/silent switch on silent (Safari 16.4+)
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
 (function () {
 	const status = document.getElementById('status');
 	const bar = document.getElementById('bar');
