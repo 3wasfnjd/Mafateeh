@@ -4,7 +4,7 @@ name: Deploy Mafateeh
 # abodengames.com plays it from /play/mafateeh/.
 on:
   push:
-    branches: [main, mafateeh-v2]
+    branches: [main]   # Pages deploys only from main (the environment allows no other branch)
     paths: ['quest-native/**', 'privacy.html', 'PRIVACY.md', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
