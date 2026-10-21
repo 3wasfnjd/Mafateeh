@@ -4,9 +4,9 @@ extends Node3D
 ## in a virtual Diriyah (VRScenery: sand, dunes, Najdi houses, palms) under a sky that follows
 ## the level's time of day. The way in: the dome on its table from afar, then the camera goes
 ## in through the glass to the scene, close, and stays there for every level (owner,
-## 2026-10-21: the scene large, easy to work, fixed; turn left and right, and zoom).
+## 2026-10-21: the scene large and easy to work; then a free camera: round it, up and down, zoom).
 ##   One finger / the mouse: point and press, as the trigger does on the headset.
-##   Drag off the scene, two fingers, or the right mouse button: turn left and right.
+##   Drag off the scene, two fingers, or the right mouse button: turn round it and up and down.
 ##   Pinch, two fingers apart, or the wheel: nearer or further.
 ##   The round button in the corner: the menu (Esc too).
 ## table_main owns the camera and the pointer; this node moves the camera and says when a
@@ -16,7 +16,9 @@ signal menu_pressed
 
 const TABLE_TOP := Vector3(0, 0.75, 0)   # where the diorama stands (world metres)
 const STAND := 0.8                        # the stand's top, metres across (the island is 0.66)
-const PLAY_PITCH := deg_to_rad(47.0)    # looking down into the scene; it stays (only the turn and zoom change)
+const PLAY_PITCH := deg_to_rad(47.0)    # looking down into the scene, at first
+const PITCH_MIN := deg_to_rad(8.0)      # nearly level with the scene
+const PITCH_MAX := deg_to_rad(85.0)     # straight down on it
 const DIST_MIN := 0.26
 const DIST_MAX := 1.0
 const FAR_PITCH := deg_to_rad(12.0)     # the way in: the dome on its table, from a few steps off
@@ -180,7 +182,8 @@ func _turn(by: Vector2) -> void:
 		return
 	var vp := get_viewport().get_visible_rect().size
 	var s := 3.2 / maxf(minf(vp.x, vp.y), 1.0)
-	_goal.yaw -= by.x * s   # left and right only: the height of the view stays
+	_goal.yaw -= by.x * s
+	_goal.pitch = clampf(_goal.pitch + by.y * s, PITCH_MIN, PITCH_MAX)   # and up and down (owner: a free camera)
 
 
 func _zoom(f: float) -> void:

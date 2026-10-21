@@ -209,7 +209,7 @@ func _web_enter() -> void:
 			_weather.process_mode = Node.PROCESS_MODE_INHERIT
 		_started_at = _t
 		_clock_running = true
-		view.tip(_say_web("اسحب يمين ويسار عشان تلف المشهد، وقرّب وبعّد بإصبعين", "Drag left or right to turn the scene; pinch to come closer")))
+		view.tip(_say_web("اسحب بإصبعين أو على أطراف المشهد عشان تلف الكاميرا وترفعها وتنزلها، وقرّب وبعّد بإصبعين", "Drag with two fingers, or off the scene, to turn the camera and raise or lower it; pinch to come closer")))
 	var tw := create_tween()
 	tw.tween_interval(view.FLY_TIME * 0.45)
 	tw.tween_method(func(k: float):
