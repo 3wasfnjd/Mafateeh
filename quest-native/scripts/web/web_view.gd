@@ -445,3 +445,75 @@ func _picture(path: String, size: Vector2, tint: Color) -> TextureRect:
 	r.self_modulate = tint
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
+
+
+# --- the arrows (level 2 in the browser: walk the old man into the blocks) ----------------------
+
+## One round arrow button: held while a finger or the mouse is on it.
+class PadButton extends Control:
+	var dir := Vector2.ZERO   # x right, y up (on the screen)
+	var held := false
+
+	func _init(d: Vector2) -> void:
+		dir = d
+		custom_minimum_size = Vector2(64, 64)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _gui_input(e: InputEvent) -> void:
+		if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			held = (e as InputEventMouseButton).pressed
+			accept_event()
+			queue_redraw()
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_MOUSE_EXIT and held and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			held = false
+			queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5 - 2.0
+		draw_circle(c, r, Color("fbf3e4f0") if not held else Color("e9d6b4"))
+		draw_arc(c, r, 0.0, TAU, 48, Color("7a5a3a"), 2.0, true)
+		var f := Vector2(dir.x, -dir.y)   # screen y goes down
+		var s := Vector2(-f.y, f.x)
+		var k := r * 0.42
+		draw_colored_polygon(PackedVector2Array([c + f * k, c - f * k * 0.6 + s * k * 0.8, c - f * k * 0.6 - s * k * 0.8]), Color("4f3826"))
+
+
+var _pad: Control
+var _pad_buttons: Array = []
+
+
+## The arrows, bottom left (the menu is top right): shown only where a level walks the old man.
+func show_pad(on: bool) -> void:
+	if on and _pad == null:
+		_pad = Control.new()
+		_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(_pad)
+		_pad.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+		_pad.size = Vector2(200, 200)
+		_pad.position = Vector2(18, _root.size.y - 218)
+		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			var b := PadButton.new(Vector2(d.x, -d.y))   # Vector2.UP is (0, -1) on screen
+			b.size = Vector2(64, 64)
+			b.position = Vector2(68, 68) + d * 66
+			_pad.add_child(b)
+			_pad_buttons.append(b)
+	if _pad:
+		_pad.visible = on
+		if not on:
+			for b in _pad_buttons:
+				b.held = false
+		else:
+			_pad.position = Vector2(18, _root.size.y - 218)
+
+
+## The arrows held now: x right, y up (the camera's), 0 when none.
+func pad() -> Vector2:
+	var v := Vector2.ZERO
+	if _pad and _pad.visible:
+		for b in _pad_buttons:
+			if b.held:
+				v += b.dir
+	return v.limit_length(1.0)

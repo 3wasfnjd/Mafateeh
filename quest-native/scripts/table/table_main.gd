@@ -246,6 +246,9 @@ func _show_menu(page := "levels") -> void:
 	add_child(m)
 	if web:
 		view.hold(true)
+		# the camera is close in the scene: its roofs would stand in front of the menu
+		if diorama:
+			diorama.visible = false
 		if view.tall() and not _turn_tip_shown:
 			_turn_tip_shown = true
 			view.tip(_say_web("لف جوالك بالعرض عشان تكبر القائمة والمشهد", "Turn your phone on its side for a larger menu and scene"), 5.0)
@@ -268,6 +271,8 @@ func _close_menu() -> void:
 		card = null
 	if web:
 		view.hold(false)
+		if diorama and not _placing:
+			diorama.visible = true
 
 
 func _toggle_menu() -> void:
@@ -389,8 +394,6 @@ func _play(n := 1, rising := false) -> void:
 		11: level = TableChestLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
-	if web:
-		level.set("tap_push", true)   # no stick in the browser (level 2 pushes on a tap)
 	level.setup(diorama)
 	level.level_won.connect(_on_level_won)
 	_hover_mark = TableKit.ring(diorama.stage, 1.0, Color("fff1d0"), 0.85, 0.1)
@@ -764,6 +767,8 @@ func _process(dt: float) -> void:
 		_ensure_passthrough()
 	if web:
 		view.frame(dt)
+		# the arrows walk the old man in level 2 (the browser has no stick)
+		view.show_pad(stage == 2 and diorama != null and card == null and _approach == "")
 		if card:
 			_place_card_web()
 	elif not xr:
@@ -1023,6 +1028,8 @@ func _hero_stick() -> Vector2:
 	else:
 		st = Vector2(float(Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_LEFT)),
 			float(Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_DOWN)))
+		if web:
+			st = (st + view.pad()).limit_length(1.0)   # the on-screen arrows (level 2)
 		if st == Vector2.ZERO or desk_cam == null:
 			return Vector2.ZERO
 		basis = desk_cam.global_basis

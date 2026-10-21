@@ -54,9 +54,6 @@ var _t := 0.0
 var _hint: MeshInstance3D
 var _marks: Array = []   # faint squares on the ground where the stair goes
 var _demo: Array = []    # pushes still to make in demo(): [block, dir]
-# The browser has no stick to walk him into a block: there a tap on the block he stands against
-# pushes it away, and a tap on the ground behind him (in line with it) pulls it (table_main sets it).
-var tap_push := false
 
 
 func setup(d: Diorama) -> void:
@@ -146,10 +143,7 @@ func pointer(held: bool, p) -> void:
 	if not b.is_empty():
 		var side := _side_against(b)
 		if side != Vector2i.ZERO:
-			if tap_push:
-				_start_push(b, -side, false)
-			else:
-				_start_push(b, side, true)
+			_start_push(b, side, true)
 			return
 		# walk to the nearest free side, facing the block
 		var best = null
@@ -169,20 +163,6 @@ func pointer(held: bool, p) -> void:
 		else:
 			_sfx("soft_reject", b.node.position, -8.0)
 		return
-	if tap_push and p != null:
-		# behind him, in line with a block he stands against: he pulls it back towards himself
-		var q: Vector3 = p
-		for bb in blocks:
-			var side := _side_against(bb)
-			if side == Vector2i.ZERO:
-				continue
-			var ax := Vector3(side.x, 0, side.y)
-			var rel: Vector3 = q - bb.node.position
-			rel.y = 0.0
-			var along := rel.dot(ax)
-			if along > STAND + 0.15 and along < STAND + TILE * 2.2 and (rel - ax * along).length() < 0.6:
-				_start_push(bb, side, true)
-				return
 	if p != null and _walkable(p):
 		_goal = p
 		_goal_block = {}
