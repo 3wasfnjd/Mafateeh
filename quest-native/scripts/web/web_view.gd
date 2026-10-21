@@ -271,6 +271,7 @@ func _build_hud() -> void:
 	var root := Control.new()
 	root.name = "Root"
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.layout_direction = Control.LAYOUT_DIRECTION_LTR   # the corner button and the arrows stay put in Arabic too
 	_layer.add_child(root)
 	_root = root
 	_fit_hud()
@@ -342,6 +343,11 @@ func _fit_hud() -> void:
 func tall() -> bool:
 	var vp := get_viewport().get_visible_rect().size
 	return vp.y > vp.x
+
+
+## Where the browser's menu (WebMenu) goes: the screen layer, in the page's pixels.
+func screen() -> Control:
+	return _root
 
 
 func show_menu_button(on: bool) -> void:

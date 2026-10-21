@@ -50,7 +50,7 @@ var _ambience: AudioStreamPlayer
 var rig: XRRig
 var xr := false
 var desk_cam: Camera3D
-var card: TableMenu         # the menu, while it is open
+var card                    # the menu, while it is open: TableMenu (headset), WebMenu (browser)
 var _args := {}
 var diorama: Diorama
 var level: Node3D           # Table*Level: setup(d), pointer(held, p), demo(), level_won; aim(), move(), hover_boxes() optional
@@ -239,20 +239,24 @@ func _save() -> Node:
 
 func _show_menu(page := "levels") -> void:
 	_close_menu()
-	var m := TableMenu.new()
-	m.page = page
-	m.stage = stage if diorama else 0
-	card = m
-	add_child(m)
-	if web:
+	var m: Node
+	if web:   # the browser: a flat menu made for a phone's screen, over the scene
+		var wm := WebMenu.new()
+		wm.page = page
+		wm.stage = stage if diorama else 0
+		card = wm
+		view.screen().add_child(wm)
 		view.hold(true)
-		# the camera is close in the scene: its roofs would stand in front of the menu
-		if diorama:
-			diorama.visible = false
-		if view.tall() and not _turn_tip_shown:
-			_turn_tip_shown = true
-			view.tip(_say_web("لف جوالك بالعرض عشان تكبر القائمة والمشهد", "Turn your phone on its side for a larger menu and scene"), 5.0)
-	_place_card(true)
+		view.show_menu_button(false)   # its own tabs close it
+		m = wm
+	else:
+		var tm := TableMenu.new()
+		tm.page = page
+		tm.stage = stage if diorama else 0
+		card = tm
+		add_child(tm)
+		_place_card(true)
+		m = tm
 	m.play_level.connect(func(n: int): _play(n if n > 0 else _next_level()))
 	m.closed.connect(_close_menu)
 	m.replace_table.connect(func():
@@ -271,8 +275,7 @@ func _close_menu() -> void:
 		card = null
 	if web:
 		view.hold(false)
-		if diorama and not _placing:
-			diorama.visible = true
+		view.show_menu_button(_approach == "")
 
 
 func _toggle_menu() -> void:
@@ -305,9 +308,6 @@ var _card_placed := false
 
 
 func _place_card(_instant := true) -> void:
-	if web:
-		_place_card_web()
-		return
 	var head := _head()
 	_card_placed = head.origin.length() > 0.01
 	var fwd := -head.basis.z
@@ -319,21 +319,6 @@ func _place_card(_instant := true) -> void:
 	card.global_position = target
 	var look := head.origin if _card_placed else Vector3(0, 1.62, 0)
 	card.look_at(look, Vector3.UP, true)
-
-
-## In the browser: close in front of the camera, along where it looks (above the scene, so
-## nothing of it comes between), sized to fill most of the screen whatever its shape.
-func _place_card_web() -> void:
-	const D := 0.3
-	var head := _head()
-	var vp := get_viewport().get_visible_rect().size
-	var aspect := vp.x / maxf(vp.y, 1.0)
-	var half := deg_to_rad(desk_cam.fov) * 0.5
-	var vis_h := 2.0 * D * tan(half) / (aspect if desk_cam.keep_aspect == Camera3D.KEEP_WIDTH else 1.0)
-	var vis_w := vis_h * aspect
-	var k := minf(0.94 * vis_w / TableMenu.W, 0.8 * vis_h / TableMenu.H)
-	card.global_transform = Transform3D(Basis.looking_at(head.basis.z, head.basis.y, true).scaled(Vector3.ONE * k),
-		head.origin - head.basis.z * D)
 
 
 ## Settings changed in the menu: volumes, the old man's clothes, the weather.
@@ -634,7 +619,6 @@ func _place_table() -> void:
 
 
 var _tip_shown := false
-var _turn_tip_shown := false
 
 
 func _say_web(ar: String, en: String) -> String:
@@ -769,8 +753,6 @@ func _process(dt: float) -> void:
 		view.frame(dt)
 		# the arrows walk the old man in level 2 (the browser has no stick)
 		view.show_pad(stage == 2 and diorama != null and card == null and _approach == "")
-		if card:
-			_place_card_web()
 	elif not xr:
 		_desk_move(dt)
 	if _gem:
@@ -833,6 +815,10 @@ func _process(dt: float) -> void:
 			rig.set_pointer(_hand, ih, true)
 		if pressed and _intro_begun:
 			_intro.press()
+		return
+	if card and web:
+		if level and diorama:
+			level.pointer(false, null)   # the browser's menu takes its own taps
 		return
 	if card:
 		var h = card.hover(ray[0], ray[1])
@@ -1137,7 +1123,7 @@ func _screenshot() -> void:
 		if _args.has("room"):   # store art: the scene on a table in a room, as in mixed reality
 			_store_room()
 		diorama.rotate_y(deg_to_rad(float(_args.get("turn", "0"))))  # --turn=deg: see another side
-	if card:
+	if card is TableMenu:
 		_place_card(true)
 	if level and _args.has("demo"):
 		level.demo()
