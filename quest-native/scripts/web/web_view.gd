@@ -462,7 +462,7 @@ class PadButton extends Control:
 
 	func _init(d: Vector2) -> void:
 		dir = d
-		custom_minimum_size = Vector2(64, 64)
+		custom_minimum_size = Vector2(46, 46)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 
 	func _gui_input(e: InputEvent) -> void:
@@ -487,6 +487,8 @@ class PadButton extends Control:
 		draw_colored_polygon(PackedVector2Array([c + f * k, c - f * k * 0.6 + s * k * 0.8, c - f * k * 0.6 - s * k * 0.8]), Color("4f3826"))
 
 
+const PAD_B := 46.0            # one arrow, page pixels (owner: smaller, on the left)
+const PAD := PAD_B * 3.0 + 4.0
 var _pad: Control
 var _pad_buttons: Array = []
 
@@ -498,12 +500,12 @@ func show_pad(on: bool) -> void:
 		_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_root.add_child(_pad)
 		_pad.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-		_pad.size = Vector2(200, 200)
-		_pad.position = Vector2(18, _root.size.y - 218)
+		_pad.size = Vector2(PAD, PAD)
+		_pad.position = Vector2(12, _root.size.y - PAD - 14)
 		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
 			var b := PadButton.new(Vector2(d.x, -d.y))   # Vector2.UP is (0, -1) on screen
-			b.size = Vector2(64, 64)
-			b.position = Vector2(68, 68) + d * 66
+			b.size = Vector2(PAD_B, PAD_B)
+			b.position = Vector2(PAD_B, PAD_B) + d * (PAD_B + 2.0)
 			_pad.add_child(b)
 			_pad_buttons.append(b)
 	if _pad:
@@ -512,7 +514,7 @@ func show_pad(on: bool) -> void:
 			for b in _pad_buttons:
 				b.held = false
 		else:
-			_pad.position = Vector2(18, _root.size.y - 218)
+			_pad.position = Vector2(12, _root.size.y - PAD - 14)
 
 
 ## The arrows held now: x right, y up (the camera's), 0 when none.
