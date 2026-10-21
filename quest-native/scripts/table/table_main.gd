@@ -389,6 +389,8 @@ func _play(n := 1, rising := false) -> void:
 		11: level = TableChestLevel.new()
 		_: level = TablePathLevel.new()
 	diorama.stage.add_child(level)
+	if web:
+		level.set("tap_push", true)   # no stick in the browser (level 2 pushes on a tap)
 	level.setup(diorama)
 	level.level_won.connect(_on_level_won)
 	_hover_mark = TableKit.ring(diorama.stage, 1.0, Color("fff1d0"), 0.85, 0.1)

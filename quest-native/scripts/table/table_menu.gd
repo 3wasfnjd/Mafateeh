@@ -302,6 +302,7 @@ const HINTS := {
 
 # In the browser there is no trigger: the same hints in the words of a tap.
 const WEB_HINTS := {
+	2: ["وقّف الشايب جنب الحجر واضغط على الحجر يدفّه، واضغط على الأرض وراه يسحبه. سوّ درج للقط: الأطول جنب الجدار.", "Stand the old man by a block: tap the block to push it, tap the ground behind him to pull it. Make a stair for the cat, the tallest by the wall."],
 	1: ["اضغط على القط واسحب دربه للشايب: لف حول الشوك وادخل من البوابة.", "Press on the cat and drag its way to the old man: round the thorns, in through the gate."],
 	10: ["اضغط على الغازي اللي على الجمل أو الخيل: يرمونه ربع الشايب ويطيح من ظهر ذلوله. طيّحهم كلهم.", "Tap a raider on his camel or horse: the old man's men fire and knock him from the saddle. Unhorse them all."],
 }

@@ -38,13 +38,43 @@ $GODOT_HEAD_INCLUDE
 	<div id="line">جاري تحميل اللعبة… أول مرة تاخذ شوي وقت<span>Loading the game… the first time takes a moment</span></div>
 	<div id="notice"></div>
 </div>
+<script>
+// Sound on iPhone and iPad: Safari starts a page's audio only from inside a touch or click
+// handler, but the engine reacts to input a frame later. So every audio context the game makes
+// is remembered here and woken (with a moment of silence played through it) on each tap
+// until it runs. The audio session is asked for "playback" so the silent switch does not
+// mute the game (Safari 16.4+).
+(function () {
+	try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+	const Ctx = window.AudioContext || window.webkitAudioContext;
+	if (!Ctx) return;
+	const made = [];
+	const Tracked = function (...a) { const c = new Ctx(...a); made.push(c); return c; };
+	Tracked.prototype = Ctx.prototype;
+	window.AudioContext = Tracked;
+	if (window.webkitAudioContext) window.webkitAudioContext = Tracked;
+	function wake() {
+		for (const c of made) {
+			if (c.state === 'running') continue;
+			try {
+				c.resume();
+				const s = c.createBufferSource();
+				s.buffer = c.createBuffer(1, 1, 22050);
+				s.connect(c.destination);
+				s.start(0);
+			} catch (e) {}
+		}
+	}
+	for (const ev of ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'click', 'keydown']) {
+		window.addEventListener(ev, wake, { capture: true, passive: true });
+	}
+}());
+</script>
 <script src="$GODOT_URL"></script>
 <script>
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 const engine = new Engine(GODOT_CONFIG);
-// iPhone: play the game's sound even with the ring/silent switch on silent (Safari 16.4+)
-try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
 (function () {
 	const status = document.getElementById('status');
 	const bar = document.getElementById('bar');

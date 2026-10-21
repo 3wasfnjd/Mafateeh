@@ -17,7 +17,7 @@ signal menu_pressed
 const TABLE_TOP := Vector3(0, 0.75, 0)   # where the diorama stands (world metres)
 const STAND := 0.8                        # the stand's top, metres across (the island is 0.66)
 const PLAY_PITCH := deg_to_rad(47.0)    # looking down into the scene; it stays (only the turn and zoom change)
-const DIST_MIN := 0.36
+const DIST_MIN := 0.26
 const DIST_MAX := 1.0
 const FAR_PITCH := deg_to_rad(12.0)     # the way in: the dome on its table, from a few steps off
 const FAR_DIST := 1.5
@@ -148,7 +148,7 @@ func reset() -> void:
 ## narrow across it.
 func _near() -> float:
 	var vp := get_viewport().get_visible_rect().size
-	return 0.66 if vp.y > vp.x else 0.6
+	return 0.44 if vp.y > vp.x else 0.47   # close: the details of the scene clear
 
 
 func hold(on: bool) -> void:
